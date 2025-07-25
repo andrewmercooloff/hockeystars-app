@@ -1,8 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Конфигурация API
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000/api';
-const SOCKET_URL = process.env.EXPO_PUBLIC_SOCKET_URL || 'http://localhost:5000';
+const API_BASE_URL = 'http://157.230.26.197/api';
+const SOCKET_URL = 'http://157.230.26.197';
 
 // Типы для API
 export interface ApiResponse<T = any> {
@@ -76,282 +76,251 @@ export interface Player {
 // Класс для работы с API
 class ApiClient {
   private baseURL: string;
+  private socketURL: string;
   private token: string | null = null;
 
-  constructor(baseURL: string) {
-    this.baseURL = baseURL;
+  constructor() {
+    this.baseURL = API_BASE_URL;
+    this.socketURL = SOCKET_URL;
   }
 
-  // Получение токена из хранилища
+  // Получение токена из AsyncStorage
   private async getToken(): Promise<string | null> {
-    if (!this.token) {
-      this.token = await AsyncStorage.getItem('auth_token');
-    }
-    return this.token;
-  }
-
-  // Сохранение токена
-  private async setToken(token: string): Promise<void> {
-    this.token = token;
-    await AsyncStorage.setItem('auth_token', token);
-  }
-
-  // Удаление токена
-  private async removeToken(): Promise<void> {
-    this.token = null;
-    await AsyncStorage.removeItem('auth_token');
-  }
-
-  // Базовый метод для HTTP запросов
-  private async request<T>(
-    endpoint: string,
-    options: RequestInit = {}
-  ): Promise<ApiResponse<T>> {
     try {
-      const token = await this.getToken();
-      const url = `${this.baseURL}${endpoint}`;
+      return await AsyncStorage.getItem('authToken');
+    } catch (error) {
+      console.error('Error getting token:', error);
+      return null;
+    }
+  }
 
-      const config: RequestInit = {
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token && { Authorization: `Bearer ${token}` }),
-          ...options.headers,
-        },
-        ...options,
-      };
+  // Сохранение токена в AsyncStorage
+  private async setToken(token: string): Promise<void> {
+    try {
+      await AsyncStorage.setItem('authToken', token);
+    } catch (error) {
+      console.error('Error saving token:', error);
+    }
+  }
 
-      const response = await fetch(url, config);
-      const data = await response.json();
+  // Удаление токена из AsyncStorage
+  private async removeToken(): Promise<void> {
+    try {
+      await AsyncStorage.removeItem('authToken');
+    } catch (error) {
+      console.error('Error removing token:', error);
+    }
+  }
 
+  // Базовый запрос к API
+  private async request(endpoint: string, options: RequestInit = {}): Promise<any> {
+    const token = await this.getToken();
+    
+    const config: RequestInit = {
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token && { Authorization: `Bearer ${token}` }),
+        ...options.headers,
+      },
+      ...options,
+    };
+
+    try {
+      const response = await fetch(`${this.baseURL}${endpoint}`, config);
+      
       if (!response.ok) {
-        return {
-          success: false,
-          error: data.error || 'Ошибка сети',
-        };
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
       }
 
-      return {
-        success: true,
-        data,
-      };
+      return await response.json();
     } catch (error) {
-      console.error('API Error:', error);
-      return {
-        success: false,
-        error: 'Ошибка подключения к серверу',
-      };
+      console.error('API request error:', error);
+      throw error;
     }
   }
 
   // Аутентификация
-  async login(credentials: LoginRequest): Promise<ApiResponse<{ token: string; player: Player }>> {
-    const response = await this.request<{ token: string; player: Player }>('/auth/login', {
+  async login(username: string, password: string) {
+    const response = await this.request('/auth/login', {
       method: 'POST',
-      body: JSON.stringify(credentials),
+      body: JSON.stringify({ username, password }),
     });
 
-    if (response.success && response.data) {
-      await this.setToken(response.data.token);
+    if (response.token) {
+      await this.setToken(response.token);
     }
 
     return response;
   }
 
-  async register(userData: RegisterRequest): Promise<ApiResponse<{ token: string; player: Player }>> {
-    const response = await this.request<{ token: string; player: Player }>('/auth/register', {
+  async register(userData: {
+    username: string;
+    email: string;
+    password: string;
+    name: string;
+    birthDate: string;
+    status: string;
+    country?: string;
+    team?: string;
+    position?: string;
+  }) {
+    const response = await this.request('/auth/register', {
       method: 'POST',
       body: JSON.stringify(userData),
     });
 
-    if (response.success && response.data) {
-      await this.setToken(response.data.token);
+    if (response.token) {
+      await this.setToken(response.token);
     }
 
     return response;
   }
 
-  async logout(): Promise<ApiResponse> {
-    const response = await this.request('/auth/logout', {
-      method: 'POST',
-    });
-
-    if (response.success) {
+  async logout() {
+    try {
+      await this.request('/auth/logout', { method: 'POST' });
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
       await this.removeToken();
     }
-
-    return response;
   }
 
-  async getCurrentUser(): Promise<ApiResponse<{ player: Player }>> {
-    return this.request<{ player: Player }>('/auth/me');
+  async getCurrentUser() {
+    return await this.request('/auth/me');
   }
 
-  async updateProfile(profileData: Partial<Player>): Promise<ApiResponse<{ player: Player }>> {
-    return this.request<{ player: Player }>('/auth/profile', {
+  async updateProfile(profileData: any) {
+    return await this.request('/auth/profile', {
       method: 'PUT',
       body: JSON.stringify(profileData),
     });
   }
 
   // Игроки
-  async getPlayers(page: number = 1, limit: number = 20, filters?: any): Promise<ApiResponse<{ players: Player[]; total: number }>> {
-    const params = new URLSearchParams({
-      page: page.toString(),
-      limit: limit.toString(),
-      ...filters,
-    });
-
-    return this.request<{ players: Player[]; total: number }>(`/players?${params}`);
+  async getPlayers() {
+    return await this.request('/players');
   }
 
-  async getPlayer(id: string): Promise<ApiResponse<{ player: Player }>> {
-    return this.request<{ player: Player }>(`/players/${id}`);
+  async searchPlayers(query: string, filters?: any) {
+    const params = new URLSearchParams({ q: query, ...filters });
+    return await this.request(`/players/search?${params}`);
   }
 
-  async searchPlayers(query: string): Promise<ApiResponse<{ players: Player[] }>> {
-    return this.request<{ players: Player[] }>(`/players/search?q=${encodeURIComponent(query)}`);
+  async getStars() {
+    return await this.request('/players/stars');
   }
 
-  async getStars(): Promise<ApiResponse<{ players: Player[] }>> {
-    return this.request<{ players: Player[] }>('/players/stars');
+  async getPlayerById(id: string) {
+    return await this.request(`/players/${id}`);
   }
 
   // Друзья
-  async getFriends(): Promise<ApiResponse<{ friends: Player[] }>> {
-    return this.request<{ friends: Player[] }>('/friends');
+  async sendFriendRequest(recipientId: string) {
+    return await this.request('/friends/request', {
+      method: 'POST',
+      body: JSON.stringify({ recipientId }),
+    });
   }
 
-  async sendFriendRequest(playerId: string): Promise<ApiResponse> {
-    return this.request(`/friends/request/${playerId}`, {
+  async acceptFriendRequest(senderId: string) {
+    return await this.request(`/friends/accept/${senderId}`, {
       method: 'POST',
     });
   }
 
-  async acceptFriendRequest(playerId: string): Promise<ApiResponse> {
-    return this.request(`/friends/accept/${playerId}`, {
+  async rejectFriendRequest(senderId: string) {
+    return await this.request(`/friends/reject/${senderId}`, {
       method: 'POST',
     });
   }
 
-  async declineFriendRequest(playerId: string): Promise<ApiResponse> {
-    return this.request(`/friends/decline/${playerId}`, {
-      method: 'POST',
-    });
+  async getFriends() {
+    return await this.request('/friends');
   }
 
-  async removeFriend(playerId: string): Promise<ApiResponse> {
-    return this.request(`/friends/remove/${playerId}`, {
+  async removeFriend(friendId: string) {
+    return await this.request(`/friends/${friendId}`, {
       method: 'DELETE',
     });
   }
 
   // Сообщения
-  async getMessages(chatId: string, page: number = 1): Promise<ApiResponse<{ messages: any[]; total: number }>> {
-    const params = new URLSearchParams({
-      page: page.toString(),
-    });
-
-    return this.request<{ messages: any[]; total: number }>(`/messages/${chatId}?${params}`);
+  async getMessages(recipientId: string) {
+    return await this.request(`/messages/${recipientId}`);
   }
 
-  async sendMessage(chatId: string, text: string): Promise<ApiResponse<{ message: any }>> {
-    return this.request<{ message: any }>(`/messages/${chatId}`, {
+  async sendMessage(recipientId: string, content: string, type: string = 'text') {
+    return await this.request('/messages', {
       method: 'POST',
-      body: JSON.stringify({ text }),
+      body: JSON.stringify({ recipientId, content, type }),
     });
   }
 
-  async getChats(): Promise<ApiResponse<{ chats: any[] }>> {
-    return this.request<{ chats: any[] }>('/messages/chats');
+  async markMessagesAsRead(recipientId: string) {
+    return await this.request(`/messages/${recipientId}/read`, {
+      method: 'PUT',
+    });
   }
 
   // Уведомления
-  async getNotifications(page: number = 1): Promise<ApiResponse<{ notifications: any[]; total: number }>> {
-    const params = new URLSearchParams({
-      page: page.toString(),
-    });
-
-    return this.request<{ notifications: any[]; total: number }>(`/notifications?${params}`);
+  async getNotifications() {
+    return await this.request('/notifications');
   }
 
-  async markNotificationAsRead(notificationId: string): Promise<ApiResponse> {
-    return this.request(`/notifications/${notificationId}/read`, {
+  async markNotificationAsRead(notificationId: string) {
+    return await this.request(`/notifications/${notificationId}/read`, {
       method: 'PUT',
     });
   }
 
-  async markAllNotificationsAsRead(): Promise<ApiResponse> {
-    return this.request('/notifications/read-all', {
+  async markAllNotificationsAsRead() {
+    return await this.request('/notifications/read-all', {
       method: 'PUT',
+    });
+  }
+
+  async deleteNotification(notificationId: string) {
+    return await this.request(`/notifications/${notificationId}`, {
+      method: 'DELETE',
     });
   }
 
   // Загрузка файлов
-  async uploadImage(file: any, type: 'avatar' | 'photo' = 'photo'): Promise<ApiResponse<{ url: string }>> {
-    const formData = new FormData();
-    formData.append('image', file);
-    formData.append('type', type);
-
+  async uploadFile(file: any) {
     const token = await this.getToken();
-    const url = `${this.baseURL}/upload/image`;
+    
+    const formData = new FormData();
+    formData.append('file', file);
 
-    try {
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          ...(token && { Authorization: `Bearer ${token}` }),
-        },
-        body: formData,
-      });
+    const response = await fetch(`${this.baseURL}/upload`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: formData,
+    });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        return {
-          success: false,
-          error: data.error || 'Ошибка загрузки',
-        };
-      }
-
-      return {
-        success: true,
-        data,
-      };
-    } catch (error) {
-      console.error('Upload Error:', error);
-      return {
-        success: false,
-        error: 'Ошибка загрузки файла',
-      };
+    if (!response.ok) {
+      throw new Error(`Upload failed: ${response.status}`);
     }
-  }
 
-  // Проверка подключения
-  async healthCheck(): Promise<ApiResponse> {
-    return this.request('/health');
+    return await response.json();
   }
 
   // Получение URL для Socket.IO
-  getSocketUrl(): string {
-    return SOCKET_URL;
+  getSocketURL(): string {
+    return this.socketURL;
   }
 
-  // Проверка авторизации
-  async isAuthenticated(): Promise<boolean> {
-    const token = await this.getToken();
-    if (!token) return false;
-
-    try {
-      const response = await this.getCurrentUser();
-      return response.success;
-    } catch {
-      return false;
-    }
+  // Проверка здоровья API
+  async healthCheck() {
+    return await this.request('/health');
   }
 }
 
-// Экспорт экземпляра API клиента
-export const api = new ApiClient(API_BASE_URL);
+export default new ApiClient();
 
 // Экспорт типов
 export type { Player, LoginRequest, RegisterRequest, ApiResponse }; 
