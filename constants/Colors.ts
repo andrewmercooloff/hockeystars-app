@@ -3,160 +3,156 @@
  * Используется во всех компонентах для единообразия дизайна
  */
 
-// Основные цвета приложения
 export const Colors = {
   // Основные цвета
-  primary: '#FF4444',        // Красный - основной цвет
-  secondary: '#FFD700',      // Золотой - для звезд
-  accent: '#FF8C00',         // Оранжевый - акцент
+  primary: '#1E3A8A',
+  secondary: '#3B82F6',
+  accent: '#F59E0B',
   
-  // Фоны
-  background: '#000',        // Черный фон
-  surface: 'rgba(0, 0, 0, 0.8)', // Полупрозрачный черный
-  overlay: 'rgba(0, 0, 0, 0.5)', // Наложение
+  // Фон
+  background: '#FFFFFF',
+  surface: '#F8FAFC',
+  card: '#FFFFFF',
   
   // Текст
-  text: '#fff',              // Белый текст
-  textSecondary: '#ccc',     // Вторичный текст
-  textMuted: '#888',         // Приглушенный текст
+  text: '#1F2937',
+  textSecondary: '#6B7280',
+  textLight: '#9CA3AF',
+  
+  // Статусы
+  success: '#10B981',
+  error: '#EF4444',
+  warning: '#F59E0B',
+  info: '#3B82F6',
+  
+  // Хоккейные цвета
+  hockeyBlue: '#1E40AF',
+  hockeyRed: '#DC2626',
+  hockeyGold: '#F59E0B',
+  
+  // Градиенты
+  gradientStart: '#1E3A8A',
+  gradientEnd: '#3B82F6',
   
   // Границы
-  border: 'rgba(255, 255, 255, 0.2)', // Белая граница
-  borderPrimary: 'rgba(255, 68, 68, 0.3)', // Красная граница
-  borderSecondary: 'rgba(255, 215, 0, 0.3)', // Золотая граница
+  border: '#E5E7EB',
+  borderLight: '#F3F4F6',
   
-  // Состояния
-  success: '#4CAF50',        // Зеленый - успех
-  warning: '#FF9800',        // Оранжевый - предупреждение
-  error: '#F44336',          // Красный - ошибка
-  info: '#2196F3',           // Синий - информация
-  
-  // Прозрачности
-  transparent: 'transparent',
-  semiTransparent: 'rgba(255, 255, 255, 0.1)',
-  darkTransparent: 'rgba(0, 0, 0, 0.7)',
+  // Тени
+  shadow: 'rgba(0, 0, 0, 0.1)',
+  shadowDark: 'rgba(0, 0, 0, 0.2)',
 };
 
-// Размеры и отступы
 export const Spacing = {
   xs: 4,
   sm: 8,
-  md: 12,
-  lg: 16,
-  xl: 20,
-  xxl: 24,
-  xxxl: 32,
+  md: 16,
+  lg: 24,
+  xl: 32,
+  xxl: 48,
 };
 
-// Радиусы скругления
 export const BorderRadius = {
-  sm: 8,
-  md: 12,
-  lg: 15,
-  xl: 20,
-  xxl: 25,
-  round: 50,
+  sm: 4,
+  md: 8,
+  lg: 12,
+  xl: 16,
+  full: 9999,
 };
 
-// Тени
 export const Shadows = {
-  small: {
-    shadowColor: '#000',
+  sm: {
+    shadowColor: Colors.shadow,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  md: {
+    shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+    shadowRadius: 4,
+    elevation: 4,
   },
-  medium: {
-    shadowColor: '#000',
+  lg: {
+    shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
-    shadowRadius: 6,
+    shadowRadius: 8,
     elevation: 8,
   },
-  large: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    elevation: 12,
-  },
 };
 
-// Типографика
 export const Typography = {
-  fontFamily: {
-    regular: 'Gilroy-Regular',
-    bold: 'Gilroy-Bold',
+  h1: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    lineHeight: 40,
   },
-  fontSize: {
-    xs: 12,
-    sm: 14,
-    md: 16,
-    lg: 18,
-    xl: 20,
-    xxl: 24,
-    xxxl: 28,
-    huge: 32,
+  h2: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    lineHeight: 32,
   },
-  lineHeight: {
-    tight: 1.2,
-    normal: 1.4,
-    relaxed: 1.6,
+  h3: {
+    fontSize: 20,
+    fontWeight: '600',
+    lineHeight: 28,
+  },
+  h4: {
+    fontSize: 18,
+    fontWeight: '600',
+    lineHeight: 24,
+  },
+  body: {
+    fontSize: 16,
+    fontWeight: 'normal',
+    lineHeight: 24,
+  },
+  bodySmall: {
+    fontSize: 14,
+    fontWeight: 'normal',
+    lineHeight: 20,
+  },
+  caption: {
+    fontSize: 12,
+    fontWeight: 'normal',
+    lineHeight: 16,
   },
 };
 
-// Общие стили для компонентов
 export const CommonStyles = {
   container: {
     flex: 1,
     backgroundColor: Colors.background,
   },
-  section: {
-    backgroundColor: Colors.surface,
+  card: {
+    backgroundColor: Colors.card,
     borderRadius: BorderRadius.lg,
-    padding: Spacing.xl,
-    marginBottom: Spacing.xl,
-    borderWidth: 1,
-    borderColor: Colors.borderPrimary,
-    ...Shadows.small,
-  },
-  sectionTitle: {
-    fontSize: Typography.fontSize.xl,
-    fontFamily: Typography.fontFamily.bold,
-    color: Colors.primary,
-    marginBottom: Spacing.lg,
+    padding: Spacing.md,
+    ...Shadows.sm,
   },
   button: {
     backgroundColor: Colors.primary,
     borderRadius: BorderRadius.md,
-    padding: Spacing.lg,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-    ...Shadows.small,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   buttonText: {
-    fontSize: Typography.fontSize.md,
-    fontFamily: Typography.fontFamily.bold,
-    color: Colors.text,
+    color: Colors.background,
+    fontSize: 16,
+    fontWeight: '600',
   },
   input: {
-    backgroundColor: Colors.semiTransparent,
-    borderRadius: BorderRadius.md,
-    padding: Spacing.lg,
-    fontSize: Typography.fontSize.md,
-    fontFamily: Typography.fontFamily.regular,
-    color: Colors.text,
+    backgroundColor: Colors.surface,
     borderWidth: 1,
     borderColor: Colors.border,
-  },
-  modal: {
-    backgroundColor: Colors.darkTransparent,
-    borderRadius: BorderRadius.xl,
-    padding: Spacing.xxl,
-    margin: Spacing.xl,
-    borderWidth: 1,
-    borderColor: Colors.borderPrimary,
-    ...Shadows.large,
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    fontSize: 16,
   },
 }; 
