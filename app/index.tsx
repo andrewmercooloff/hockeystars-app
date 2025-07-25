@@ -20,7 +20,8 @@ import Animated, {
   Easing 
 } from 'react-native-reanimated';
 import Puck from '../components/Puck';
-import { loadPlayers, Player, initializeStorage, loadCurrentUser } from '../utils/playerStorage';
+import { Player, initializeStorage, loadCurrentUser, loadPlayers } from '../utils/playerStorage';
+import api from '../utils/api';
 
 const { width, height } = Dimensions.get('window');
 
@@ -269,10 +270,18 @@ export default function HomeScreen() {
         // Инициализируем хранилище при первом запуске
         await initializeStorage();
         
-        // Загружаем всех игроков
-        const loadedPlayers = await loadPlayers();
-        setPlayers(loadedPlayers);
-        console.log('Главный экран - загружено игроков:', loadedPlayers.length);
+        // Загружаем всех игроков с сервера
+        try {
+          const serverPlayers = await api.getPlayers();
+          setPlayers(serverPlayers);
+          console.log('Главный экран - загружено игроков с сервера:', serverPlayers.length);
+        } catch (error) {
+          console.error('Ошибка загрузки игроков с сервера:', error);
+          // Fallback на локальные данные
+          const localPlayers = await loadPlayers();
+          setPlayers(localPlayers);
+          console.log('Главный экран - загружено игроков локально:', localPlayers.length);
+        }
         
         // Загружаем текущего пользователя
         const user = await loadCurrentUser();
