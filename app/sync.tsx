@@ -18,6 +18,7 @@ import {
   syncFromQRCode,
   forceInitializeStorage 
 } from '../utils/playerStorage';
+import { syncLocalPlayersToServer, checkServerConnection, getServerPlayersCount } from '../utils/serverSync';
 import { Colors, CommonStyles, Typography, Spacing, BorderRadius } from '../constants/Colors';
 import CustomAlert from '../components/CustomAlert';
 
@@ -178,6 +179,32 @@ export default function SyncScreen() {
     );
   };
 
+  const handleExportToServer = async () => {
+    setLoading(true);
+    try {
+      // Проверяем подключение к серверу
+      const isConnected = await checkServerConnection();
+      if (!isConnected) {
+        showAlert('Ошибка', 'Сервер недоступен. Проверьте подключение к интернету.', 'error');
+        return;
+      }
+
+      // Экспортируем игроков на сервер
+      const result = await syncLocalPlayersToServer();
+      
+      if (result.success) {
+        showAlert('Успешно', result.message, 'success');
+      } else {
+        showAlert('Ошибка', result.message, 'error');
+      }
+    } catch (error) {
+      console.error('Ошибка экспорта на сервер:', error);
+      showAlert('Ошибка', 'Не удалось экспортировать данные на сервер', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleResetData = () => {
     showAlert(
       'Сброс данных',
@@ -224,6 +251,22 @@ export default function SyncScreen() {
           >
             <Ionicons name="download-outline" size={20} color={Colors.text} />
             <Text style={styles.buttonText}>Экспортировать данные</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Экспорт на сервер</Text>
+          <Text style={styles.sectionDescription}>
+            Отправить всех локальных игроков в базу данных на сервере
+          </Text>
+          
+          <TouchableOpacity 
+            style={[styles.button, styles.button, loading && styles.buttonDisabled]} 
+            onPress={handleExportToServer}
+            disabled={loading}
+          >
+            <Ionicons name="cloud-upload-outline" size={20} color={Colors.text} />
+            <Text style={styles.buttonText}>Экспортировать на сервер</Text>
           </TouchableOpacity>
         </View>
 
