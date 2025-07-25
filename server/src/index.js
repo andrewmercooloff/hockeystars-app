@@ -16,8 +16,8 @@ const notificationRoutes = require('./routes/notifications');
 const friendRoutes = require('./routes/friends');
 const uploadRoutes = require('./routes/upload');
 
-const { authenticateToken } = require('./middleware/auth');
-const { setupSocketHandlers } = require('./socket/handlers');
+const auth = require('./middleware/auth');
+const setupSocketHandlers = require('./socket/handlers');
 
 const app = express();
 const server = http.createServer(app);
@@ -62,10 +62,10 @@ app.use('/uploads', express.static('uploads'));
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/players', playerRoutes);
-app.use('/api/messages', authenticateToken, messageRoutes);
-app.use('/api/notifications', authenticateToken, notificationRoutes);
-app.use('/api/friends', authenticateToken, friendRoutes);
-app.use('/api/upload', authenticateToken, uploadRoutes);
+app.use('/api/messages', auth, messageRoutes);
+app.use('/api/notifications', auth, notificationRoutes);
+app.use('/api/friends', auth, friendRoutes);
+app.use('/api/upload', auth, uploadRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
