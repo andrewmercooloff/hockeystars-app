@@ -2,7 +2,7 @@ const express = require('express');
 const jwt = require('jsonwebtoken');
 const { body, validationResult } = require('express-validator');
 const Player = require('../models/Player');
-const { authenticateToken } = require('../middleware/auth');
+const auth = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -165,9 +165,9 @@ router.post('/login', [
 });
 
 // Получение текущего пользователя
-router.get('/me', authenticateToken, async (req, res) => {
+router.get('/me', auth, async (req, res) => {
   try {
-    const player = await Player.findById(req.playerId)
+    const player = await Player.findById(req.player._id)
       .populate('friends', 'name avatar status team')
       .populate('followers', 'name avatar status team')
       .populate('following', 'name avatar status team');
@@ -191,7 +191,7 @@ router.get('/me', authenticateToken, async (req, res) => {
 });
 
 // Обновление профиля
-router.put('/profile', authenticateToken, [
+router.put('/profile', auth, [
   body('name')
     .optional()
     .isLength({ min: 2, max: 100 })
@@ -210,7 +210,7 @@ router.put('/profile', authenticateToken, [
       });
     }
 
-    const player = await Player.findById(req.playerId);
+    const player = await Player.findById(req.player._id);
     if (!player) {
       return res.status(404).json({
         error: 'Пользователь не найден'
@@ -255,9 +255,9 @@ router.put('/profile', authenticateToken, [
 });
 
 // Выход
-router.post('/logout', authenticateToken, async (req, res) => {
+router.post('/logout', auth, async (req, res) => {
   try {
-    const player = await Player.findById(req.playerId);
+    const player = await Player.findById(req.player._id);
     if (player) {
       player.isOnline = false;
       player.lastSeen = new Date();
@@ -277,9 +277,9 @@ router.post('/logout', authenticateToken, async (req, res) => {
 });
 
 // Обновление токена
-router.post('/refresh', authenticateToken, async (req, res) => {
+router.post('/refresh', auth, async (req, res) => {
   try {
-    const player = await Player.findById(req.playerId);
+    const player = await Player.findById(req.player._id);
     if (!player) {
       return res.status(404).json({
         error: 'Пользователь не найден'
