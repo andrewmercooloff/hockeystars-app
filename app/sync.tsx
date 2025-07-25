@@ -301,7 +301,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: Spacing.xl,
+            paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.lg,
     backgroundColor: Colors.surface,
     borderBottomWidth: 1,
@@ -311,8 +311,8 @@ const styles = StyleSheet.create({
     padding: Spacing.sm,
   },
   headerTitle: {
-    fontSize: Typography.fontSize.xl,
-    fontFamily: Typography.fontFamily.bold,
+    fontSize: 20,
+    fontWeight: 'bold',
     color: Colors.text,
   },
   placeholder: {
@@ -320,28 +320,28 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    padding: Spacing.xl,
+    padding: Spacing.lg,
   },
   section: {
     backgroundColor: Colors.surface,
     borderRadius: BorderRadius.lg,
-    padding: Spacing.xl,
-    marginBottom: Spacing.xl,
+    padding: Spacing.lg,
+    marginBottom: Spacing.lg,
     borderWidth: 1,
     borderColor: Colors.borderPrimary,
   },
   sectionTitle: {
-    fontSize: Typography.fontSize.xl,
-    fontFamily: Typography.fontFamily.bold,
+    fontSize: 20,
+    fontWeight: 'bold',
     color: Colors.primary,
     marginBottom: Spacing.md,
   },
   sectionDescription: {
-    fontSize: Typography.fontSize.md,
-    fontFamily: Typography.fontFamily.regular,
+    fontSize: 16,
+    fontWeight: 'normal',
     color: Colors.textSecondary,
-    marginBottom: Spacing.xl,
-    lineHeight: Typography.lineHeight.relaxed,
+    marginBottom: Spacing.lg,
+    lineHeight: 24,
   },
   button: {
     backgroundColor: Colors.primary,
@@ -363,8 +363,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.error,
   },
   buttonText: {
-    fontSize: Typography.fontSize.md,
-    fontFamily: Typography.fontFamily.bold,
+    fontSize: 16,
+    fontWeight: 'bold',
     color: Colors.text,
   },
   qrButtons: {
