@@ -270,7 +270,7 @@ export default function HomeScreen() {
         // Инициализируем хранилище при первом запуске
         await initializeStorage();
         
-        // Загружаем всех игроков локально (временно)
+        // Загружаем всех игроков локально (пока не настроим серверную аутентификацию)
         const localPlayers = await loadPlayers();
         setPlayers(localPlayers);
         console.log('Главный экран - загружено игроков локально:', localPlayers.length);
