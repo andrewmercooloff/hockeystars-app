@@ -1,5 +1,4 @@
 const express = require('express');
-const mongoose = require('mongoose');
 const cors = require('cors');
 const helmet = require('helmet');
 const compression = require('compression');
@@ -7,6 +6,7 @@ const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
 const http = require('http');
 const socketIo = require('socket.io');
+const { initDatabase } = require('./database');
 require('dotenv').config();
 
 const authRoutes = require('./routes/auth');
@@ -28,13 +28,10 @@ const io = socketIo(server, {
   }
 });
 
-// Подключение к MongoDB
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/hockeystars', {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-})
-.then(() => console.log('✅ Подключено к MongoDB'))
-.catch(err => console.error('❌ Ошибка подключения к MongoDB:', err));
+// Инициализация SQLite базы данных
+initDatabase()
+  .then(() => console.log('✅ База данных SQLite готова'))
+  .catch(err => console.error('❌ Ошибка инициализации базы данных:', err));
 
 // Middleware
 app.use(helmet());
