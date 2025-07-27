@@ -20,6 +20,7 @@ const auth = require('./middleware/auth');
 const setupSocketHandlers = require('./socket/handlers');
 
 const app = express();
+app.set('trust proxy', 1); // Доверяем первому прокси (Nginx)
 const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {

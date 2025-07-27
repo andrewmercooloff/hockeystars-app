@@ -7,7 +7,7 @@ import { Image, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { loadCurrentUser, Player, getUnreadMessageCount, initializeStorage } from '../utils/playerStorage';
 
-const logo = require('@/assets/images/logo.png');
+const logo = require('../assets/images/logo.png');
 
 const MessagesIcon = ({ size }: { size: number }) => {
   const [unreadCount, setUnreadCount] = useState(0);

@@ -1,8 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Конфигурация API
-const API_BASE_URL = 'http://157.230.26.197:5000/api';
-const SOCKET_URL = 'http://157.230.26.197:5000';
+const API_BASE_URL = 'http://192.168.1.10:3000/api';
+const SOCKET_URL = 'http://192.168.1.10:3000';
 
 // Типы для API
 export interface ApiResponse<T = any> {

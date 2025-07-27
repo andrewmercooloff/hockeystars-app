@@ -3,9 +3,9 @@ import { View, Text, TouchableOpacity, StyleSheet, Image, Platform } from 'react
 import Animated from 'react-native-reanimated';
 
 interface PuckProps {
-  avatar: string | null;
+  avatar?: string | null;
   onPress: () => void;
-  animatedStyle: any;
+  animatedStyle?: any;
   size?: number;
   points?: string;
   isStar?: boolean;
@@ -16,6 +16,26 @@ const Puck: React.FC<PuckProps> = React.memo(({ avatar, onPress, animatedStyle, 
   const borderRadius = size / 2;
   const avatarBorderRadius = avatarSize / 2;
 
+  // Получаем правильное изображение
+  const getImageSource = () => {
+    if (!avatar) {
+      return require('../assets/images/logo.png');
+    }
+    
+    // Если это путь к локальному файлу
+    if (typeof avatar === 'string') {
+      if (avatar.includes('kostitsyn')) {
+        return require('../assets/images/me.jpg'); // Временно используем me.jpg
+      } else if (avatar.includes('grabovsky')) {
+        return require('../assets/images/me.jpg'); // Временно используем me.jpg
+      } else if (avatar.includes('merkulov')) {
+        return require('../assets/images/me.jpg'); // Временно используем me.jpg
+      }
+    }
+    
+    return require('../assets/images/logo.png');
+  };
+
   return (
     <Animated.View style={[
       isStar ? styles.starPuck : styles.puck, 
@@ -24,18 +44,27 @@ const Puck: React.FC<PuckProps> = React.memo(({ avatar, onPress, animatedStyle, 
     ]}>
       <TouchableOpacity onPress={onPress} activeOpacity={0.8}>
         <Image 
-          source={avatar ? { uri: avatar } : require('../assets/images/logo.png')} 
+          source={getImageSource()} 
           style={[
             isStar ? styles.starAvatar : styles.avatar, 
             { width: avatarSize, height: avatarSize, borderRadius: avatarBorderRadius }
           ]} 
+          resizeMode="cover"
         />
-        {!isStar && points !== undefined && parseInt(points) > 0 && (
-          <View style={[styles.pointsBadge, { top: size * 0.1, right: size * 0.1 }]}>
-            <Text style={styles.pointsText}>{points}</Text>
+        
+        {/* Отображение очков для обычных игроков */}
+        {!isStar && points && (
+          <View style={[styles.pointsContainer, { bottom: -size * 0.05 }]}>
+            <Text style={[styles.pointsText, { fontSize: size * 0.12 }]}>{points}</Text>
           </View>
         )}
-
+        
+        {/* Звездочка для звездных игроков */}
+        {isStar && (
+          <View style={[styles.starContainer, { bottom: -size * 0.05 }]}>
+            <Text style={[styles.starText, { fontSize: size * 0.15 }]}>⭐</Text>
+          </View>
+        )}
       </TouchableOpacity>
     </Animated.View>
   );
@@ -43,57 +72,65 @@ const Puck: React.FC<PuckProps> = React.memo(({ avatar, onPress, animatedStyle, 
 
 const styles = StyleSheet.create({
   puck: {
-    backgroundColor: '#222',
+    position: 'absolute',
+    backgroundColor: '#FFD700',
     justifyContent: 'center',
     alignItems: 'center',
-    position: 'absolute',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.3,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 5,
-      },
-      web: {
-        boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.3)',
-      },
-    }),
-  },
-  avatar: {
-    borderWidth: 4,
-    borderColor: '#fff',
-  },
-  pointsBadge: {
-    position: 'absolute',
-    backgroundColor: '#FF4444',
-    borderRadius: 12,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    minWidth: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: '#fff',
-  },
-  pointsText: {
-    color: '#fff',
-    fontSize: 10,
-    fontFamily: 'Gilroy-Bold',
-    fontWeight: 'bold',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 4.65,
+    elevation: 8,
+    borderWidth: 3,
+    borderColor: '#FFA500',
   },
   starPuck: {
-    backgroundColor: '#FFD700',
-    borderWidth: 6,
-    borderColor: '#FF8C00',
+    position: 'absolute',
+    backgroundColor: '#FF6B6B',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 4.65,
+    elevation: 8,
+    borderWidth: 3,
+    borderColor: '#FF4444',
+  },
+  avatar: {
+    borderWidth: 2,
+    borderColor: '#FFF',
   },
   starAvatar: {
-    borderWidth: 8,
-    borderColor: '#FFD700',
+    borderWidth: 2,
+    borderColor: '#FFF',
   },
-
+  pointsContainer: {
+    position: 'absolute',
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    alignSelf: 'center',
+  },
+  pointsText: {
+    color: '#FFD700',
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  starContainer: {
+    position: 'absolute',
+    alignSelf: 'center',
+  },
+  starText: {
+    textAlign: 'center',
+  },
 });
 
 export default Puck; 

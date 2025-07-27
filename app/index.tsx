@@ -9,7 +9,7 @@ import {
   Alert,
   Modal
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import Animated, { 
@@ -21,7 +21,6 @@ import Animated, {
 } from 'react-native-reanimated';
 import Puck from '../components/Puck';
 import { Player, initializeStorage, loadCurrentUser, loadPlayers } from '../utils/playerStorage';
-import api from '../utils/api';
 
 const { width, height } = Dimensions.get('window');
 
@@ -41,7 +40,7 @@ const usePuckCollisionSystem = (players: Player[]) => {
   const animationRef = useRef<number | null>(null);
   const isVisible = useRef(true);
   
-  // Вычисляем границы хоккейной коробки - упрощенная версия
+  // Вычисляем границы хоккейной коробки
   const leftMargin = 0;
   const topMargin = 0;
   const rightMargin = 30;
@@ -50,7 +49,7 @@ const usePuckCollisionSystem = (players: Player[]) => {
   const rinkWidth = width - leftMargin - rightMargin;
   const rinkHeight = height - topMargin - bottomMargin;
   
-  // Инициализация позиций шайб (только для новых игроков)
+  // Инициализация позиций шайб
   useEffect(() => {
     setPuckPositions(prevPositions => {
       const existingIds = new Set(prevPositions.map(pos => pos.id));
@@ -91,7 +90,7 @@ const usePuckCollisionSystem = (players: Player[]) => {
     });
   }, [players]);
 
-  // Оптимизированная анимация с requestAnimationFrame
+  // Анимация с коллизиями
   useEffect(() => {
     if (puckPositions.length === 0) return;
 
@@ -161,9 +160,7 @@ const usePuckCollisionSystem = (players: Player[]) => {
     };
   }, [puckPositions.length]);
 
-  // Обработка видимости экрана - упрощенная версия
   useEffect(() => {
-    // Устанавливаем видимость по умолчанию
     isVisible.current = true;
   }, []);
 
@@ -183,7 +180,7 @@ const PuckAnimator: React.FC<{
   }));
 
   // Функция для автоматического расчета очков
-  const calculatePoints = (goals: string, assists: string): string => {
+  const calculatePoints = (goals: string = '0', assists: string = '0'): string => {
     const goalsNum = parseInt(goals) || 0;
     const assistsNum = parseInt(assists) || 0;
     return (goalsNum + assistsNum).toString();
@@ -191,11 +188,11 @@ const PuckAnimator: React.FC<{
 
   return (
     <Puck 
-      avatar={player.avatar} 
+      avatar={player.photo}
       onPress={onNav} 
       animatedStyle={animatedStyle} 
       size={position.size}
-      points={player.status === 'star' ? undefined : calculatePoints(player.goals || '0', player.assists || '0')}
+      points={player.status === 'star' ? undefined : calculatePoints(player.goals, player.assists)}
       isStar={player.status === 'star'}
     />
   );
@@ -206,69 +203,68 @@ const iceBg = require('../assets/images/led.jpg');
 export default function HomeScreen() {
   const router = useRouter();
   const [players, setPlayers] = useState<Player[]>([]);
-  const [currentUser, setCurrentUser] = useState<Player | null>(null);
   const [loading, setLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState<Player | null>(null);
+  const [showModal, setShowModal] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
-  
-  // Используем систему коллизий для шайб
-  const { puckPositions, puckSize } = usePuckCollisionSystem(players);
 
+  // Система коллизий шайб
+  const { puckPositions = [], puckSize } = usePuckCollisionSystem(players);
 
+  // Функция для обновления списка игроков
+  const refreshPlayers = useCallback(async () => {
+    try {
+      console.log('🔄 Обновляем список игроков...');
+      const players = await loadPlayers();
+      console.log('🏒 Обновлено игроков:', players.length);
+      
+      if (players.length > 0) {
+        console.log('👥 Список игроков:', players.map(p => p.name));
+      }
+      
+      setPlayers(players);
+    } catch (error) {
+      console.error('❌ Ошибка обновления игроков:', error);
+    }
+  }, []);
+
+  // Обновляем игроков при возвращении на экран
+  useFocusEffect(
+    useCallback(() => {
+      console.log('📱 Главный экран получил фокус - обновляем игроков');
+      refreshPlayers();
+    }, [refreshPlayers])
+  );
 
   useEffect(() => {
     const initializeApp = async () => {
       try {
-        // Инициализируем хранилище при первом запуске
+        console.log('🚀 Начинаем инициализацию приложения...');
+        
+        // Инициализируем локальное хранилище с тестовыми игроками
         await initializeStorage();
         
-        // Сначала загружаем локальных игроков как основу
-        const localPlayers = await loadPlayers();
-        console.log('Главный экран - загружено игроков локально:', localPlayers.length);
-        
-        // Затем пытаемся загрузить игроков с сервера и объединить
-        try {
-          console.log('Пытаемся загрузить игроков с сервера...');
-          const serverPlayers = await api.getPlayers();
-          console.log('Ответ сервера:', serverPlayers);
-          
-          if (serverPlayers && serverPlayers.length > 0) {
-            // Объединяем локальных и серверных игроков, избегая дублирования
-            const allPlayers = [...localPlayers];
-            
-            serverPlayers.forEach((serverPlayer: any) => {
-              const exists = allPlayers.find(p => p.name === serverPlayer.name);
-              if (!exists) {
-                allPlayers.push(serverPlayer);
-              }
-            });
-            
-            setPlayers(allPlayers);
-            console.log('Главный экран - объединено игроков:', allPlayers.length, '(локальных:', localPlayers.length, ', серверных:', serverPlayers.length, ')');
-          } else {
-            setPlayers(localPlayers);
-            console.log('Главный экран - сервер пуст, используем только локальных:', localPlayers.length);
-          }
-        } catch (serverError) {
-          console.log('Сервер недоступен, используем только локальных:', serverError instanceof Error ? serverError.message : 'Unknown error');
-          setPlayers(localPlayers);
-        }
+        // Загружаем игроков
+        await refreshPlayers();
         
         // Загружаем текущего пользователя
         const user = await loadCurrentUser();
         setCurrentUser(user);
-        console.log('Главный экран - текущий пользователь:', user?.name || 'не авторизован');
+        console.log('👤 Текущий пользователь:', user?.name || 'не авторизован');
+        
       } catch (error) {
-        console.error('Ошибка инициализации приложения:', error);
+        console.error('❌ Ошибка инициализации приложения:', error);
         Alert.alert('Ошибка', 'Не удалось загрузить данные игроков');
       } finally {
         setLoading(false);
+        console.log('✅ Инициализация завершена');
       }
     };
 
     initializeApp();
-  }, []);
+  }, [refreshPlayers]);
 
-  // Обновляем только пользователя при возвращении на экран (не трогаем игроков)
+  // Обновляем пользователя периодически
   useEffect(() => {
     const updateUserData = async () => {
       try {
@@ -280,7 +276,6 @@ export default function HomeScreen() {
       }
     };
 
-    // Обновляем данные пользователя каждые 30 секунд (увеличили интервал для оптимизации)
     const interval = setInterval(updateUserData, 30000);
     return () => clearInterval(interval);
   }, []);
@@ -289,12 +284,12 @@ export default function HomeScreen() {
     return (
       <View style={styles.container}>
         <View style={styles.hockeyRinkContainer}>
-        <ImageBackground source={iceBg} style={styles.hockeyRink} resizeMode="cover">
+          <ImageBackground source={iceBg} style={styles.hockeyRink} resizeMode="cover">
             <View style={styles.innerBorder} />
-          <View style={styles.loadingContainer}>
-            <Text style={styles.loadingText}>Загрузка игроков...</Text>
-          </View>
-        </ImageBackground>
+            <View style={styles.loadingContainer}>
+              <Text style={styles.loadingText}>Загрузка игроков...</Text>
+            </View>
+          </ImageBackground>
         </View>
       </View>
     );
@@ -303,68 +298,84 @@ export default function HomeScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.hockeyRinkContainer}>
-      <ImageBackground source={iceBg} style={styles.hockeyRink} resizeMode="cover">
+        <ImageBackground source={iceBg} style={styles.hockeyRink} resizeMode="cover">
           {/* Внутренняя граница хоккейной коробки */}
           <View style={styles.innerBorder} />
           
-                {players.map((player) => {
-          const position = puckPositions.find(pos => pos.id === player.id);
-          if (!position) return null;
-          
-          return (
-            <PuckAnimator
-              key={player.id}
-              player={player}
-              position={position}
-              onNav={() => {
-                if (currentUser) {
-                  // Если пользователь авторизован - переходим на профиль игрока
-                  router.push({ pathname: '/player/[id]', params: { id: player.id } });
-                } else {
-                  // Если пользователь не авторизован - показываем кастомный диалог
-                  setShowAuthModal(true);
-                }
-              }}
-            />
-          );
-        })}
-        
-        {/* Кнопки в зависимости от состояния авторизации */}
-        <View style={styles.authButtons}>
-          {!currentUser && (
-            // Если пользователь не авторизован - показываем кнопки входа и регистрации
-            <>
-          <TouchableOpacity 
-                style={styles.modalButton} 
-            onPress={() => router.push('/login')}
-          >
-            <Ionicons name="log-in" size={20} color="#fff" />
-                <Text style={styles.modalButtonText}>Вход</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-                style={[styles.modalButton, styles.modalButtonSecondary]} 
-            onPress={() => router.push('/register')}
-          >
-            <Ionicons name="person-add" size={20} color="#fff" />
-                <Text style={styles.modalButtonText}>Регистрация</Text>
-          </TouchableOpacity>
-            </>
-          )}
-          
-
-        </View>
-      </ImageBackground>
+          {/* Анимированные шайбы игроков */}
+          {puckPositions && puckPositions.map((position) => {
+            const player = players.find(p => p.id === position.id);
+            if (!player) return null;
+            
+            return (
+              <PuckAnimator
+                key={player.id}
+                player={player}
+                position={position}
+                onNav={() => {
+                  if (currentUser) {
+                    router.push({ pathname: '/player/[id]', params: { id: player.id } });
+                  } else {
+                    setShowAuthModal(true);
+                  }
+                }}
+              />
+            );
+          })}
+        </ImageBackground>
       </View>
 
-      {/* Кастомное модальное окно авторизации */}
+      {/* Кнопки в зависимости от состояния авторизации */}
+      <View style={styles.authButtons}>
+        {!currentUser && (
+          <>
+            <TouchableOpacity 
+              style={styles.modalButton} 
+              onPress={() => router.push('/login')}
+            >
+              <Ionicons name="log-in" size={20} color="#fff" />
+              <Text style={styles.modalButtonText}>Вход</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={[styles.modalButton, styles.modalButtonSecondary]} 
+              onPress={() => router.push('/register')}
+            >
+              <Ionicons name="person-add" size={20} color="#fff" />
+              <Text style={styles.modalButtonText}>Регистрация</Text>
+            </TouchableOpacity>
+          </>
+        )}
+        
+        {currentUser && (
+          <>
+            <TouchableOpacity 
+              style={styles.modalButton} 
+              onPress={() => router.push('/profile')}
+            >
+              <Ionicons name="person" size={20} color="#fff" />
+              <Text style={styles.modalButtonText}>Профиль</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.modalButton} 
+              onPress={() => router.push('/messages')}
+            >
+              <Ionicons name="chatbubbles" size={20} color="#fff" />
+              <Text style={styles.modalButtonText}>Сообщения</Text>
+            </TouchableOpacity>
+          </>
+        )}
+      </View>
+
+      {/* Модальное окно для неавторизованных пользователей */}
       <Modal
         visible={showAuthModal}
         transparent={true}
         animationType="fade"
         onRequestClose={() => setShowAuthModal(false)}
       >
-                    <BlurView intensity={20} style={styles.modalOverlay}>
+        <BlurView intensity={20} style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
             <View style={styles.modalHeader}>
               <Ionicons name="lock-closed" size={32} color="#FF4444" />
@@ -406,7 +417,7 @@ export default function HomeScreen() {
               <Text style={styles.modalCancelText}>Отмена</Text>
             </TouchableOpacity>
           </View>
-                  </BlurView>
+        </BlurView>
       </Modal>
     </View>
   );
@@ -424,10 +435,10 @@ const styles = StyleSheet.create({
   },
   hockeyRink: {
     flex: 1,
-    borderRadius: 50, // Увеличили радиус для более округлых краев
-    borderWidth: 4, // Увеличили толщину границы
-    borderColor: 'rgba(255, 255, 255, 0.8)', // Сделали границу более заметной
-    overflow: 'hidden', // Обрезаем содержимое по границам
+    borderRadius: 50,
+    borderWidth: 4,
+    borderColor: 'rgba(255, 255, 255, 0.8)',
+    overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
@@ -467,7 +478,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 15,
   },
-  loginButton: {
+  modalButton: {
     flex: 1,
     backgroundColor: '#FF4444',
     borderRadius: 15,
@@ -485,61 +496,17 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
     elevation: 5,
   },
-  registerButton: {
-    flex: 1,
-    backgroundColor: '#FF4444',
-    borderRadius: 15,
-    padding: 15,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 50,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+  modalButtonSecondary: {
+    backgroundColor: '#000',
   },
-  loginButtonText: {
+  modalButtonText: {
     fontSize: 14,
     fontFamily: 'Gilroy-Bold',
     color: '#fff',
-    marginLeft: 6,
-    textAlign: 'center',
-    flex: 1,
+    marginLeft: 8,
   },
-  registerButtonText: {
-    fontSize: 13,
-    fontFamily: 'Gilroy-Bold',
-    color: '#fff',
-    marginLeft: 6,
-    textAlign: 'center',
-    flex: 1,
-  },
-  profileButton: {
-    backgroundColor: '#FF4444',
-    borderRadius: 15,
-    padding: 15,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  profileButtonText: {
-    fontSize: 14,
-    fontFamily: 'Gilroy-Bold',
-    color: '#fff',
-    marginLeft: 6,
+  modalButtonTextSecondary: {
+    color: '#FF4444',
   },
   modalOverlay: {
     flex: 1,
@@ -585,28 +552,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 15,
     marginBottom: 20,
-  },
-  modalButton: {
-    flex: 1,
-    backgroundColor: '#FF4444',
-    borderRadius: 12,
-    padding: 15,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modalButtonSecondary: {
-    backgroundColor: '#000',
-  },
-
-  modalButtonText: {
-    fontSize: 14,
-    fontFamily: 'Gilroy-Bold',
-    color: '#fff',
-    marginLeft: 8,
-  },
-  modalButtonTextSecondary: {
-    color: '#FF4444',
   },
   modalCancelButton: {
     alignItems: 'center',
