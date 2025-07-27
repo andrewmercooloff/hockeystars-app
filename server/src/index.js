@@ -92,10 +92,11 @@ app.use('*', (req, res) => {
 
 const PORT = process.env.PORT || 5000;
 
-server.listen(PORT, () => {
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Сервер запущен на порту ${PORT}`);
   console.log(`📱 API доступен по адресу: http://localhost:${PORT}/api`);
-  console.log(`🔌 Socket.IO подключение: ws://localhost:${PORT}`);
+  console.log(`🌐 Внешний доступ: http://157.230.26.197:${PORT}/api`);
+  console.log(`🔌 Socket.IO подключение: ws://157.230.26.197:${PORT}`);
 });
 
 module.exports = { app, server, io }; 

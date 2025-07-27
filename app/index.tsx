@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { 
   View, 
   Text, 
@@ -102,94 +102,45 @@ const usePuckCollisionSystem = (players: Player[]) => {
       }
 
       setPuckPositions(prevPositions => {
-        return prevPositions.map(puck => {
-          let newX = puck.x + puck.vx;
-          let newY = puck.y + puck.vy;
-          let newVx = puck.vx;
-          let newVy = puck.vy;
+        return prevPositions.map(pos => {
+          let newX = pos.x + pos.vx;
+          let newY = pos.y + pos.vy;
+          let newVx = pos.vx;
+          let newVy = pos.vy;
 
-          const wallBounce = 0.95;
-          const minSpeed = 0.5;
-          
-          // Отскок от стен
-          if (newX <= leftMargin) {
-            newX = leftMargin;
-            newVx = Math.abs(newVx) * wallBounce;
-          } else if (newX >= leftMargin + rinkWidth - puck.size) {
-            newX = leftMargin + rinkWidth - puck.size;
-            newVx = -Math.abs(newVx) * wallBounce;
+          // Проверка границ и отскок
+          if (newX <= leftMargin || newX >= rinkWidth - puckSize + leftMargin) {
+            newVx = -newVx;
+            newX = Math.max(leftMargin, Math.min(rinkWidth - puckSize + leftMargin, newX));
           }
-          
-          if (newY <= topMargin) {
-            newY = topMargin;
-            newVy = Math.abs(newVy) * wallBounce;
-          } else if (newY >= topMargin + rinkHeight - puck.size) {
-            newY = topMargin + rinkHeight - puck.size;
-            newVy = -Math.abs(newVy) * wallBounce;
-          }
-          
-          newX = Math.max(leftMargin, Math.min(leftMargin + rinkWidth - puck.size, newX));
-          newY = Math.max(topMargin, Math.min(topMargin + rinkHeight - puck.size, newY));
-          
-          if (Math.abs(newVx) < minSpeed && Math.abs(newVy) < minSpeed) {
-            const angle = Math.random() * Math.PI * 2;
-            newVx = Math.cos(angle) * minSpeed * 2;
-            newVy = Math.sin(angle) * minSpeed * 2;
+          if (newY <= topMargin || newY >= rinkHeight - puckSize + topMargin) {
+            newVy = -newVy;
+            newY = Math.max(topMargin, Math.min(rinkHeight - puckSize + topMargin, newY));
           }
 
-          // Оптимизированная проверка коллизий (только с ближайшими шайбами)
-          const puckBounce = 0.9;
-          const collisionRadius = puck.size * 2; // Проверяем только близкие шайбы
-          
-          prevPositions.forEach(otherPuck => {
-            if (otherPuck.id !== puck.id) {
-              const dx = newX - otherPuck.x;
-              const dy = newY - otherPuck.y;
+          // Проверка коллизий с другими шайбами
+          prevPositions.forEach(otherPos => {
+            if (otherPos.id !== pos.id) {
+              const dx = newX - otherPos.x;
+              const dy = newY - otherPos.y;
               const distance = Math.sqrt(dx * dx + dy * dy);
               
-              if (distance < collisionRadius) {
-                const minDistance = puck.size;
-
-                if (distance < minDistance) {
-                  const angle = Math.atan2(dy, dx);
-                  const overlap = minDistance - distance;
-                  
-                  const separationX = Math.cos(angle) * overlap * 0.5;
-                  const separationY = Math.sin(angle) * overlap * 0.5;
-                  
-                  newX += separationX;
-                  newY += separationY;
-                  
-                  if (distance > 0) {
-                    const normalX = dx / distance;
-                    const normalY = dy / distance;
-                    
-                    const relativeVx = newVx - otherPuck.vx;
-                    const relativeVy = newVy - otherPuck.vy;
-                    
-                    const dotProduct = relativeVx * normalX + relativeVy * normalY;
-                    
-                    if (dotProduct < 0) {
-                      newVx -= dotProduct * normalX * puckBounce;
-                      newVy -= dotProduct * normalY * puckBounce;
-                    }
-                  }
-                }
+              if (distance < puckSize) {
+                // Простой отскок
+                const angle = Math.atan2(dy, dx);
+                newVx = Math.cos(angle) * Math.abs(pos.vx);
+                newVy = Math.sin(angle) * Math.abs(pos.vy);
+                
+                // Разводим шайбы
+                const pushDistance = (puckSize - distance) / 2;
+                newX += Math.cos(angle) * pushDistance;
+                newY += Math.sin(angle) * pushDistance;
               }
             }
           });
 
-          const friction = 0.9995;
-          const randomness = 0.005;
-          
-          newVx *= friction;
-          newVy *= friction;
-          
-          newVx += (Math.random() - 0.5) * randomness;
-          newVy += (Math.random() - 0.5) * randomness;
-
           return {
-            ...puck,
+            ...pos,
             x: newX,
             y: newY,
             vx: newVx,
@@ -270,10 +221,37 @@ export default function HomeScreen() {
         // Инициализируем хранилище при первом запуске
         await initializeStorage();
         
-        // Загружаем всех игроков локально (пока не настроим серверную аутентификацию)
+        // Сначала загружаем локальных игроков как основу
         const localPlayers = await loadPlayers();
-        setPlayers(localPlayers);
         console.log('Главный экран - загружено игроков локально:', localPlayers.length);
+        
+        // Затем пытаемся загрузить игроков с сервера и объединить
+        try {
+          console.log('Пытаемся загрузить игроков с сервера...');
+          const serverPlayers = await api.getPlayers();
+          console.log('Ответ сервера:', serverPlayers);
+          
+          if (serverPlayers && serverPlayers.length > 0) {
+            // Объединяем локальных и серверных игроков, избегая дублирования
+            const allPlayers = [...localPlayers];
+            
+            serverPlayers.forEach((serverPlayer: any) => {
+              const exists = allPlayers.find(p => p.name === serverPlayer.name);
+              if (!exists) {
+                allPlayers.push(serverPlayer);
+              }
+            });
+            
+            setPlayers(allPlayers);
+            console.log('Главный экран - объединено игроков:', allPlayers.length, '(локальных:', localPlayers.length, ', серверных:', serverPlayers.length, ')');
+          } else {
+            setPlayers(localPlayers);
+            console.log('Главный экран - сервер пуст, используем только локальных:', localPlayers.length);
+          }
+        } catch (serverError) {
+          console.log('Сервер недоступен, используем только локальных:', serverError instanceof Error ? serverError.message : 'Unknown error');
+          setPlayers(localPlayers);
+        }
         
         // Загружаем текущего пользователя
         const user = await loadCurrentUser();
@@ -329,25 +307,24 @@ export default function HomeScreen() {
           {/* Внутренняя граница хоккейной коробки */}
           <View style={styles.innerBorder} />
           
-        {players.map((player) => {
-            const position = puckPositions.find(pos => pos.id === player.id);
-            if (!position) return null;
-            
-          console.log('Rendering player:', player.name);
+                {players.map((player) => {
+          const position = puckPositions.find(pos => pos.id === player.id);
+          if (!position) return null;
+          
           return (
             <PuckAnimator
               key={player.id}
               player={player}
-                position={position}
-                onNav={() => {
-                  if (currentUser) {
-                    // Если пользователь авторизован - переходим на профиль игрока
-                    router.push({ pathname: '/player/[id]', params: { id: player.id } });
-                  } else {
-                    // Если пользователь не авторизован - показываем кастомный диалог
-                    setShowAuthModal(true);
-                  }
-                }}
+              position={position}
+              onNav={() => {
+                if (currentUser) {
+                  // Если пользователь авторизован - переходим на профиль игрока
+                  router.push({ pathname: '/player/[id]', params: { id: player.id } });
+                } else {
+                  // Если пользователь не авторизован - показываем кастомный диалог
+                  setShowAuthModal(true);
+                }
+              }}
             />
           );
         })}

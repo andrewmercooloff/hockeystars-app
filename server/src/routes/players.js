@@ -5,10 +5,10 @@ const Player = require('../models/Player');
 
 const router = express.Router();
 
-// Получить всех игроков
-router.get('/', auth, async (req, res) => {
+// Получить всех игроков (без авторизации)
+router.get('/', async (req, res) => {
   try {
-    const players = await Player.find({ _id: { $ne: req.player._id } })
+    const players = await Player.find({})
       .select('-password -email')
       .sort({ createdAt: -1 });
     

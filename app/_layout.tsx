@@ -5,7 +5,7 @@ import { Tabs } from 'expo-router';
 import React from 'react';
 import { Image, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { loadCurrentUser, Player, getUnreadMessageCount, getUnreadNotificationCount, initializeStorage } from '../utils/playerStorage';
+import { loadCurrentUser, Player, getUnreadMessageCount, initializeStorage } from '../utils/playerStorage';
 
 const logo = require('@/assets/images/logo.png');
 
@@ -75,72 +75,6 @@ const MessagesIcon = ({ size }: { size: number }) => {
   );
 };
 
-const NotificationsIcon = ({ size }: { size: number }) => {
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [currentUser, setCurrentUser] = useState<Player | null>(null);
-
-  useEffect(() => {
-    const loadUnreadCount = async () => {
-      try {
-        const user = await loadCurrentUser();
-        if (user) {
-          setCurrentUser(user);
-          const count = await getUnreadNotificationCount(user.id);
-          console.log('NotificationsIcon: Пользователь:', user.name, 'Непрочитанных уведомлений:', count);
-          setUnreadCount(count);
-        } else {
-          console.log('NotificationsIcon: Пользователь не найден');
-          setCurrentUser(null);
-          setUnreadCount(0);
-        }
-      } catch (error) {
-        console.error('Ошибка загрузки количества непрочитанных уведомлений:', error);
-      }
-    };
-
-    loadUnreadCount();
-    
-    // Обновляем каждые 5 секунд для более быстрого обновления при смене пользователя
-    const interval = setInterval(loadUnreadCount, 5000);
-    
-    return () => clearInterval(interval);
-  }, []);
-
-  return (
-    <View style={{ position: 'relative' }}>
-      <Ionicons name="notifications-outline" size={size} color="#fff" />
-      {(() => {
-        console.log('NotificationsIcon render: unreadCount =', unreadCount);
-        return unreadCount > 0 && (
-          <View style={{
-            position: 'absolute',
-            top: -5,
-            right: -5,
-            backgroundColor: '#FF4444',
-            borderRadius: 10,
-            minWidth: 20,
-            height: 20,
-            justifyContent: 'center',
-            alignItems: 'center',
-            paddingHorizontal: 4,
-            borderWidth: 2,
-            borderColor: '#000',
-          }}>
-            <Text style={{
-              color: '#fff',
-              fontSize: 10,
-              fontFamily: 'Gilroy-Bold',
-              fontWeight: 'bold',
-            }}>
-              {unreadCount > 99 ? '99+' : unreadCount}
-            </Text>
-          </View>
-        );
-      })()}
-    </View>
-  );
-};
-
 const LogoHeader = () => {
   const router = useRouter();
   const [currentUser, setCurrentUser] = useState<Player | null>(null);
@@ -168,28 +102,10 @@ const LogoHeader = () => {
       height: 128, 
       flexDirection: 'row',
       justifyContent: 'space-between',
-      alignItems: 'flex-start',
+      alignItems: 'center',
       paddingHorizontal: 20,
-      paddingTop: 23,
       gap: 40
     }}>
-      {/* Кнопка назад - показываем только не на главной странице */}
-      {router.canGoBack() && (
-        <TouchableOpacity 
-          style={{
-            position: 'absolute',
-            left: -35,
-            top: '50%',
-            transform: [{ translateY: -18 }],
-            padding: 8,
-            zIndex: 1000,
-          }}
-          onPress={() => router.back()}
-        >
-          <Ionicons name="arrow-back" size={20} color="#fff" />
-        </TouchableOpacity>
-      )}
-      
       <Image source={logo} style={{ width: 180, height: 60, resizeMode: 'contain' }} />
       
       <TouchableOpacity 
@@ -314,7 +230,7 @@ export default function RootLayout() {
         name="notifications"
         options={{
           tabBarIcon: ({ size }) => (
-            <NotificationsIcon size={size} />
+            <Ionicons name="notifications-outline" size={size} color="#fff" />
           ),
           headerTitle: () => <LogoHeader />,
         }}

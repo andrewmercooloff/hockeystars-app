@@ -1,8 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Конфигурация API
-const API_BASE_URL = 'http://157.230.26.197/api';
-const SOCKET_URL = 'http://157.230.26.197';
+const API_BASE_URL = 'http://157.230.26.197:5000/api';
+const SOCKET_URL = 'http://157.230.26.197:5000';
 
 // Типы для API
 export interface ApiResponse<T = any> {
@@ -112,7 +112,7 @@ class ApiClient {
     }
   }
 
-  // Базовый запрос к API
+  // Базовый запрос к API с таймаутом
   private async request(endpoint: string, options: RequestInit = {}): Promise<any> {
     const token = await this.getToken();
     
@@ -126,7 +126,16 @@ class ApiClient {
     };
 
     try {
-      const response = await fetch(`${this.baseURL}${endpoint}`, config);
+      console.log(`API запрос: ${this.baseURL}${endpoint}`);
+      
+      // Создаем промис с таймаутом
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Request timeout')), 30000)
+      );
+      
+      const fetchPromise = fetch(`${this.baseURL}${endpoint}`, config);
+      
+      const response = await Promise.race([fetchPromise, timeoutPromise]) as Response;
       
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
