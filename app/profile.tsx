@@ -64,7 +64,7 @@ export default function PersonalCabinetScreen() {
       title,
       message,
       type,
-      onConfirm: onConfirm || (() => setAlert({ ...alert, visible: false })),
+      onConfirm: onConfirm || (() => setAlert(prev => ({ ...prev, visible: false }))),
       onCancel: () => {},
       onSecondary: () => {},
       showCancel: false,
@@ -427,7 +427,7 @@ export default function PersonalCabinetScreen() {
             points: ''
           });
           setFriends([]);
-          setAlert({ ...alert, visible: false });
+          setAlert(prev => ({ ...prev, visible: false }));
           router.push('/');
         } catch (error) {
           console.error('Ошибка при выходе:', error);
@@ -436,7 +436,7 @@ export default function PersonalCabinetScreen() {
             title: 'Ошибка',
             message: 'Не удалось выйти из профиля',
             type: 'error',
-            onConfirm: () => setAlert({ ...alert, visible: false }),
+            onConfirm: () => setAlert(prev => ({ ...prev, visible: false })),
             onCancel: () => {},
             onSecondary: () => {},
             showCancel: false,
@@ -447,7 +447,7 @@ export default function PersonalCabinetScreen() {
           });
         }
       },
-      onCancel: () => setAlert({ ...alert, visible: false }),
+      onCancel: () => setAlert(prev => ({ ...prev, visible: false })),
       onSecondary: () => {},
       showCancel: true,
       showSecondary: false,
@@ -478,7 +478,7 @@ export default function PersonalCabinetScreen() {
           showAlert('Ошибка', 'Не удалось перезагрузить данные', 'error');
         }
       },
-      onCancel: () => setAlert({ ...alert, visible: false }),
+      onCancel: () => setAlert(prev => ({ ...prev, visible: false })),
       onSecondary: () => {},
       showCancel: true,
       showSecondary: false,

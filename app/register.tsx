@@ -59,7 +59,7 @@ export default function RegisterScreen() {
       title,
       message,
       type,
-      onConfirm: onConfirm || (() => setAlert({ ...alert, visible: false })),
+      onConfirm: onConfirm || (() => setAlert(prev => ({ ...prev, visible: false }))),
       onCancel: () => {},
       onSecondary: () => {},
       showCancel: false,
@@ -77,14 +77,14 @@ export default function RegisterScreen() {
       message: 'Откуда хотите загрузить фото?',
       type: 'info',
       onConfirm: () => {
-        setAlert({ ...alert, visible: false });
+        setAlert(prev => ({ ...prev, visible: false }));
         pickFromGallery();
       },
       onSecondary: () => {
-        setAlert({ ...alert, visible: false });
+        setAlert(prev => ({ ...prev, visible: false }));
         takePhoto();
       },
-      onCancel: () => setAlert({ ...alert, visible: false }),
+      onCancel: () => setAlert(prev => ({ ...prev, visible: false })),
       showCancel: true,
       showSecondary: true,
       confirmText: 'Галерея',
@@ -103,7 +103,7 @@ export default function RegisterScreen() {
         title: 'Ошибка',
         message: 'Нужно разрешение для доступа к галерее',
         type: 'error',
-        onConfirm: () => setAlert({ ...alert, visible: false }),
+        onConfirm: () => setAlert(prev => ({ ...prev, visible: false })),
         onCancel: () => {},
         onSecondary: () => {},
         showCancel: false,

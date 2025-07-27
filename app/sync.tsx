@@ -56,7 +56,7 @@ export default function SyncScreen() {
         title={alert.title}
         message={alert.message}
         type={alert.type}
-        onConfirm={() => setAlert({ ...alert, visible: false })}
+        onConfirm={() => setAlert(prev => ({ ...prev, visible: false }))}
       />
     </View>
   );

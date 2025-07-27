@@ -36,7 +36,7 @@ export default function LoginScreen() {
         title: 'Ошибка',
         message: 'Пожалуйста, заполните все поля',
         type: 'error',
-        onConfirm: () => setAlert({ ...alert, visible: false })
+        onConfirm: () => setAlert(prev => ({ ...prev, visible: false }))
       });
       return;
     }
@@ -54,8 +54,11 @@ export default function LoginScreen() {
           message: `Добро пожаловать, ${player.name}!`,
           type: 'success',
           onConfirm: () => {
-            setAlert({ ...alert, visible: false });
-            router.push('/');
+            setAlert(prev => ({ ...prev, visible: false }));
+            // Небольшая задержка для плавного закрытия алерта
+            setTimeout(() => {
+              router.push('/');
+            }, 100);
           }
         });
       } else {
@@ -64,7 +67,7 @@ export default function LoginScreen() {
           title: 'Ошибка',
           message: 'Неверный логин или пароль',
           type: 'error',
-          onConfirm: () => setAlert({ ...alert, visible: false })
+          onConfirm: () => setAlert(prev => ({ ...prev, visible: false }))
         });
       }
     } catch (error) {
@@ -74,7 +77,7 @@ export default function LoginScreen() {
         title: 'Ошибка',
         message: 'Не удалось войти в систему',
         type: 'error',
-        onConfirm: () => setAlert({ ...alert, visible: false })
+        onConfirm: () => setAlert(prev => ({ ...prev, visible: false }))
       });
     }
   };
