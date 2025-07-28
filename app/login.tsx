@@ -25,9 +25,19 @@ export default function LoginScreen() {
     visible: false,
     title: '',
     message: '',
-    type: 'info' as 'success' | 'error' | 'warning' | 'info',
-    onConfirm: () => {}
+    type: 'info' as 'success' | 'error' | 'warning' | 'info'
   });
+
+  const closeAlert = () => {
+    setAlert({ ...alert, visible: false });
+  };
+
+  const closeAlertAndGoHome = () => {
+    setAlert({ ...alert, visible: false });
+    setTimeout(() => {
+      router.push('/');
+    }, 100);
+  };
 
   const handleLogin = async () => {
     if (!formData.username || !formData.password) {
@@ -35,8 +45,7 @@ export default function LoginScreen() {
         visible: true,
         title: 'Ошибка',
         message: 'Пожалуйста, заполните все поля',
-        type: 'error',
-        onConfirm: () => setAlert(prev => ({ ...prev, visible: false }))
+        type: 'error'
       });
       return;
     }
@@ -52,22 +61,14 @@ export default function LoginScreen() {
           visible: true,
           title: 'Успешно!',
           message: `Добро пожаловать, ${player.name}!`,
-          type: 'success',
-          onConfirm: () => {
-            setAlert(prev => ({ ...prev, visible: false }));
-            // Небольшая задержка для плавного закрытия алерта
-            setTimeout(() => {
-              router.push('/');
-            }, 100);
-          }
+          type: 'success'
         });
       } else {
         setAlert({
           visible: true,
           title: 'Ошибка',
           message: 'Неверный логин или пароль',
-          type: 'error',
-          onConfirm: () => setAlert(prev => ({ ...prev, visible: false }))
+          type: 'error'
         });
       }
     } catch (error) {
@@ -76,8 +77,7 @@ export default function LoginScreen() {
         visible: true,
         title: 'Ошибка',
         message: 'Не удалось войти в систему',
-        type: 'error',
-        onConfirm: () => setAlert(prev => ({ ...prev, visible: false }))
+        type: 'error'
       });
     }
   };
@@ -164,7 +164,7 @@ export default function LoginScreen() {
         title={alert.title}
         message={alert.message}
         type={alert.type}
-        onConfirm={alert.onConfirm}
+        onConfirm={alert.type === 'success' ? closeAlertAndGoHome : closeAlert}
         confirmText="OK"
       />
     </View>
