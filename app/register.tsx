@@ -216,7 +216,12 @@ export default function RegisterScreen() {
         'Успешно!', 
         'Игрок зарегистрирован! Теперь вы появитесь на главном экране.',
         'success',
-        () => router.push('/')
+        () => {
+          setAlert(prev => ({ ...prev, visible: false }));
+          setTimeout(() => {
+            router.push('/');
+          }, 100);
+        }
       );
     } catch (error) {
       console.error('Ошибка регистрации:', error);
