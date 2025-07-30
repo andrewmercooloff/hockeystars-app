@@ -212,6 +212,7 @@ export default function RootLayout() {
     const loadUser = async () => {
       try {
         const user = await loadCurrentUser();
+        console.log('🔍 Layout: currentUser =', user?.name, 'status =', user?.status);
         setCurrentUser(user);
       } catch (error) {
         console.error('Ошибка загрузки текущего пользователя:', error);
@@ -256,8 +257,9 @@ export default function RootLayout() {
           headerTitle: () => <LogoHeader />,
         }}
       />
-      {currentUser ? (
+      {currentUser && (
         <>
+          {console.log('🔍 Layout: Показываем вкладки для авторизованного пользователя')}
           <Tabs.Screen
             name="messages"
             options={{
@@ -277,7 +279,8 @@ export default function RootLayout() {
             }}
           />
         </>
-      ) : (
+      )}
+      {!currentUser && (
         <>
           <Tabs.Screen
             name="login"
