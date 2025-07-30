@@ -58,12 +58,13 @@ const Puck: React.FC<PuckProps> = ({
         return require('../assets/images/me.jpg');
       }
       
-      // Для некорректных идентификаторов показываем силуэт
-      if (avatar.includes('kostitsyn') || 
-          avatar.includes('grabovsky') || 
-          avatar.includes('sharangovich') || 
-          avatar.includes('merkulov') || 
-          avatar.includes('admin') || 
+      // Для тестовых игроков показываем силуэт
+      if (avatar === 'kostitsyn1' || 
+          avatar === 'kostitsyn2' || 
+          avatar === 'grabovsky' || 
+          avatar === 'sharangovich' || 
+          avatar === 'merkulov1' || 
+          avatar === 'admin' || 
           avatar === 'new_player') {
         return null;
       }
