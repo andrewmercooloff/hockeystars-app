@@ -30,7 +30,7 @@ interface PuckPosition {
 }
 
 const usePuckCollisionSystem = (players: Player[]) => {
-  const puckSize = 70; // Уменьшаем размер столкновения до видимой части шайбы
+  const puckSize = 70; // Размер шайбы
   const [puckPositions, setPuckPositions] = useState<PuckPosition[]>([]);
 
   useEffect(() => {
@@ -44,12 +44,43 @@ const usePuckCollisionSystem = (players: Player[]) => {
         if (positionsMap.has(player.id)) {
           nextPositions.push(positionsMap.get(player.id)!);
         } else {
+          // Генерация позиции с проверкой на наложение с существующими шайбами
+          let attempts = 0;
+          let newX: number, newY: number;
+          const maxAttempts = 50;
+          const minDistance = puckSize * 1.05; // Минимальное расстояние при инициализации
+          
+          do {
+            newX = 5 + Math.random() * (width - 15 - puckSize);
+            newY = 5 + Math.random() * (height - 235 - puckSize);
+            attempts++;
+            
+            // Проверяем расстояние до всех существующих шайб
+            let tooClose = false;
+            nextPositions.forEach(existingPos => {
+              const dx = newX - existingPos.x;
+              const dy = newY - existingPos.y;
+              const distance = Math.sqrt(dx * dx + dy * dy);
+              if (distance < minDistance) {
+                tooClose = true;
+              }
+            });
+            
+            if (!tooClose) break;
+          } while (attempts < maxAttempts);
+          
+          // Если не удалось найти подходящую позицию, используем случайную
+          if (attempts >= maxAttempts) {
+            newX = 5 + Math.random() * (width - 15 - puckSize);
+            newY = 5 + Math.random() * (height - 235 - puckSize);
+          }
+          
           nextPositions.push({
             id: player.id,
-            x: 15 + Math.random() * (width - 30 - puckSize),
-            y: 15 + Math.random() * (height - 250 - puckSize),
-            vx: (Math.random() - 0.5) * 0.067,
-            vy: (Math.random() - 0.5) * 0.067,
+            x: newX,
+            y: newY,
+            vx: (Math.random() - 0.5) * 0.15,
+            vy: (Math.random() - 0.5) * 0.15,
             size: puckSize,
           });
         }
@@ -70,17 +101,17 @@ const usePuckCollisionSystem = (players: Player[]) => {
           let newVx = pos.vx;
           let newVy = pos.vy;
 
-          // Обработка коллизий со стенами
-          if (newX <= 15 || newX >= width - 25 - puckSize) {
+          // Обработка коллизий со стенами (еще больше уменьшены отступы для использования всего пространства)
+          if (newX <= 5 || newX >= width - 15 - puckSize) {
             newVx = -newVx * 0.8;
-            newX = Math.max(15, Math.min(width - 25 - puckSize, newX));
+            newX = Math.max(5, Math.min(width - 15 - puckSize, newX));
           }
-          if (newY <= 15 || newY >= height - 235 - puckSize) {
+          if (newY <= 5 || newY >= height - 225 - puckSize) {
             newVy = -newVy * 0.8;
-            newY = Math.max(15, Math.min(height - 235 - puckSize, newY));
+            newY = Math.max(5, Math.min(height - 225 - puckSize, newY));
           }
 
-          // Коллизии между шайбами
+          // Улучшенная система коллизий между шайбами
           currentPositions.forEach(otherPos => {
             if (otherPos.id === pos.id) return;
             
@@ -88,29 +119,44 @@ const usePuckCollisionSystem = (players: Player[]) => {
             const dy = newY - otherPos.y;
             const distance = Math.sqrt(dx * dx + dy * dy);
             
-            // Диаметр столкновения
-            const collisionDiameter = puckSize * 1.1;
+            // Минимальное расстояние между центрами шайб (еще больше уменьшено для более близкого расположения)
+            const minDistance = puckSize * 1.02;
             
-            if (distance < collisionDiameter && distance > 0) {
+            if (distance < minDistance && distance > 0) {
               const angle = Math.atan2(dy, dx);
-              const force = (collisionDiameter - distance) / collisionDiameter;
+              const overlap = minDistance - distance;
               
-              // Слабое отталкивание для предотвращения наезжания
-              newVx += Math.cos(angle) * force * 0.1;
-              newVy += Math.sin(angle) * force * 0.1;
+              // Умеренное отталкивание при наложении
+              const pushForce = overlap * 0.2;
+              newVx += Math.cos(angle) * pushForce;
+              newVy += Math.sin(angle) * pushForce;
               
-              // Дополнительное отталкивание при очень близком расстоянии
-              if (distance < collisionDiameter * 0.7) {
-                newVx += Math.cos(angle) * 0.2;
-                newVy += Math.sin(angle) * 0.2;
+              // Принудительное разделение только при сильном наложении
+              if (distance < puckSize * 0.6) {
+                const separationForce = (puckSize - distance) * 0.1;
+                newX += Math.cos(angle) * separationForce;
+                newY += Math.sin(angle) * separationForce;
+              }
+              
+              // Слабое отталкивание для предотвращения "залипания"
+              if (distance < minDistance * 0.8) {
+                const repulsionForce = 0.05;
+                newVx += Math.cos(angle) * repulsionForce;
+                newVy += Math.sin(angle) * repulsionForce;
               }
             }
           });
           
-          // Минимальная скорость для предотвращения остановки
-          const minSpeed = 0.1;
+          // Ограничение максимальной скорости для стабильности
+          const maxSpeed = 2.0;
           const currentSpeed = Math.sqrt(newVx * newVx + newVy * newVy);
+          if (currentSpeed > maxSpeed) {
+            newVx = (newVx / currentSpeed) * maxSpeed;
+            newVy = (newVy / currentSpeed) * maxSpeed;
+          }
           
+          // Минимальная скорость для предотвращения остановки
+          const minSpeed = 0.08;
           if (currentSpeed < minSpeed) {
             const angle = Math.random() * 2 * Math.PI;
             newVx = Math.cos(angle) * minSpeed;
@@ -221,8 +267,9 @@ export default function HomeScreen() {
   useFocusEffect(
     useCallback(() => {
       refreshPlayers();
-      checkForNewUser();
-    }, [refreshPlayers, checkForNewUser])
+      // Убираем частую проверку пользователя при фокусе
+      // checkForNewUser();
+    }, [refreshPlayers])
   );
 
   // Обработка параметра refresh для принудительного обновления
@@ -237,7 +284,7 @@ export default function HomeScreen() {
   useEffect(() => {
     const interval = setInterval(() => {
       checkForNewUser();
-    }, 30000);
+    }, 60000); // Увеличиваем интервал до 1 минуты
 
     return () => clearInterval(interval);
   }, [checkForNewUser]);
@@ -338,10 +385,10 @@ const styles = StyleSheet.create({
   },
   innerBorder: {
     position: 'absolute',
-    top: 15,
-    left: 15,
-    right: 15,
-    bottom: 245,
+    top: 5,
+    left: 5,
+    right: 5,
+    bottom: 235,
     borderWidth: 3,
     borderColor: 'rgba(255, 255, 255, 0.3)',
     borderRadius: 50,

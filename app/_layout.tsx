@@ -26,10 +26,9 @@ const LogoHeader = () => {
   useEffect(() => {
     loadUser();
     
-    // Обновляем данные каждые 5 секунд для синхронизации (увеличили интервал для оптимизации)
-    const interval = setInterval(loadUser, 5000);
-    
-    return () => clearInterval(interval);
+    // Убираем интервал из LogoHeader, так как проверка уже есть в основном компоненте
+    // const interval = setInterval(loadUser, 5000);
+    // return () => clearInterval(interval);
   }, []);
 
   // Обновляем данные при возврате на экран
@@ -146,7 +145,6 @@ export default function RootLayout() {
     const loadUser = async () => {
       try {
         const user = await loadCurrentUser();
-        console.log('🔍 Layout: currentUser =', user?.name, 'status =', user?.status);
         setCurrentUser(user);
       } catch (error) {
         console.error('Ошибка загрузки текущего пользователя:', error);
@@ -154,7 +152,8 @@ export default function RootLayout() {
     };
 
     loadUser();
-    const interval = setInterval(loadUser, 3000);
+    // Увеличиваем интервал до 10 секунд для уменьшения количества логов
+    const interval = setInterval(loadUser, 10000);
     return () => clearInterval(interval);
   }, []);
 
@@ -258,13 +257,14 @@ export default function RootLayout() {
           headerTitle: () => <LogoHeader />,
         }}
       />
-      <Tabs.Screen
+      {/* Убираем неиспользуемый экран (tabs) для устранения предупреждений */}
+      {/* <Tabs.Screen
         name="(tabs)"
         options={{
           href: null,
           headerTitle: () => <LogoHeader />,
         }}
-      />
+      /> */}
       <Tabs.Screen
         name="+not-found"
         options={{
