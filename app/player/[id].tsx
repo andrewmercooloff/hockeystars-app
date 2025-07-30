@@ -1,24 +1,24 @@
-import React, { useState, useEffect } from 'react';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  Image, 
-  ScrollView, 
-  TouchableOpacity, 
-  ImageBackground,
-  Alert,
-  Linking,
-  Modal
-} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { getPlayerById, loadCurrentUser, Player, addFriend, removeFriend, areFriends, getFriends, sendMessage, sendFriendRequest, acceptFriendRequest, declineFriendRequest, cancelFriendRequest, getFriendshipStatus } from '../../utils/playerStorage';
-import YouTubeVideo from '../../components/YouTubeVideo';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import {
+    Alert,
+    Image,
+    ImageBackground,
+    Linking,
+    Modal,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
+} from 'react-native';
 import CustomAlert from '../../components/CustomAlert';
-import PhotosSection from '../../components/PhotosSection';
 import NormativesSection from '../../components/NormativesSection';
+import PhotosSection from '../../components/PhotosSection';
 import VideoCarousel from '../../components/VideoCarousel';
+import YouTubeVideo from '../../components/YouTubeVideo';
+import { acceptFriendRequest, cancelFriendRequest, declineFriendRequest, getFriends, getFriendshipStatus, getPlayerById, loadCurrentUser, Player, removeFriend, sendFriendRequest } from '../../utils/playerStorage';
 
 const iceBg = require('../../assets/images/led.jpg');
 
@@ -142,6 +142,11 @@ export default function PlayerProfile() {
   };
 
   const handleAddFriend = async () => {
+    console.log('🔧 handleAddFriend вызвана!');
+    console.log('🔧 friendshipStatus:', friendshipStatus);
+    console.log('🔧 currentUser.id:', currentUser?.id);
+    console.log('🔧 player.id:', player?.id);
+    
     if (!currentUser || !player) {
       showCustomAlert('Ошибка', 'Необходимо войти в профиль для добавления в друзья', 'error', () => router.push('/login'));
       return;
@@ -150,8 +155,10 @@ export default function PlayerProfile() {
     setFriendLoading(true);
     try {
       if (friendshipStatus === 'friends') {
+        console.log('🔧 Удаляем из друзей');
         // Удаляем из друзей
         const success = await removeFriend(currentUser.id, player.id);
+        console.log('🔧 removeFriend результат:', success);
         if (success) {
           setFriendshipStatus('none');
           showCustomAlert('Успешно', `${player.name} удален из друзей`, 'success');
@@ -159,17 +166,21 @@ export default function PlayerProfile() {
           showCustomAlert('Ошибка', 'Не удалось удалить из друзей', 'error');
         }
       } else if (friendshipStatus === 'none') {
+        console.log('🔧 Отправляем запрос дружбы');
         // Отправляем запрос дружбы
         const success = await sendFriendRequest(currentUser.id, player.id);
+        console.log('🔧 sendFriendRequest результат:', success);
         if (success) {
           setFriendshipStatus('sent_request');
           showCustomAlert('Запрос отправлен', `Запрос дружбы отправлен ${player.name}`, 'success');
         } else {
           showCustomAlert('Ошибка', 'Не удалось отправить запрос дружбы', 'error');
         }
-      } else if (friendshipStatus === 'sent_request') {
+      } else if (friendshipStatus === 'sent' || friendshipStatus === 'sent_request') {
+        console.log('🔧 Отменяем запрос');
         // Отменяем запрос
         const success = await cancelFriendRequest(currentUser.id, player.id);
+        console.log('🔧 cancelFriendRequest результат:', success);
         if (success) {
           setFriendshipStatus('none');
           showCustomAlert('Запрос отменен', 'Запрос дружбы отменен', 'info');
@@ -177,8 +188,10 @@ export default function PlayerProfile() {
           showCustomAlert('Ошибка', 'Не удалось отменить запрос', 'error');
         }
       } else if (friendshipStatus === 'received_request') {
+        console.log('🔧 Принимаем запрос');
         // Принимаем запрос
         const success = await acceptFriendRequest(currentUser.id, player.id);
+        console.log('🔧 acceptFriendRequest результат:', success);
         if (success) {
           setFriendshipStatus('friends');
           showCustomAlert('Дружба принята', `${player.name} добавлен в друзья`, 'success');
@@ -190,7 +203,7 @@ export default function PlayerProfile() {
       // Обновляем данные игрока после изменения друзей
       await loadPlayerData();
     } catch (error) {
-      console.error('Ошибка управления друзьями:', error);
+      console.error('❌ Ошибка управления друзьями:', error);
       showCustomAlert('Ошибка', 'Произошла ошибка при управлении друзьями', 'error');
     } finally {
       setFriendLoading(false);
@@ -303,11 +316,30 @@ export default function PlayerProfile() {
 
             {/* Фото и основная информация */}
             <View style={styles.profileSection}>
-              <Image 
-                source={{ uri: player.avatar || 'https://via.placeholder.com/150/333/fff?text=Player' }} 
-                style={styles.profileImage}
-                onError={() => console.log('Ошибка загрузки изображения')}
-              />
+              {(() => {
+                const hasValidImage = player.avatar && typeof player.avatar === 'string' && (
+                  player.avatar.startsWith('data:image/') || 
+                  player.avatar.startsWith('http') || 
+                  player.avatar.startsWith('file://') || 
+                  player.avatar.startsWith('content://')
+                );
+
+                if (hasValidImage) {
+                  return (
+                    <Image 
+                      source={{ uri: player.avatar }}
+                      style={styles.profileImage}
+                      onError={() => console.log('Ошибка загрузки изображения')}
+                    />
+                  );
+                } else {
+                  return (
+                    <View style={[styles.profileImage, styles.avatarPlaceholder]}>
+                      <Ionicons name="person" size={48} color="#FFFFFF" />
+                    </View>
+                  );
+                }
+              })()}
               <View style={styles.nameRow}>
                 <Text style={styles.playerName}>{player.name?.toUpperCase()}</Text>
                 {player.number && (
@@ -403,7 +435,7 @@ export default function PlayerProfile() {
                       </TouchableOpacity>
                     </View>
                   </>
-                ) : friendshipStatus === 'sent_request' ? (
+                ) : (friendshipStatus === 'sent' || friendshipStatus === 'sent_request') ? (
                   // Запрос дружбы отправлен
                   <>
                     <View style={styles.friendRequestHeader}>
@@ -419,8 +451,8 @@ export default function PlayerProfile() {
                         onPress={handleAddFriend}
                         disabled={friendLoading}
                       >
-                        <Ionicons name="close-outline" size={20} color="#000" />
-                        <Text style={[styles.friendRequestButtonText, { color: '#000' }]}>
+                        <Ionicons name="close-outline" size={20} color="#fff" />
+                        <Text style={[styles.friendRequestButtonText, { color: '#fff' }]}>
                           {friendLoading ? 'Загрузка...' : 'Отменить запрос'}
                         </Text>
                       </TouchableOpacity>
@@ -578,6 +610,17 @@ export default function PlayerProfile() {
               </View>
             )}
 
+            {/* Видео моментов */}
+            {player.favoriteGoals && (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Видео моментов</Text>
+                <VideoCarousel
+                  videos={player.favoriteGoals.split('\n').filter(goal => goal.trim()).map(goal => parseVideoUrl(goal.trim()))}
+                  onVideoPress={(video) => setSelectedVideo(video)}
+                />
+              </View>
+            )}
+
             {/* Фотографии - показываем только НЕ звездам */}
             {player && player.status && player.status.trim() !== 'star' ? (
               (currentUser && currentUser.id === player.id) || 
@@ -630,16 +673,7 @@ export default function PlayerProfile() {
 
 
 
-            {/* Видео моментов */}
-            {player.favoriteGoals && (
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Видео моментов</Text>
-                <VideoCarousel
-                  videos={player.favoriteGoals.split('\n').filter(goal => goal.trim()).map(goal => parseVideoUrl(goal.trim()))}
-                  onVideoPress={(video) => setSelectedVideo(video)}
-                />
-              </View>
-            )}
+
 
             {/* Друзья */}
             <View style={styles.section}>
@@ -836,6 +870,11 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     borderColor: '#FF4444',
     marginBottom: 15,
+  },
+  avatarPlaceholder: {
+    backgroundColor: '#2C3E50',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   nameRow: {
     flexDirection: 'row',

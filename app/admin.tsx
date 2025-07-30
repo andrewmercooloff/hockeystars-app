@@ -1,22 +1,22 @@
-import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  TextInput,
-  Alert,
-  Image,
-  Modal,
-  FlatList,
-  Platform
-} from 'react-native';
-import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import * as ImagePicker from 'expo-image-picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { Player, loadPlayers, updatePlayer, loadCurrentUser } from '../utils/playerStorage';
+import * as ImagePicker from 'expo-image-picker';
+import { useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import {
+    Alert,
+    FlatList,
+    Image,
+    Modal,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
+} from 'react-native';
+import { Player, loadCurrentUser, loadPlayers, updatePlayer } from '../utils/playerStorage';
 
 const logo = require('../assets/images/logo.png');
 
@@ -671,17 +671,20 @@ export default function AdminScreen() {
             contentContainerStyle={styles.modalContentContainer}
           >
             <View style={styles.photoSection}>
-              <TouchableOpacity onPress={() => {
-                console.log('📸 Нажата кнопка загрузки фото, isEditing:', isEditing);
-                console.log('📸 showImagePickerModal до вызова pickImage:', showPlayerModal);
-                if (isEditing) {
-                  console.log('📸 Вызываем pickImage()...');
-                  pickImage();
-                  console.log('📸 pickImage() вызван');
-                } else {
-                  console.log('❌ Режим редактирования не активен');
-                }
-              }}>
+              <TouchableOpacity 
+                style={styles.photoContainer}
+                onPress={() => {
+                  console.log('📸 Нажата кнопка загрузки фото, isEditing:', isEditing);
+                  console.log('📸 showImagePickerModal до вызова pickImage:', showPlayerModal);
+                  if (isEditing) {
+                    console.log('📸 Вызываем pickImage()...');
+                    pickImage();
+                    console.log('📸 pickImage() вызван');
+                  } else {
+                    console.log('❌ Режим редактирования не активен');
+                  }
+                }}
+              >
                 <Image 
                   source={
                     editData.photo && typeof editData.photo === 'string' && (
@@ -1195,6 +1198,10 @@ const styles = StyleSheet.create({
   photoSection: {
     alignItems: 'center',
     paddingVertical: 20,
+  },
+  photoContainer: {
+    borderRadius: 60,
+    overflow: 'hidden',
   },
   editPhoto: {
     width: 120,

@@ -58,7 +58,7 @@ const Puck: React.FC<PuckProps> = ({
         return require('../assets/images/me.jpg');
       }
       
-      // Для всех тестовых игроков показываем силуэт
+      // Для тестовых игроков показываем силуэт
       if (avatar === 'kostitsyn1' || 
           avatar === 'kostitsyn2' || 
           avatar === 'grabovsky' || 
@@ -70,8 +70,7 @@ const Puck: React.FC<PuckProps> = ({
       }
     }
     
-    // Для всех остальных случаев тоже показываем силуэт
-    return null;
+    return require('../assets/images/logo.png');
   };
 
   const imageSource = getImageSource();
@@ -122,7 +121,7 @@ const Puck: React.FC<PuckProps> = ({
           </View>
         )}
         
-        {points && status === 'player' && (
+        {points && (
           <View style={styles.pointsContainer}>
             <Text style={styles.pointsText}>{points}</Text>
           </View>
@@ -174,17 +173,16 @@ const styles = StyleSheet.create({
   },
   pointsContainer: {
     position: 'absolute',
-    backgroundColor: 'rgba(255, 68, 68, 0.9)',
+    backgroundColor: 'rgba(255, 215, 0, 0.9)',
     borderRadius: 12,
-    paddingHorizontal: 6,
-    paddingVertical: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    alignSelf: 'center',
     borderWidth: 1,
-    borderColor: '#FF4444',
-    bottom: -4,
-    right: 10,
+    borderColor: '#FFD700',
   },
   pointsText: {
-    color: '#FFFFFF',
+    color: '#000000',
     fontSize: 12,
     fontWeight: 'bold',
     textAlign: 'center',

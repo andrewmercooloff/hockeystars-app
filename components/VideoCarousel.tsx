@@ -1,15 +1,15 @@
+import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ScrollView,
-  Image,
-  Modal,
-  Dimensions,
+    Dimensions,
+    Image,
+    Modal,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import YouTubeVideo from './YouTubeVideo';
 
 interface VideoCarouselProps {
@@ -24,12 +24,30 @@ export default function VideoCarousel({ videos, onVideoPress }: VideoCarouselPro
   const [currentIndex, setCurrentIndex] = useState(0);
 
   const getYouTubeThumbnail = (url: string): string => {
-    // Извлекаем video ID из YouTube URL
-    const videoIdMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)/);
-    if (videoIdMatch) {
-      const videoId = videoIdMatch[1];
-      return `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+    // Простая и надежная функция для извлечения video ID из YouTube URL
+    const cleanUrl = url.trim();
+    
+    const patterns = [
+      /youtube\.com\/watch\?v=([a-zA-Z0-9_-]+)/i,
+      /youtu\.be\/([a-zA-Z0-9_-]+)/i,
+      /youtube\.com\/embed\/([a-zA-Z0-9_-]+)/i,
+      /youtube\.com\/shorts\/([a-zA-Z0-9_-]+)/i,
+      /youtube\.com\/live\/([a-zA-Z0-9_-]+)/i,
+      /m\.youtube\.com\/watch\?v=([a-zA-Z0-9_-]+)/i
+    ];
+    
+    for (const pattern of patterns) {
+      const videoIdMatch = cleanUrl.match(pattern);
+      if (videoIdMatch && videoIdMatch[1]) {
+        const videoId = videoIdMatch[1];
+        // Для Live трансляций используем другой формат превью
+        if (cleanUrl.toLowerCase().includes('/live/')) {
+          return `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+        }
+        return `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+      }
     }
+    
     return 'https://via.placeholder.com/300x200/333/666?text=Video';
   };
 
@@ -56,13 +74,6 @@ export default function VideoCarousel({ videos, onVideoPress }: VideoCarouselPro
 
   return (
     <View style={styles.container}>
-      {/* Индикатор карусели */}
-      {videos.length > 1 && (
-        <View style={styles.carouselIndicator}>
-          <Ionicons name="chevron-back" size={20} color="#FF4444" />
-          <Ionicons name="chevron-forward" size={20} color="#FF4444" />
-        </View>
-      )}
       
       <ScrollView 
         horizontal 
@@ -131,7 +142,7 @@ export default function VideoCarousel({ videos, onVideoPress }: VideoCarouselPro
             </TouchableOpacity>
             {selectedVideo && (
               <YouTubeVideo
-                videoUrl={selectedVideo.url}
+                url={selectedVideo.url}
                 timeCode={selectedVideo.timeCode}
               />
             )}

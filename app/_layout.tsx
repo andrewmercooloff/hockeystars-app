@@ -1,80 +1,14 @@
-import { useFonts } from 'expo-font';
-import { SplashScreen, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { Tabs } from 'expo-router';
-import React from 'react';
-import { Image, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { loadCurrentUser, Player, getUnreadMessageCount, initializeStorage } from '../utils/playerStorage';
 import { useFocusEffect } from '@react-navigation/native';
+import { useFonts } from 'expo-font';
+import { SplashScreen, Tabs, useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import { Image, Text, TouchableOpacity, View } from 'react-native';
+import { initializeStorage, loadCurrentUser, Player } from '../utils/playerStorage';
 
 const logo = require('../assets/images/logo.png');
 
-const MessagesIcon = ({ size }: { size: number }) => {
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [currentUser, setCurrentUser] = useState<Player | null>(null);
 
-  useEffect(() => {
-    const loadUnreadCount = async () => {
-      try {
-        const user = await loadCurrentUser();
-        if (user) {
-          setCurrentUser(user);
-          const count = await getUnreadMessageCount(user.id);
-          console.log('MessagesIcon: Пользователь:', user.name, 'Непрочитанных сообщений:', count);
-          setUnreadCount(count);
-        } else {
-          console.log('MessagesIcon: Пользователь не найден');
-          setCurrentUser(null);
-          setUnreadCount(0);
-        }
-      } catch (error) {
-        console.error('Ошибка загрузки количества непрочитанных сообщений:', error);
-      }
-    };
-
-    loadUnreadCount();
-    
-    // Обновляем каждые 5 секунд для более быстрого обновления при смене пользователя
-    const interval = setInterval(loadUnreadCount, 5000);
-    
-    return () => clearInterval(interval);
-  }, []);
-
-  return (
-    <View style={{ position: 'relative' }}>
-      <Ionicons name="chatbubble-outline" size={size} color="#fff" />
-      {(() => {
-        console.log('MessagesIcon render: unreadCount =', unreadCount);
-        return unreadCount > 0 && (
-          <View style={{
-            position: 'absolute',
-            top: -5,
-            right: -5,
-            backgroundColor: '#FF4444',
-            borderRadius: 10,
-            minWidth: 20,
-            height: 20,
-            justifyContent: 'center',
-            alignItems: 'center',
-            paddingHorizontal: 4,
-            borderWidth: 2,
-            borderColor: '#000',
-          }}>
-            <Text style={{
-              color: '#fff',
-              fontSize: 10,
-              fontFamily: 'Gilroy-Bold',
-              fontWeight: 'bold',
-            }}>
-              {unreadCount > 99 ? '99+' : unreadCount}
-            </Text>
-          </View>
-        );
-      })()}
-    </View>
-  );
-};
 
 const LogoHeader = () => {
   const router = useRouter();
@@ -165,7 +99,7 @@ const LogoHeader = () => {
             <Ionicons name="person" size={25} color="#fff" />
           )}
         </View>
-        {currentUser && (
+        {currentUser && currentUser.name && (
           <Text style={{
             color: '#fff',
             fontSize: 12,
@@ -257,105 +191,95 @@ export default function RootLayout() {
           headerTitle: () => <LogoHeader />,
         }}
       />
-      {currentUser && (
-        <>
-          {console.log('🔍 Layout: Показываем вкладки для авторизованного пользователя')}
-          <Tabs.Screen
-            name="messages"
-            options={{
-              tabBarIcon: ({ size }) => (
-                <MessagesIcon size={size} />
-              ),
-              headerTitle: () => <LogoHeader />,
-            }}
-          />
-          <Tabs.Screen
-            name="notifications"
-            options={{
-              tabBarIcon: ({ size }) => (
-                <Ionicons name="notifications-outline" size={size} color="#fff" />
-              ),
-              headerTitle: () => <LogoHeader />,
-            }}
-          />
-        </>
-      )}
-      {!currentUser && (
-        <>
-          <Tabs.Screen
-            name="login"
-            options={{
-              tabBarIcon: ({ size }) => (
-                <Ionicons name="log-in-outline" size={size} color="#fff" />
-              ),
-              headerTitle: () => <LogoHeader />,
-            }}
-          />
-          <Tabs.Screen
-            name="register"
-            options={{
-              tabBarIcon: ({ size }) => (
-                <Ionicons name="person-add-outline" size={size} color="#fff" />
-              ),
-              headerTitle: () => <LogoHeader />,
-            }}
-          />
-        </>
-      )}
       <Tabs.Screen
-        name="player/[id]"
+        name="messages"
         options={{
-          href: null, // Скрываем эту вкладку
-          title: 'Профиль игрока',
-          headerStyle: { backgroundColor: '#000', height: 128 },
+          tabBarIcon: ({ size }) => (
+            <Ionicons name="chatbubble-outline" size={size} color="#fff" />
+          ),
           headerTitle: () => <LogoHeader />,
         }}
       />
       <Tabs.Screen
-        name="register"
+        name="notifications"
         options={{
-          href: null, // Скрываем эту вкладку
-          title: 'Регистрация',
-          headerStyle: { backgroundColor: '#000', height: 128 },
+          tabBarIcon: ({ size }) => (
+            <Ionicons name="notifications-outline" size={size} color="#fff" />
+          ),
           headerTitle: () => <LogoHeader />,
         }}
       />
       <Tabs.Screen
         name="login"
         options={{
-          href: null, // Скрываем эту вкладку
-          title: 'Вход',
-          headerStyle: { backgroundColor: '#000', height: 128 },
+          href: null,
+          headerTitle: () => <LogoHeader />,
+        }}
+      />
+      <Tabs.Screen
+        name="register"
+        options={{
+          href: null,
           headerTitle: () => <LogoHeader />,
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
-          href: null, // Скрываем эту вкладку
-          title: 'Личный кабинет',
-          headerStyle: { backgroundColor: '#000', height: 128 },
+          href: null,
           headerTitle: () => <LogoHeader />,
         }}
       />
       <Tabs.Screen
         name="chat/[id]"
         options={{
-          href: null, // Скрываем эту вкладку
-          title: 'Чат',
-          headerStyle: { backgroundColor: '#000', height: 128 },
+          href: null,
+          headerTitle: () => <LogoHeader />,
+        }}
+      />
+      <Tabs.Screen
+        name="player/[id]"
+        options={{
+          href: null,
           headerTitle: () => <LogoHeader />,
         }}
       />
       <Tabs.Screen
         name="admin"
         options={{
-          href: null, // Скрываем эту вкладку
-          title: 'Панель администратора',
-          headerStyle: { backgroundColor: '#000', height: 128 },
+          href: null,
           headerTitle: () => <LogoHeader />,
         }}
       />
+      <Tabs.Screen
+        name="sync"
+        options={{
+          href: null,
+          headerTitle: () => <LogoHeader />,
+        }}
+      />
+      <Tabs.Screen
+        name="(tabs)"
+        options={{
+          href: null,
+          headerTitle: () => <LogoHeader />,
+        }}
+      />
+      <Tabs.Screen
+        name="+not-found"
+        options={{
+          href: null,
+          headerTitle: () => <LogoHeader />,
+        }}
+      />
+      <Tabs.Screen
+        name="components/Puck"
+        options={{
+          href: null,
+          headerTitle: () => <LogoHeader />,
+        }}
+      />
+
     </Tabs>
   );
 }

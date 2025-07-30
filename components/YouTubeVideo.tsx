@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
-import { WebView } from 'react-native-webview';
 import { Ionicons } from '@expo/vector-icons';
+import React from 'react';
+import { Dimensions, StyleSheet, Text, View } from 'react-native';
+import { WebView } from 'react-native-webview';
 
 interface YouTubeVideoProps {
   url: string;
@@ -13,13 +13,33 @@ interface YouTubeVideoProps {
 const { width, height } = Dimensions.get('window');
 
 const YouTubeVideo: React.FC<YouTubeVideoProps> = ({ url, title, onClose, timeCode }) => {
-  const [isFullscreen, setIsFullscreen] = useState(false);
 
-  // Функция для извлечения ID видео из YouTube URL
+  // Универсальная функция для извлечения ID видео из YouTube URL
   const getYouTubeVideoId = (url: string): string | null => {
-    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
-    const match = url.match(regExp);
-    return (match && match[2].length === 11) ? match[2] : null;
+    // Простая и надежная функция для извлечения YouTube ID
+    // Поддерживает все форматы YouTube ссылок
+    
+    // Убираем лишние пробелы, но НЕ меняем регистр
+    const cleanUrl = url.trim();
+    
+    // Паттерны для извлечения ID (регистронезависимые)
+    const patterns = [
+      /youtube\.com\/watch\?v=([a-zA-Z0-9_-]+)/i,
+      /youtu\.be\/([a-zA-Z0-9_-]+)/i,
+      /youtube\.com\/embed\/([a-zA-Z0-9_-]+)/i,
+      /youtube\.com\/shorts\/([a-zA-Z0-9_-]+)/i,
+      /youtube\.com\/live\/([a-zA-Z0-9_-]+)/i,
+      /m\.youtube\.com\/watch\?v=([a-zA-Z0-9_-]+)/i
+    ];
+    
+    for (const pattern of patterns) {
+      const match = cleanUrl.match(pattern);
+      if (match && match[1]) {
+        return match[1]; // Возвращаем ID в оригинальном регистре
+      }
+    }
+    
+    return null;
   };
 
   // Функция для конвертации таймкода в секунды
@@ -42,7 +62,7 @@ const YouTubeVideo: React.FC<YouTubeVideoProps> = ({ url, title, onClose, timeCo
   };
 
   const videoId = getYouTubeVideoId(url);
-  const timeCodeParam = timeCode ? `&start=${timeCodeToSeconds(timeCode)}` : '';
+  const startSeconds = timeCode ? timeCodeToSeconds(timeCode) : 0;
 
   if (!videoId) {
     return (
@@ -52,6 +72,8 @@ const YouTubeVideo: React.FC<YouTubeVideoProps> = ({ url, title, onClose, timeCo
       </View>
     );
   }
+
+  const embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1&start=${startSeconds}`;
 
   // Создаем HTML для встроенного YouTube плеера
   const htmlContent = `
@@ -80,47 +102,53 @@ const YouTubeVideo: React.FC<YouTubeVideoProps> = ({ url, title, onClose, timeCo
             border: none;
           }
         </style>
+        <script src="https://www.youtube.com/iframe_api"></script>
       </head>
       <body>
         <div class="video-container">
-          <iframe
-            src="https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1${timeCodeParam}"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowfullscreen
-          ></iframe>
+          <div id="player"></div>
         </div>
+        <script>
+          var player;
+          var startTime = ${startSeconds};
+          
+          function onYouTubeIframeAPIReady() {
+            player = new YT.Player('player', {
+              height: '100%',
+              width: '100%',
+              videoId: '${videoId}',
+              playerVars: {
+                'autoplay': 1,
+                'rel': 0,
+                'modestbranding': 1,
+                'start': startTime
+              },
+              events: {
+                'onReady': onPlayerReady
+              }
+            });
+          }
+          
+          function onPlayerReady(event) {
+            if (startTime > 0) {
+              setTimeout(function() {
+                event.target.seekTo(startTime);
+              }, 2000);
+            }
+          }
+        </script>
       </body>
     </html>
   `;
 
   return (
-    <View style={[styles.container, isFullscreen && styles.fullscreenContainer]}>
+    <View style={styles.container}>
       {/* Заголовок */}
       <View style={styles.header}>
         <Text style={styles.title} numberOfLines={1}>
           {title || 'Мой момент'}
           {timeCode ? ` (${timeCode})` : ''}
         </Text>
-        <View style={styles.headerButtons}>
-          <TouchableOpacity 
-            style={styles.headerButton}
-            onPress={() => setIsFullscreen(!isFullscreen)}
-          >
-            <Ionicons 
-              name={isFullscreen ? "contract" : "expand"} 
-              size={24} 
-              color="#fff" 
-            />
-          </TouchableOpacity>
-          {onClose && (
-            <TouchableOpacity 
-              style={styles.headerButton}
-              onPress={onClose}
-            >
-              <Ionicons name="close" size={24} color="#fff" />
-            </TouchableOpacity>
-          )}
-        </View>
       </View>
 
       {/* Видео плеер */}
@@ -149,18 +177,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255, 68, 68, 0.3)',
   },
-  fullscreenContainer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    zIndex: 1000,
-    borderRadius: 0,
-  },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
@@ -172,16 +191,7 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontFamily: 'Gilroy-Bold',
-    flex: 1,
-    marginRight: 16,
-  },
-  headerButtons: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  headerButton: {
-    padding: 8,
-    marginLeft: 8,
+    textAlign: 'center',
   },
   videoContainer: {
     width: '100%',

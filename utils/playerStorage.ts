@@ -307,7 +307,7 @@ export const loadCurrentUser = async (): Promise<Player | null> => {
     const userData = await AsyncStorage.getItem(CURRENT_USER_KEY);
     if (userData) {
       const user = JSON.parse(userData);
-      console.log('👤 Текущий пользователь загружен:', user.name);
+      console.log('👤 Текущий пользователь загружен:', user?.name || 'Без имени');
       return user;
     }
     console.log('👤 Текущий пользователь не найден');
@@ -376,6 +376,34 @@ export const getUnreadMessageCount = async (userId: string): Promise<number> => 
   } catch (error) {
     console.error('❌ Ошибка подсчета непрочитанных сообщений:', error);
     return 0;
+  }
+};
+
+export const markMessagesAsRead = async (userId1: string, userId2: string): Promise<void> => {
+  try {
+    const messagesData = await AsyncStorage.getItem(MESSAGES_KEY);
+    if (messagesData) {
+      const allMessages = JSON.parse(messagesData);
+      const updatedMessages = allMessages.map((msg: Message) => {
+        if (msg.senderId === userId2 && msg.receiverId === userId1 && !msg.read) {
+          return { ...msg, read: true };
+        }
+        return msg;
+      });
+      await AsyncStorage.setItem(MESSAGES_KEY, JSON.stringify(updatedMessages));
+    }
+  } catch (error) {
+    console.error('❌ Ошибка отметки сообщений как прочитанных:', error);
+  }
+};
+
+export const getConversation = async (userId1: string, userId2: string): Promise<Message[]> => {
+  try {
+    const messages = await getMessages(userId1, userId2);
+    return messages.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+  } catch (error) {
+    console.error('❌ Ошибка загрузки диалога:', error);
+    return [];
   }
 };
 

@@ -1,21 +1,19 @@
-import { firestore } from './firebase';
-import { 
-  collection, 
-  doc, 
-  getDoc, 
-  getDocs, 
-  setDoc, 
-  addDoc,
-  updateDoc,
-  deleteDoc,
-  query, 
-  where,
-  limit,
-  orderBy,
-  Timestamp,
-  writeBatch
-} from "firebase/firestore";
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+    addDoc,
+    collection,
+    doc,
+    getDoc,
+    getDocs,
+    limit,
+    orderBy,
+    query,
+    Timestamp,
+    updateDoc,
+    where,
+    writeBatch
+} from "firebase/firestore";
+import { firestore } from './firebase';
 
 // --- ТИПЫ ДАННЫХ ---
 export type UserStatus = 'player' | 'coach' | 'scout' | 'star';
@@ -84,7 +82,7 @@ export const loadPlayers = async (): Promise<Player[]> => {
     console.log(`[Firebase] Загружено ${players.length} игроков.`);
     return players;
   } catch (error) {
-    console.error("[Firebase] Ошибка загрузки игроков: ", error);
+    console.log("[Firebase] Ошибка загрузки игроков (возможно, нет подключения к интернету): ", error);
     return [];
   }
 };
@@ -102,7 +100,7 @@ export const getPlayerById = async (id: string): Promise<Player | null> => {
       return null;
     }
   } catch (error) {
-    console.error("[Firebase] Ошибка получения игрока по ID: ", error);
+    console.log("[Firebase] Ошибка получения игрока по ID (возможно, нет подключения к интернету): ", error);
     return null;
   }
 };
@@ -124,7 +122,7 @@ export const addPlayer = async (playerData: Omit<Player, 'id'>): Promise<Player 
     
     return newPlayer as Player;
   } catch (error) {
-    console.error("[Firebase] Ошибка добавления игрока: ", error);
+    console.log("[Firebase] Ошибка добавления игрока (возможно, нет подключения к интернету): ", error);
     return null;
   }
 };
@@ -143,7 +141,7 @@ export const updatePlayer = async (updatedPlayer: Player): Promise<boolean> => {
     
     return true;
   } catch (error) {
-    console.error("[Firebase] Ошибка обновления игрока: ", error);
+    console.log("[Firebase] Ошибка обновления игрока (возможно, нет подключения к интернету): ", error);
     return false;
   }
 };
@@ -161,7 +159,7 @@ export const findPlayerByCredentials = async (username: string, password?: strin
         const player = { id: querySnapshot.docs[0].id, ...querySnapshot.docs[0].data() } as Player;
         return player;
     } catch (error) {
-        console.error("[Firebase] Ошибка поиска игрока: ", error);
+        console.log("[Firebase] Ошибка поиска игрока (возможно, нет подключения к интернету): ", error);
         return null;
     }
 };
@@ -176,7 +174,7 @@ export const saveCurrentUser = async (player: Player | null) => {
       await AsyncStorage.removeItem(CURRENT_USER_KEY);
     }
   } catch (error) {
-    console.error('[Кэш] Ошибка сохранения пользователя:', error);
+    console.log('[Кэш] Ошибка сохранения пользователя:', error);
   }
 };
 
@@ -185,7 +183,7 @@ export const loadCurrentUser = async (): Promise<Player | null> => {
     const userData = await AsyncStorage.getItem(CURRENT_USER_KEY);
     return userData ? JSON.parse(userData) : null;
   } catch (error) {
-    console.error('[Кэш] Ошибка загрузки пользователя:', error);
+    console.log('[Кэш] Ошибка загрузки пользователя (возможно, пользователь не авторизован):', error);
     return null;
   }
 };
@@ -222,7 +220,8 @@ export const initializeStorage = async () => {
       console.log("[Firebase] База данных уже содержит данные.");
     }
   } catch (error) {
-    console.error("[Firebase] Ошибка инициализации хранилища: ", error);
+    console.log("[Firebase] Ошибка инициализации хранилища (возможно, нет подключения к интернету): ", error);
+    // Не падаем при ошибке, просто логируем
   }
 };
 
@@ -261,17 +260,352 @@ export const uploadLocalPlayersToFirebase = async (): Promise<{success: boolean,
         return { success: true, message };
 
     } catch (error) {
-        console.error("Ошибка выгрузки в Firebase: ", error);
+        console.log("Ошибка выгрузки в Firebase (возможно, нет подключения к интернету): ", error);
         return { success: false, message: "Произошла ошибка при выгрузке." };
     }
 };
 
-// Заглушки для функций, которые мы пока не реализуем
-export const sendFriendRequest = async () => true;
-export const acceptFriendRequest = async () => true;
-export const declineFriendRequest = async () => true;
-export const getFriendshipStatus = async () => 'none';
-export const getUnreadMessageCount = async () => 0;
+// Функции для работы с друзьями
+export const sendFriendRequest = async (fromId: string, toId: string): Promise<boolean> => {
+  console.log('🔧 sendFriendRequest вызвана с:', fromId, '->', toId);
+  try {
+    const requests = await getFriendRequestsFromStorage();
+    console.log('🔧 Текущие запросы:', requests);
+    
+    const newRequest = {
+      id: Date.now().toString(),
+      fromId,
+      toId,
+      status: 'pending',
+      timestamp: new Date()
+    };
+    
+    requests.push(newRequest);
+    console.log('🔧 Новый запрос:', newRequest);
+    console.log('🔧 Обновленные запросы:', requests);
+    
+    await AsyncStorage.setItem('friend_requests', JSON.stringify(requests));
+    
+    console.log('✅ Запрос дружбы отправлен');
+    return true;
+  } catch (error) {
+    console.log('❌ Ошибка отправки запроса в друзья:', error);
+    return false;
+  }
+};
+
+export const acceptFriendRequest = async (fromId: string, toId: string): Promise<boolean> => {
+  try {
+    const requests = await getFriendRequestsFromStorage();
+    const requestIndex = requests.findIndex(req => req.fromId === fromId && req.toId === toId && req.status === 'pending');
+    
+    if (requestIndex !== -1) {
+      requests[requestIndex].status = 'accepted';
+      await AsyncStorage.setItem('friend_requests', JSON.stringify(requests));
+      
+      // Добавляем дружбу
+      const friendships = await getFriendshipsFromStorage();
+      friendships.push({ userId1: fromId, userId2: toId });
+      await AsyncStorage.setItem('friendships', JSON.stringify(friendships));
+      
+      console.log('✅ Запрос дружбы принят');
+      return true;
+    }
+    return false;
+  } catch (error) {
+    console.log('Ошибка принятия запроса в друзья:', error);
+    return false;
+  }
+};
+
+export const declineFriendRequest = async (fromId: string, toId: string): Promise<boolean> => {
+  try {
+    const requests = await getFriendRequestsFromStorage();
+    const requestIndex = requests.findIndex(req => req.fromId === fromId && req.toId === toId && req.status === 'pending');
+    
+    if (requestIndex !== -1) {
+      requests[requestIndex].status = 'rejected';
+      await AsyncStorage.setItem('friend_requests', JSON.stringify(requests));
+      
+      console.log('✅ Запрос дружбы отклонен');
+      return true;
+    }
+    return false;
+  } catch (error) {
+    console.log('Ошибка отклонения запроса в друзья:', error);
+    return false;
+  }
+};
+
+export const getFriendshipStatus = async (userId1: string, userId2: string): Promise<string> => {
+  console.log('🔧 getFriendshipStatus вызвана с:', userId1, 'и', userId2);
+  try {
+    // Проверяем, есть ли уже дружба
+    const friendships = await getFriendshipsFromStorage();
+    console.log('🔧 Текущие дружбы:', friendships);
+    
+    const areFriends = friendships.some(friendship => 
+      (friendship.userId1 === userId1 && friendship.userId2 === userId2) ||
+      (friendship.userId1 === userId2 && friendship.userId2 === userId1)
+    );
+    
+    if (areFriends) {
+      console.log('🔧 Найдена дружба, возвращаем "friends"');
+      return 'friends';
+    }
+    
+    // Проверяем запросы дружбы
+    const requests = await getFriendRequestsFromStorage();
+    console.log('🔧 Текущие запросы:', requests);
+    
+    const sentRequest = requests.find(req => req.fromId === userId1 && req.toId === userId2 && req.status === 'pending');
+    if (sentRequest) {
+      console.log('🔧 Найден отправленный запрос, возвращаем "sent_request"');
+      return 'sent_request';
+    }
+    
+    const receivedRequest = requests.find(req => req.fromId === userId2 && req.toId === userId1 && req.status === 'pending');
+    if (receivedRequest) {
+      console.log('🔧 Найден полученный запрос, возвращаем "received_request"');
+      return 'received_request';
+    }
+    
+    console.log('🔧 Ничего не найдено, возвращаем "none"');
+    return 'none';
+  } catch (error) {
+    console.log('❌ Ошибка получения статуса дружбы:', error);
+    return 'none';
+  }
+};
+
+// Вспомогательные функции
+const getFriendRequestsFromStorage = async (): Promise<any[]> => {
+  try {
+    const requestsData = await AsyncStorage.getItem('friend_requests');
+    return requestsData ? JSON.parse(requestsData) : [];
+  } catch (error) {
+    console.log('Ошибка загрузки запросов дружбы:', error);
+    return [];
+  }
+};
+
+const getFriendshipsFromStorage = async (): Promise<any[]> => {
+  try {
+    const friendshipsData = await AsyncStorage.getItem('friendships');
+    return friendshipsData ? JSON.parse(friendshipsData) : [];
+  } catch (error) {
+    console.log('Ошибка загрузки дружб:', error);
+    return [];
+  }
+};
+
+export const removeFriend = async (userId1: string, userId2: string): Promise<boolean> => {
+  try {
+    const friendships = await getFriendshipsFromStorage();
+    const updatedFriendships = friendships.filter(friendship => 
+      !((friendship.userId1 === userId1 && friendship.userId2 === userId2) ||
+        (friendship.userId1 === userId2 && friendship.userId2 === userId1))
+    );
+    
+    await AsyncStorage.setItem('friendships', JSON.stringify(updatedFriendships));
+    console.log('✅ Друг удален');
+    return true;
+  } catch (error) {
+    console.log('Ошибка удаления друга:', error);
+    return false;
+  }
+};
+
+export const cancelFriendRequest = async (fromId: string, toId: string): Promise<boolean> => {
+  try {
+    const requests = await getFriendRequestsFromStorage();
+    const updatedRequests = requests.filter(req => 
+      !(req.fromId === fromId && req.toId === toId && req.status === 'pending')
+    );
+    
+    await AsyncStorage.setItem('friend_requests', JSON.stringify(updatedRequests));
+    console.log('✅ Запрос дружбы отменен');
+    return true;
+  } catch (error) {
+    console.log('Ошибка отмены запроса дружбы:', error);
+    return false;
+  }
+};
+
+export const getFriends = async (userId: string): Promise<Player[]> => {
+  try {
+    const friendships = await getFriendshipsFromStorage();
+    const friendIds = friendships
+      .filter(friendship => 
+        friendship.userId1 === userId || friendship.userId2 === userId
+      )
+      .map(friendship => 
+        friendship.userId1 === userId ? friendship.userId2 : friendship.userId1
+      );
+    
+    const players = await loadPlayers();
+    return players.filter(player => friendIds.includes(player.id));
+  } catch (error) {
+    console.log('Ошибка получения друзей:', error);
+    return [];
+  }
+};
+
+export const getReceivedFriendRequests = async (userId: string): Promise<Player[]> => {
+  try {
+    const requests = await getFriendRequestsFromStorage();
+    const receivedRequestIds = requests
+      .filter(req => req.toId === userId && req.status === 'pending')
+      .map(req => req.fromId);
+    
+    const players = await loadPlayers();
+    return players.filter(player => receivedRequestIds.includes(player.id));
+  } catch (error) {
+    console.log('Ошибка получения полученных запросов дружбы:', error);
+    return [];
+  }
+};
+
+// Функции для уведомлений
+export const loadNotifications = async (userId?: string): Promise<any[]> => {
+  try {
+    const notificationsData = await AsyncStorage.getItem('notifications');
+    const notifications = notificationsData ? JSON.parse(notificationsData) : [];
+    return userId ? notifications.filter((n: any) => n.userId === userId) : notifications;
+  } catch (error) {
+    console.log('Ошибка загрузки уведомлений:', error);
+    return [];
+  }
+};
+
+export const markNotificationAsRead = async (notificationId: string): Promise<void> => {
+  try {
+    const notifications = await loadNotifications();
+    const updatedNotifications = notifications.map((notification: any) => 
+      notification.id === notificationId ? { ...notification, isRead: true } : notification
+    );
+    await AsyncStorage.setItem('notifications', JSON.stringify(updatedNotifications));
+  } catch (error) {
+    console.log('Ошибка отметки уведомления как прочитанного:', error);
+  }
+};
+
+export const deleteNotification = async (notificationId: string): Promise<void> => {
+  try {
+    const notifications = await loadNotifications();
+    const updatedNotifications = notifications.filter((notification: any) => notification.id !== notificationId);
+    await AsyncStorage.setItem('notifications', JSON.stringify(updatedNotifications));
+  } catch (error) {
+    console.log('Ошибка удаления уведомления:', error);
+  }
+};
+
+// Функции для сообщений
+export const sendMessage = async (senderId: string, receiverId: string, text: string): Promise<any> => {
+  try {
+    const messages = await getMessagesFromStorage();
+    const newMessage = {
+      id: Date.now().toString(),
+      senderId,
+      receiverId,
+      text,
+      timestamp: new Date(),
+      isRead: false
+    };
+    
+    messages.push(newMessage);
+    await AsyncStorage.setItem('messages', JSON.stringify(messages));
+    
+    console.log('✅ Сообщение отправлено');
+    return newMessage;
+  } catch (error) {
+    console.log('Ошибка отправки сообщения:', error);
+    throw error;
+  }
+};
+
+export const getMessages = async (userId1: string, userId2: string): Promise<any[]> => {
+  try {
+    const messages = await getMessagesFromStorage();
+    return messages.filter(msg => 
+      (msg.senderId === userId1 && msg.receiverId === userId2) ||
+      (msg.senderId === userId2 && msg.receiverId === userId1)
+    );
+  } catch (error) {
+    console.log('Ошибка получения сообщений:', error);
+    return [];
+  }
+};
+
+export const getConversation = async (userId1: string, userId2: string): Promise<any[]> => {
+  try {
+    const messages = await getMessages(userId1, userId2);
+    return messages.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+  } catch (error) {
+    console.log('Ошибка получения диалога:', error);
+    return [];
+  }
+};
+
+const getMessagesFromStorage = async (): Promise<any[]> => {
+  try {
+    const messagesData = await AsyncStorage.getItem('messages');
+    return messagesData ? JSON.parse(messagesData) : [];
+  } catch (error) {
+    console.log('Ошибка загрузки сообщений:', error);
+    return [];
+  }
+};
+
+export const getUserConversations = async (userId: string): Promise<any[]> => {
+  try {
+    const messages = await getMessagesFromStorage();
+    const userMessages = messages.filter(msg => 
+      msg.senderId === userId || msg.receiverId === userId
+    );
+    
+    // Группируем сообщения по собеседникам
+    const conversations = new Map();
+    userMessages.forEach(msg => {
+      const otherUserId = msg.senderId === userId ? msg.receiverId : msg.senderId;
+      if (!conversations.has(otherUserId)) {
+        conversations.set(otherUserId, {
+          userId: otherUserId,
+          lastMessage: msg,
+          unreadCount: 0
+        });
+      } else {
+        const conv = conversations.get(otherUserId);
+        if (new Date(msg.timestamp) > new Date(conv.lastMessage.timestamp)) {
+          conv.lastMessage = msg;
+        }
+      }
+      
+      // Подсчитываем непрочитанные сообщения
+      if (msg.receiverId === userId && !msg.isRead) {
+        const conv = conversations.get(otherUserId);
+        conv.unreadCount++;
+      }
+    });
+    
+    return Array.from(conversations.values());
+  } catch (error) {
+    console.log('Ошибка получения диалогов пользователя:', error);
+    return [];
+  }
+};
+export const getUnreadMessageCount = async (userId: string): Promise<number> => {
+  try {
+    const messages = await getMessagesFromStorage();
+    const unreadMessages = messages.filter(msg => 
+      msg.receiverId === userId && !msg.isRead
+    );
+    return unreadMessages.length;
+  } catch (error) {
+    console.log('Ошибка получения количества непрочитанных сообщений:', error);
+    return 0;
+  }
+};
 export const calculateHockeyExperience = (startDate?: string): string => {
   if (!startDate) return '';
   try {
@@ -285,7 +619,8 @@ export const calculateHockeyExperience = (startDate?: string): string => {
       months += 12;
     }
     return years > 0 ? `${years} лет` : `${months} мес.`;
-  } catch {
+  } catch (error) {
+    console.log('Ошибка расчета опыта хоккея:', error);
     return '';
   }
 }; 

@@ -143,12 +143,7 @@ export default function PersonalCabinetScreen() {
     }, [])
   );
 
-  // Функция для принудительного обновления данных (для отладки)
-  const forceRefresh = async () => {
-    console.log('Принудительное обновление данных...');
-    setLoading(true);
-    await loadUserData();
-  };
+
 
 
 
@@ -269,7 +264,7 @@ export default function PersonalCabinetScreen() {
       const updatedUser = { ...currentUser, ...editData, favoriteGoals: goalsText };
       console.log('Обновленный пользователь:', updatedUser);
       console.log('📸 Фото в обновленном пользователе:', updatedUser.photo, 'аватар:', updatedUser.avatar);
-      await updatePlayer(currentUser.id, editData);
+      await updatePlayer(currentUser.id, updatedUser);
       console.log('Пользователь обновлен в хранилище');
       
       // Обновляем текущего пользователя в хранилище
@@ -280,12 +275,22 @@ export default function PersonalCabinetScreen() {
       setIsEditing(false);
       console.log('Режим редактирования выключен');
       
+      // Обновляем локальное состояние для отображения новых видео
+      if (updatedUser.favoriteGoals) {
+        const goals = updatedUser.favoriteGoals.split('\n').filter(goal => goal.trim());
+        const videoData = goals.map(goal => {
+          const { url, timeCode } = parseVideoUrl(goal);
+          return { url, timeCode: timeCode || '' };
+        });
+        setVideoFields(videoData.length > 0 ? videoData : [{ url: '', timeCode: '' }]);
+      }
+      
       // Принудительно обновляем заголовок и список игроков
       setTimeout(() => {
         // Это заставит заголовок перезагрузить данные
         router.setParams({ refresh: Date.now().toString() });
-        // Принудительно обновляем список игроков на главном экране
-        router.push('/');
+        // Принудительно обновляем список игроков на главном экране с параметром обновления
+        router.push({ pathname: '/', params: { refresh: Date.now().toString() } });
       }, 100);
       
       showAlert('Успешно', 'Данные обновлены', 'success');
@@ -430,9 +435,30 @@ export default function PersonalCabinetScreen() {
 
   // Функция для парсинга URL и таймкода
   const parseVideoUrl = (input: string): { url: string; timeCode?: string } => {
+    // Извлекаем таймкод из формата "(время: MM:SS)"
     const timeMatch = input.match(/\(время:\s*(\d{1,2}:\d{2})\)/);
     const timeCode = timeMatch ? timeMatch[1] : undefined;
-    const url = input.replace(/\s*\(время:\s*\d{1,2}:\d{2}\)/, '').trim();
+    
+    // Убираем таймкод из строки и очищаем URL
+    let url = input.replace(/\s*\(время:\s*\d{1,2}:\d{2}\)/, '').trim();
+    
+    // Проверяем, что это действительно YouTube ссылка (регистронезависимо)
+    const cleanUrl = url.trim();
+    const youtubePatterns = [
+      /youtube\.com\/watch\?v=/i,
+      /youtu\.be\//i,
+      /youtube\.com\/embed\//i,
+      /youtube\.com\/shorts\//i,
+      /youtube\.com\/live\//i,
+      /m\.youtube\.com\/watch\?v=/i
+    ];
+    
+    const isValidYouTubeUrl = youtubePatterns.some(pattern => pattern.test(cleanUrl));
+    
+    if (!isValidYouTubeUrl) {
+      console.warn('Неверный формат YouTube ссылки:', url);
+    }
+    
     return { url, timeCode };
   };
 
@@ -503,39 +529,7 @@ export default function PersonalCabinetScreen() {
     });
   };
 
-  const handleResetData = async () => {
-    setAlert({
-      visible: true,
-      title: 'Сброс данных',
-      message: 'Это действие перезагрузит все данные приложения (звезды, сообщения, уведомления). Ваши личные данные сохранятся. Продолжить?',
-      type: 'warning',
-      onConfirm: async () => {
-        try {
-          const success = await forceInitializeStorage();
-          if (success) {
-            showAlert('Успешно', 'Данные приложения перезагружены', 'success', async () => {
-              setAlert(prev => ({ ...prev, visible: false }));
-              setLoading(true);
-              await loadUserData();
-              setLoading(false);
-            });
-          } else {
-            showAlert('Ошибка', 'Не удалось перезагрузить данные', 'error');
-          }
-        } catch (error) {
-          console.error('Ошибка при сбросе данных:', error);
-          showAlert('Ошибка', 'Не удалось перезагрузить данные', 'error');
-        }
-      },
-      onCancel: () => setAlert(prev => ({ ...prev, visible: false })),
-      onSecondary: () => {},
-      showCancel: true,
-      showSecondary: false,
-      confirmText: 'Сбросить',
-      cancelText: 'Отмена',
-      secondaryText: 'Дополнительно'
-    });
-  };
+
 
   if (loading) {
     return (
@@ -565,36 +559,46 @@ export default function PersonalCabinetScreen() {
 
             {/* Фото и основная информация */}
             <View style={styles.profileSection}>
-              <TouchableOpacity onPress={isEditing ? pickImage : undefined}>
-                <Image 
-                  source={
-                    (editData.photo && typeof editData.photo === 'string' && (
-                      editData.photo.startsWith('data:image/') || 
-                      editData.photo.startsWith('http') || 
-                      editData.photo.startsWith('file://') || 
-                      editData.photo.startsWith('content://')
-                    )) || (editData.avatar && typeof editData.avatar === 'string' && (
-                      editData.avatar.startsWith('data:image/') || 
-                      editData.avatar.startsWith('http') || 
-                      editData.avatar.startsWith('file://') || 
-                      editData.avatar.startsWith('content://')
-                    )) || (currentUser.photo && typeof currentUser.photo === 'string' && (
-                      currentUser.photo.startsWith('data:image/') || 
-                      currentUser.photo.startsWith('http') || 
-                      currentUser.photo.startsWith('file://') || 
-                      currentUser.photo.startsWith('content://')
-                    )) || (currentUser.avatar && typeof currentUser.avatar === 'string' && (
-                      currentUser.avatar.startsWith('data:image/') || 
-                      currentUser.avatar.startsWith('http') || 
-                      currentUser.avatar.startsWith('file://') || 
-                      currentUser.avatar.startsWith('content://')
-                    ))
-                      ? { uri: editData.photo || editData.avatar || currentUser.photo || currentUser.avatar }
-                      : require('../assets/images/me.jpg')
+              <TouchableOpacity onPress={isEditing ? pickImage : undefined} style={styles.photoContainer}>
+                {(() => {
+                  const hasValidImage = (editData.photo && typeof editData.photo === 'string' && (
+                    editData.photo.startsWith('data:image/') || 
+                    editData.photo.startsWith('http') || 
+                    editData.photo.startsWith('file://') || 
+                    editData.photo.startsWith('content://')
+                  )) || (editData.avatar && typeof editData.avatar === 'string' && (
+                    editData.avatar.startsWith('data:image/') || 
+                    editData.avatar.startsWith('http') || 
+                    editData.avatar.startsWith('file://') || 
+                    editData.avatar.startsWith('content://')
+                  )) || (currentUser?.photo && typeof currentUser.photo === 'string' && (
+                    currentUser.photo.startsWith('data:image/') || 
+                    currentUser.photo.startsWith('http') || 
+                    currentUser.photo.startsWith('file://') || 
+                    currentUser.photo.startsWith('content://')
+                  )) || (currentUser?.avatar && typeof currentUser.avatar === 'string' && (
+                    currentUser.avatar.startsWith('data:image/') || 
+                    currentUser.avatar.startsWith('http') || 
+                    currentUser.avatar.startsWith('file://') || 
+                    currentUser.avatar.startsWith('content://')
+                  ));
+
+                  if (hasValidImage) {
+                    return (
+                      <Image 
+                        source={{ uri: editData.photo || editData.avatar || currentUser?.photo || currentUser?.avatar }}
+                        style={styles.profileImage}
+                        onError={() => console.log('Ошибка загрузки изображения')}
+                      />
+                    );
+                  } else {
+                    return (
+                      <View style={[styles.profileImage, styles.avatarPlaceholder]}>
+                        <Ionicons name="person" size={48} color="#FFFFFF" />
+                      </View>
+                    );
                   }
-                  style={styles.profileImage}
-                  onError={() => console.log('Ошибка загрузки изображения')}
-                />
+                })()}
                 {isEditing && (
                   <View style={styles.editOverlay}>
                     <Ionicons name="camera" size={24} color="#fff" />
@@ -649,13 +653,7 @@ export default function PersonalCabinetScreen() {
                   <Ionicons name={isEditing ? "checkmark" : "create"} size={25} color="#fff" />
                 </TouchableOpacity>
                 
-                {/* Кнопка синхронизации */}
-                <TouchableOpacity 
-                  style={[styles.editButton, { marginLeft: 10 }]} 
-                  onPress={() => router.push('/sync')}
-                >
-                  <Ionicons name="sync" size={25} color="#FF4444" />
-                </TouchableOpacity>
+
                 
                 {/* Кнопка панели администратора */}
                 {currentUser.status === 'admin' && (
@@ -671,34 +669,7 @@ export default function PersonalCabinetScreen() {
                   </TouchableOpacity>
                 )}
                 
-                {/* Кнопка принудительного сброса данных */}
-                <TouchableOpacity 
-                  style={[styles.editButton, { marginLeft: 10 }]} 
-                  onPress={() => {
-                    Alert.alert(
-                      'Сброс данных',
-                      'Это пересоздаст все данные с администратором. Продолжить?',
-                      [
-                        { text: 'Отмена', style: 'cancel' },
-                        { 
-                          text: 'Сбросить', 
-                          style: 'destructive',
-                          onPress: async () => {
-                            try {
-                              await forceInitializeStorage();
-                              await refreshFriends(); // Assuming refreshFriends is the correct function to call after reset
-                              Alert.alert('Успешно', 'Данные сброшены. Администратор: admin@hockeystars.com / admin123');
-                            } catch (error) {
-                              Alert.alert('Ошибка', 'Не удалось сбросить данные');
-                            }
-                          }
-                        }
-                      ]
-                    );
-                  }}
-                >
-                  <Ionicons name="refresh" size={25} color="#FF6B6B" />
-                </TouchableOpacity>
+
               </View>
               {currentUser.status !== 'admin' && (
                 <>
@@ -1019,12 +990,15 @@ export default function PersonalCabinetScreen() {
               </View>
             )}
 
+
+
             {/* Видео моих моментов */}
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Видео моих моментов</Text>
               {isEditing && (
                 <Text style={styles.sectionSubtitle}>
-                  Добавьте ссылку на YouTube видео и время начала момента (формат: минуты:секунды, например: 1:25)
+                  Добавьте ссылку на YouTube видео и время начала момента (формат: минуты:секунды, например: 1:25){'\n'}
+                  Поддерживаются: youtube.com/watch?v=, youtu.be/, youtube.com/shorts/, youtube.com/live/, m.youtube.com/
                 </Text>
               )}
                 {isEditing ? (
@@ -1039,7 +1013,7 @@ export default function PersonalCabinetScreen() {
                             newVideoFields[index] = { ...newVideoFields[index], url: text };
                             setVideoFields(newVideoFields);
                           }}
-                          placeholder="https://youtube.com/watch?v=..."
+                          placeholder="https://youtube.com/watch?v=... или youtube.com/live/..."
                           placeholderTextColor="#888"
                         />
                         <TextInput
@@ -1213,6 +1187,8 @@ export default function PersonalCabinetScreen() {
                 </View>
               </View>
             ))}
+
+
 
             {/* Фотографии - только для игроков (не звезд) */}
             {currentUser.status === 'player' && (
@@ -1445,16 +1421,8 @@ export default function PersonalCabinetScreen() {
               </View>
             )}
             
-            {/* Кнопки управления */}
+            {/* Кнопка выхода */}
             <View style={styles.logoutContainer}>
-              <TouchableOpacity 
-                style={[styles.logoutButton, styles.resetButton]} 
-                onPress={handleResetData}
-              >
-                <Ionicons name="refresh-outline" size={20} color="#fff" />
-                <Text style={styles.logoutButtonText}>Сбросить данные</Text>
-              </TouchableOpacity>
-              
               <TouchableOpacity 
                 style={styles.logoutButton} 
                 onPress={handleLogout}
@@ -1587,13 +1555,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 30,
   },
+  photoContainer: {
+    borderRadius: 60,
+    overflow: 'hidden',
+    marginBottom: 15,
+  },
   profileImage: {
     width: 120,
     height: 120,
     borderRadius: 60,
     borderWidth: 3,
     borderColor: '#FF4444',
-    marginBottom: 15,
+  },
+  avatarPlaceholder: {
+    backgroundColor: '#2C3E50',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   editOverlay: {
     position: 'absolute',
@@ -2036,7 +2013,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Gilroy-Regular',
     color: '#666',
     textAlign: 'center',
-    marginTop: 5,
+        marginTop: 5,
   },
   sectionHeader: {
     flexDirection: 'row',

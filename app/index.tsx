@@ -1,24 +1,22 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { 
-  View, 
-  Text, 
-  TouchableOpacity, 
-  StyleSheet, 
-  ImageBackground,
-  Dimensions,
-  Alert,
-  Modal
-} from 'react-native';
-import { useRouter, useFocusEffect } from 'expo-router';
+
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
-import Animated, { 
-  useAnimatedStyle, 
-  useSharedValue,
-  withSpring
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useState } from 'react';
+import {
+  Dimensions,
+  ImageBackground,
+  Modal,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
+} from 'react-native';
+import Animated, {
+  useAnimatedStyle
 } from 'react-native-reanimated';
 import Puck from '../components/Puck';
-import { Player, initializeStorage, loadCurrentUser, loadPlayers, fixCorruptedData } from '../utils/playerStorage';
+import { Player, fixCorruptedData, initializeStorage, loadCurrentUser, loadPlayers } from '../utils/playerStorage';
 
 const { width, height } = Dimensions.get('window');
 
@@ -32,7 +30,7 @@ interface PuckPosition {
 }
 
 const usePuckCollisionSystem = (players: Player[]) => {
-  const puckSize = 98;
+  const puckSize = 70; // Уменьшаем размер столкновения до видимой части шайбы
   const [puckPositions, setPuckPositions] = useState<PuckPosition[]>([]);
 
   useEffect(() => {
@@ -48,10 +46,10 @@ const usePuckCollisionSystem = (players: Player[]) => {
         } else {
           nextPositions.push({
             id: player.id,
-            x: 10 + Math.random() * (width - 20 - puckSize),
-            y: 10 + Math.random() * (height - 230 - puckSize),
-            vx: (Math.random() - 0.5) * 2,
-            vy: (Math.random() - 0.5) * 2,
+            x: 15 + Math.random() * (width - 30 - puckSize),
+            y: 15 + Math.random() * (height - 250 - puckSize),
+            vx: (Math.random() - 0.5) * 0.067,
+            vy: (Math.random() - 0.5) * 0.067,
             size: puckSize,
           });
         }
@@ -73,13 +71,13 @@ const usePuckCollisionSystem = (players: Player[]) => {
           let newVy = pos.vy;
 
           // Обработка коллизий со стенами
-          if (newX <= 10 || newX >= width - 20 - puckSize) {
+          if (newX <= 15 || newX >= width - 25 - puckSize) {
             newVx = -newVx * 0.8;
-            newX = Math.max(10, Math.min(width - 20 - puckSize, newX));
+            newX = Math.max(15, Math.min(width - 25 - puckSize, newX));
           }
-          if (newY <= 10 || newY >= height - 230 - puckSize) {
+          if (newY <= 15 || newY >= height - 235 - puckSize) {
             newVy = -newVy * 0.8;
-            newY = Math.max(10, Math.min(height - 230 - puckSize, newY));
+            newY = Math.max(15, Math.min(height - 235 - puckSize, newY));
           }
 
           // Коллизии между шайбами
@@ -90,14 +88,34 @@ const usePuckCollisionSystem = (players: Player[]) => {
             const dy = newY - otherPos.y;
             const distance = Math.sqrt(dx * dx + dy * dy);
             
-            if (distance < puckSize && distance > 0) {
+            // Диаметр столкновения
+            const collisionDiameter = puckSize * 1.1;
+            
+            if (distance < collisionDiameter && distance > 0) {
               const angle = Math.atan2(dy, dx);
-              const force = (puckSize - distance) / puckSize;
+              const force = (collisionDiameter - distance) / collisionDiameter;
               
-              newVx += Math.cos(angle) * force * 0.5;
-              newVy += Math.sin(angle) * force * 0.5;
+              // Слабое отталкивание для предотвращения наезжания
+              newVx += Math.cos(angle) * force * 0.1;
+              newVy += Math.sin(angle) * force * 0.1;
+              
+              // Дополнительное отталкивание при очень близком расстоянии
+              if (distance < collisionDiameter * 0.7) {
+                newVx += Math.cos(angle) * 0.2;
+                newVy += Math.sin(angle) * 0.2;
+              }
             }
           });
+          
+          // Минимальная скорость для предотвращения остановки
+          const minSpeed = 0.1;
+          const currentSpeed = Math.sqrt(newVx * newVx + newVy * newVy);
+          
+          if (currentSpeed < minSpeed) {
+            const angle = Math.random() * 2 * Math.PI;
+            newVx = Math.cos(angle) * minSpeed;
+            newVy = Math.sin(angle) * minSpeed;
+          }
           
           return {
             ...pos,
@@ -150,10 +168,12 @@ const iceBg = require('../assets/images/led.jpg');
 
 export default function HomeScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams();
   const [players, setPlayers] = useState<Player[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<Player | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const { puckPositions = [] } = usePuckCollisionSystem(players);
 
@@ -205,6 +225,15 @@ export default function HomeScreen() {
     }, [refreshPlayers, checkForNewUser])
   );
 
+  // Обработка параметра refresh для принудительного обновления
+  useEffect(() => {
+    if (params.refresh) {
+      console.log('Принудительное обновление главного экрана');
+      refreshPlayers();
+      checkForNewUser();
+    }
+  }, [params.refresh, refreshPlayers, checkForNewUser]);
+
   useEffect(() => {
     const interval = setInterval(() => {
       checkForNewUser();
@@ -252,54 +281,7 @@ export default function HomeScreen() {
           );
         })}
 
-        {/* Кнопки управления */}
-        <View style={styles.authButtons}>
-          <TouchableOpacity 
-            style={styles.authButton} 
-            onPress={() => router.push('/login')}
-          >
-            <Ionicons name="log-in" size={24} color="#fff" />
-            <Text style={styles.authButtonText}>Войти</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={styles.authButton} 
-            onPress={() => router.push('/register')}
-          >
-            <Ionicons name="person-add" size={24} color="#fff" />
-            <Text style={styles.authButtonText}>Регистрация</Text>
-          </TouchableOpacity>
-
-          {currentUser && (
-            <>
-              <TouchableOpacity 
-                style={styles.authButton} 
-                onPress={() => router.push('/profile')}
-              >
-                <Ionicons name="person" size={24} color="#fff" />
-                <Text style={styles.authButtonText}>Профиль</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity 
-                style={styles.authButton} 
-                onPress={() => router.push('/chat')}
-              >
-                <Ionicons name="chatbubbles" size={24} color="#fff" />
-                <Text style={styles.authButtonText}>Чат</Text>
-              </TouchableOpacity>
-
-              {currentUser.status === 'admin' && (
-                <TouchableOpacity 
-                  style={[styles.authButton, styles.adminButton]} 
-                  onPress={() => router.push('/admin')}
-                >
-                  <Ionicons name="people" size={24} color="#fff" />
-                  <Text style={styles.authButtonText}>Редактировать игроков</Text>
-                </TouchableOpacity>
-              )}
-            </>
-          )}
-        </View>
+        
 
         {/* Модальное окно авторизации */}
         <Modal
@@ -349,16 +331,20 @@ const styles = StyleSheet.create({
     flex: 1,
     width: '100%',
     height: '100%',
+    borderRadius: 60,
+    overflow: 'hidden',
+    borderWidth: 4,
+    borderColor: '#666',
   },
   innerBorder: {
     position: 'absolute',
-    top: 10,
-    left: 10,
-    right: 10,
-    bottom: 240,
+    top: 15,
+    left: 15,
+    right: 15,
+    bottom: 245,
     borderWidth: 3,
     borderColor: 'rgba(255, 255, 255, 0.3)',
-    borderRadius: 20,
+    borderRadius: 50,
   },
   puckContainer: {
     position: 'absolute',
@@ -373,35 +359,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontFamily: 'Gilroy-Bold',
   },
-  authButtons: {
-    position: 'absolute',
-    bottom: 20,
-    left: 20,
-    right: 20,
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    flexWrap: 'wrap',
-    gap: 10,
-  },
-  authButton: {
-    backgroundColor: 'rgba(255, 68, 68, 0.9)',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    minWidth: 120,
-    justifyContent: 'center',
-  },
-  adminButton: {
-    backgroundColor: 'rgba(255, 68, 68, 0.9)',
-  },
-  authButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontFamily: 'Gilroy-Bold',
-    marginLeft: 8,
-  },
+  
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
