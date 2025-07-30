@@ -1,0 +1,10 @@
+[33ma03de52[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mrestored-working-version[m[33m)[m Fix registration OK button
+[33mfc839ad[m Fix login OK button - simplified alert logic
+[33m375fce0[m Fix alert state update bug - buttons now work correctly
+[33m8dfe357[m[33m ([m[1;31morigin/restored-working-version[m[33m)[m Restore working version with animated pucks and local storage - July 24 version
+[33m4b68965[m[33m ([m[1;31morigin/main[m[33m, [m[1;32mmain[m[33m)[m Fix players route - remove auth middleware for public access
+[33m2d2dd6b[m Add server sync functionality - export local players to server database
+[33m200097a[m Revert to local data - server API requires authentication
+[33m2ea8986[m Temporarily revert to local data while server is down
+[33mc3c813b[m Switch to server data for players list - now loads from API instead of local storage
+[33mb33714a[m Fix style errors - replace deprecated Typography and Spacing properties

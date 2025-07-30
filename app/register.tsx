@@ -8,13 +8,14 @@ import {
   ScrollView, 
   ImageBackground,
   Platform,
-  Image 
+  Image,
+  Alert
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { addPlayer, Player } from '../utils/playerStorage';
+import { addPlayer, Player, saveCurrentUser } from '../utils/playerStorage';
 import CustomAlert from '../components/CustomAlert';
 
 const iceBg = require('../assets/images/led.jpg');
@@ -71,81 +72,95 @@ export default function RegisterScreen() {
   };
 
   const pickImage = async () => {
-    setAlert({
-      visible: true,
-      title: 'Выберите источник фото',
-      message: 'Откуда хотите загрузить фото?',
-      type: 'info',
-      onConfirm: () => {
-        setAlert(prev => ({ ...prev, visible: false }));
-        pickFromGallery();
-      },
-      onSecondary: () => {
-        setAlert(prev => ({ ...prev, visible: false }));
-        takePhoto();
-      },
-      onCancel: () => setAlert(prev => ({ ...prev, visible: false })),
-      showCancel: true,
-      showSecondary: true,
-      confirmText: 'Галерея',
-      secondaryText: 'Камера',
-      cancelText: 'Отмена'
-    });
+    console.log('📸 pickImage вызван');
+    // Показываем системное окно выбора источника фото
+    Alert.alert(
+      'Выберите источник фото',
+      'Откуда хотите загрузить фото?',
+      [
+        {
+          text: 'Галерея',
+          onPress: () => {
+            console.log('📸 Выбрана галерея');
+            pickFromGallery();
+          }
+        },
+        {
+          text: 'Камера',
+          onPress: () => {
+            console.log('📸 Выбрана камера');
+            takePhoto();
+          }
+        },
+        {
+          text: 'Отмена',
+          style: 'cancel'
+        }
+      ]
+    );
   };
 
   const pickFromGallery = async () => {
-    // Запрашиваем разрешение на доступ к галерее
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    
-    if (status !== 'granted') {
-      setAlert({
-        visible: true,
-        title: 'Ошибка',
-        message: 'Нужно разрешение для доступа к галерее',
-        type: 'error',
-        onConfirm: () => setAlert(prev => ({ ...prev, visible: false })),
-        onCancel: () => {},
-        onSecondary: () => {},
-        showCancel: false,
-        showSecondary: false,
-        confirmText: 'OK',
-        cancelText: 'Отмена',
-        secondaryText: 'Дополнительно'
+    try {
+      console.log('📸 pickFromGallery вызван');
+      // Запрашиваем разрешение на доступ к галерее
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      console.log('📸 Разрешение галереи:', status);
+      
+      if (status !== 'granted') {
+        Alert.alert('Ошибка', 'Нужно разрешение для доступа к галерее');
+        return;
+      }
+
+      // Открываем галерею для выбора фото
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
       });
-      return;
-    }
 
-    // Открываем галерею для выбора фото
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-    });
+      console.log('📸 Результат выбора из галереи:', result);
 
-    if (!result.canceled && result.assets[0]) {
-      setFormData({...formData, photo: result.assets[0].uri});
+      if (!result.canceled && result.assets[0]) {
+        console.log('📸 Фото выбрано:', result.assets[0].uri);
+        setFormData({...formData, photo: result.assets[0].uri});
+      }
+    } catch (error) {
+      console.error('❌ Ошибка выбора фото из галереи:', error);
+      Alert.alert('Ошибка', 'Не удалось загрузить фото из галереи.');
     }
   };
 
   const takePhoto = async () => {
-    // Запрашиваем разрешение на доступ к камере
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    
-    if (status !== 'granted') {
-      showAlert('Ошибка', 'Нужно разрешение для доступа к камере', 'error');
-      return;
-    }
+    try {
+      console.log('📸 takePhoto вызван');
+      // Запрашиваем разрешение на доступ к камере
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      console.log('📸 Разрешение камеры:', status);
+      
+      if (status !== 'granted') {
+        Alert.alert('Ошибка', 'Нужно разрешение для доступа к камере');
+        return;
+      }
 
-    // Открываем камеру для съемки фото
-    const result = await ImagePicker.launchCameraAsync({
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-    });
+      // Открываем камеру для съемки фото
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
 
-    if (!result.canceled && result.assets[0]) {
-      setFormData({...formData, photo: result.assets[0].uri});
+      console.log('📸 Результат съемки:', result);
+
+      if (!result.canceled && result.assets[0]) {
+        console.log('📸 Фото снято:', result.assets[0].uri);
+        setFormData({...formData, photo: result.assets[0].uri});
+      }
+    } catch (error) {
+      console.error('❌ Ошибка при съемке фото:', error);
+      Alert.alert('Ошибка', 'Не удалось снять фото');
     }
   };
 
@@ -195,7 +210,7 @@ export default function RegisterScreen() {
     try {
       // Добавляем игрока в хранилище
       const newPlayer = await addPlayer({
-        username: formData.username,
+        email: formData.username, // Используем username как email для входа
         password: formData.password,
         name: formData.name,
         status: formData.status,
@@ -206,10 +221,15 @@ export default function RegisterScreen() {
         grip: formData.grip,
         height: formData.height,
         weight: formData.weight,
-        avatar: formData.photo || 'https://via.placeholder.com/150/333/fff?text=Player',
+        photo: formData.photo || 'new_player', // Используем photo вместо avatar
+        avatar: formData.photo || 'new_player', // Также сохраняем в avatar для совместимости
       });
       
       console.log('Регистрация игрока:', newPlayer);
+      
+      // Автоматически входим в систему
+      await saveCurrentUser(newPlayer);
+      console.log('✅ Пользователь автоматически вошел в систему:', newPlayer.name);
       
       // Показываем успешное сообщение
       showAlert(

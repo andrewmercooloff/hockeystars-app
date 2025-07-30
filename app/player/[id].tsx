@@ -13,7 +13,7 @@ import {
   Modal
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { getPlayerById, loadCurrentUser, Player, addFriend, removeFriend, areFriends, getFriends, sendMessage, sendFriendRequest, acceptFriendRequest, declineFriendRequest, cancelFriendRequest, getFriendshipStatus, calculateHockeyExperience } from '../../utils/playerStorage';
+import { getPlayerById, loadCurrentUser, Player, addFriend, removeFriend, areFriends, getFriends, sendMessage, sendFriendRequest, acceptFriendRequest, declineFriendRequest, cancelFriendRequest, getFriendshipStatus } from '../../utils/playerStorage';
 import YouTubeVideo from '../../components/YouTubeVideo';
 import CustomAlert from '../../components/CustomAlert';
 import PhotosSection from '../../components/PhotosSection';
@@ -49,6 +49,37 @@ export default function PlayerProfile() {
   const [showAlert, setShowAlert] = useState(false);
   const [alertMessage, setAlertMessage] = useState('');
   const [alertType, setAlertType] = useState<'success' | 'error' | 'info'>('info');
+
+  // Локальная функция для расчета опыта в хоккее (временное решение)
+  const calculateHockeyExperience = (startDate?: string): string => {
+    console.log('🔧 Локальная calculateHockeyExperience вызвана с:', startDate);
+    if (!startDate) return '';
+    try {
+      const [month, year] = startDate.split('.');
+      const start = new Date(parseInt(year), parseInt(month) - 1);
+      const now = new Date();
+      let years = now.getFullYear() - start.getFullYear();
+      let months = now.getMonth() - start.getMonth();
+      if (months < 0) {
+        years--;
+        months += 12;
+      }
+      
+      // Правильное склонение для русского языка
+      const getYearWord = (num: number): string => {
+        if (num === 1) return 'год';
+        if (num >= 2 && num <= 4) return 'года';
+        return 'лет';
+      };
+      
+      const result = years > 0 ? `${years} ${getYearWord(years)}` : `${months} мес.`;
+      console.log('🔧 Локальная calculateHockeyExperience результат:', result);
+      return result;
+    } catch (error) {
+      console.error('❌ Ошибка в локальной calculateHockeyExperience:', error);
+      return '';
+    }
+  };
 
   useEffect(() => {
     loadPlayerData();
@@ -283,6 +314,18 @@ export default function PlayerProfile() {
                   <View style={styles.numberBadge}>
                     <Text style={styles.numberText}>#{player.number}</Text>
                   </View>
+                )}
+                {/* Кнопка редактирования для администратора */}
+                {currentUser?.status === 'admin' && (
+                  <TouchableOpacity 
+                    style={styles.editButton} 
+                    onPress={() => {
+                      console.log('🔧 Админ редактирует игрока:', player.name);
+                      router.push({ pathname: '/admin', params: { editPlayerId: player.id } });
+                    }}
+                  >
+                    <Ionicons name="create" size={20} color="#8A2BE2" />
+                  </TouchableOpacity>
                 )}
               </View>
               <View style={styles.statusContainer}>
@@ -540,7 +583,8 @@ export default function PlayerProfile() {
               (currentUser && currentUser.id === player.id) || 
               friendshipStatus === 'friends' || 
               currentUser?.status === 'coach' || 
-              currentUser?.status === 'scout' ? (
+              currentUser?.status === 'scout' ||
+              currentUser?.status === 'admin' ? (
                 <PhotosSection photos={player.photos} />
               ) : (
                 <View style={styles.section}>
@@ -561,7 +605,8 @@ export default function PlayerProfile() {
               (currentUser && currentUser.id === player.id) || 
               friendshipStatus === 'friends' || 
               currentUser?.status === 'coach' || 
-              currentUser?.status === 'scout' ? (
+              currentUser?.status === 'scout' ||
+              currentUser?.status === 'admin' ? (
                 <NormativesSection
                   pullUps={player.pullUps}
                   pushUps={player.pushUps}
@@ -1117,6 +1162,9 @@ const styles = StyleSheet.create({
     color: '#ccc',
     textAlign: 'center',
     lineHeight: 20,
+  },
+  editButton: {
+    marginLeft: 10,
   },
 
 }); 

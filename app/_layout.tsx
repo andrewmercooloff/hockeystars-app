@@ -6,6 +6,7 @@ import React from 'react';
 import { Image, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { loadCurrentUser, Player, getUnreadMessageCount, initializeStorage } from '../utils/playerStorage';
+import { useFocusEffect } from '@react-navigation/native';
 
 const logo = require('../assets/images/logo.png');
 
@@ -79,16 +80,16 @@ const LogoHeader = () => {
   const router = useRouter();
   const [currentUser, setCurrentUser] = useState<Player | null>(null);
 
-  useEffect(() => {
-    const loadUser = async () => {
-      try {
-        const user = await loadCurrentUser();
-        setCurrentUser(user);
-      } catch (error) {
-        console.error('Ошибка загрузки текущего пользователя:', error);
-      }
-    };
+  const loadUser = async () => {
+    try {
+      const user = await loadCurrentUser();
+      setCurrentUser(user);
+    } catch (error) {
+      console.error('Ошибка загрузки текущего пользователя:', error);
+    }
+  };
 
+  useEffect(() => {
     loadUser();
     
     // Обновляем данные каждые 5 секунд для синхронизации (увеличили интервал для оптимизации)
@@ -96,6 +97,13 @@ const LogoHeader = () => {
     
     return () => clearInterval(interval);
   }, []);
+
+  // Обновляем данные при возврате на экран
+  useFocusEffect(
+    React.useCallback(() => {
+      loadUser();
+    }, [])
+  );
 
   return (
     <View style={{ 
@@ -128,9 +136,23 @@ const LogoHeader = () => {
           borderWidth: 2,
           borderColor: '#fff',
         }}>
-          {currentUser?.avatar ? (
+          {currentUser?.photo || currentUser?.avatar ? (
             <Image
-              source={{ uri: currentUser.avatar }}
+              source={
+                (currentUser.photo && typeof currentUser.photo === 'string' && (
+                  currentUser.photo.startsWith('data:image/') || 
+                  currentUser.photo.startsWith('http') || 
+                  currentUser.photo.startsWith('file://') || 
+                  currentUser.photo.startsWith('content://')
+                )) || (currentUser.avatar && typeof currentUser.avatar === 'string' && (
+                  currentUser.avatar.startsWith('data:image/') || 
+                  currentUser.avatar.startsWith('http') || 
+                  currentUser.avatar.startsWith('file://') || 
+                  currentUser.avatar.startsWith('content://')
+                ))
+                  ? { uri: currentUser.photo || currentUser.avatar }
+                  : require('../assets/images/me.jpg')
+              }
               style={{
                 width: 45,
                 height: 45,
@@ -154,7 +176,7 @@ const LogoHeader = () => {
           </Text>
         )}
         <Text style={{
-          color: '#FF4444',
+          color: '#fff',
           fontSize: 10,
           fontFamily: 'Gilroy-Bold',
           marginTop: 1,
@@ -162,7 +184,8 @@ const LogoHeader = () => {
           {currentUser ? (
             currentUser.status === 'player' ? 'Игрок' : 
             currentUser.status === 'coach' ? 'Тренер' : 
-            currentUser.status === 'scout' ? 'Скаут' : 'Звезда'
+            currentUser.status === 'scout' ? 'Скаут' : 
+            currentUser.status === 'star' ? 'Звезда' : ''
           ) : 'Гость'}
         </Text>
       </TouchableOpacity>
@@ -276,6 +299,15 @@ export default function RootLayout() {
         options={{
           href: null, // Скрываем эту вкладку
           title: 'Чат',
+          headerStyle: { backgroundColor: '#000', height: 128 },
+          headerTitle: () => <LogoHeader />,
+        }}
+      />
+      <Tabs.Screen
+        name="admin"
+        options={{
+          href: null, // Скрываем эту вкладку
+          title: 'Панель администратора',
           headerStyle: { backgroundColor: '#000', height: 128 },
           headerTitle: () => <LogoHeader />,
         }}

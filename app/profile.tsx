@@ -16,7 +16,16 @@ import {
 
 import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { loadCurrentUser, updatePlayer, saveCurrentUser, Player, getFriends, getReceivedFriendRequests, acceptFriendRequest, declineFriendRequest, calculateHockeyExperience, forceInitializeStorage } from '../utils/playerStorage';
+import { 
+  Player, 
+  loadPlayers, 
+  updatePlayer, 
+  loadCurrentUser, 
+  saveCurrentUser, 
+  forceInitializeStorage,
+  addAdminToExistingData,
+  getFriends
+} from '../utils/playerStorage';
 import * as ImagePicker from 'expo-image-picker';
 import CustomAlert from '../components/CustomAlert';
 import YouTubeVideo from '../components/YouTubeVideo';
@@ -82,8 +91,40 @@ export default function PersonalCabinetScreen() {
     return (goalsNum + assistsNum).toString();
   };
 
+  // Локальная функция для расчета опыта в хоккее (временное решение)
+  const calculateHockeyExperience = (startDate?: string): string => {
+    console.log('🔧 Локальная calculateHockeyExperience вызвана с:', startDate);
+    if (!startDate) return '';
+    try {
+      const [month, year] = startDate.split('.');
+      const start = new Date(parseInt(year), parseInt(month) - 1);
+      const now = new Date();
+      let years = now.getFullYear() - start.getFullYear();
+      let months = now.getMonth() - start.getMonth();
+      if (months < 0) {
+        years--;
+        months += 12;
+      }
+      
+      // Правильное склонение для русского языка
+      const getYearWord = (num: number): string => {
+        if (num === 1) return 'год';
+        if (num >= 2 && num <= 4) return 'года';
+        return 'лет';
+      };
+      
+      const result = years > 0 ? `${years} ${getYearWord(years)}` : `${months} мес.`;
+      console.log('🔧 Локальная calculateHockeyExperience результат:', result);
+      return result;
+    } catch (error) {
+      console.error('❌ Ошибка в локальной calculateHockeyExperience:', error);
+      return '';
+    }
+  };
+
   useEffect(() => {
     loadUserData();
+    console.log('🔍 Профиль: текущий пользователь:', currentUser?.name, 'статус:', currentUser?.status);
   }, []);
 
   // Автоматически включаем режим редактирования если передан параметр edit
@@ -227,7 +268,8 @@ export default function PersonalCabinetScreen() {
       console.log('Объединенные видео:', goalsText);
       const updatedUser = { ...currentUser, ...editData, favoriteGoals: goalsText };
       console.log('Обновленный пользователь:', updatedUser);
-      await updatePlayer(updatedUser);
+      console.log('📸 Фото в обновленном пользователе:', updatedUser.photo, 'аватар:', updatedUser.avatar);
+      await updatePlayer(currentUser.id, editData);
       console.log('Пользователь обновлен в хранилище');
       
       // Обновляем текущего пользователя в хранилище
@@ -238,10 +280,12 @@ export default function PersonalCabinetScreen() {
       setIsEditing(false);
       console.log('Режим редактирования выключен');
       
-      // Принудительно обновляем заголовок
+      // Принудительно обновляем заголовок и список игроков
       setTimeout(() => {
         // Это заставит заголовок перезагрузить данные
         router.setParams({ refresh: Date.now().toString() });
+        // Принудительно обновляем список игроков на главном экране
+        router.push('/');
       }, 100);
       
       showAlert('Успешно', 'Данные обновлены', 'success');
@@ -288,7 +332,8 @@ export default function PersonalCabinetScreen() {
     });
 
     if (!result.canceled && result.assets[0]) {
-      setEditData({...editData, avatar: result.assets[0].uri});
+      console.log('📸 Загружено фото из галереи:', result.assets[0].uri);
+      setEditData({...editData, photo: result.assets[0].uri, avatar: result.assets[0].uri});
     }
   };
 
@@ -307,7 +352,8 @@ export default function PersonalCabinetScreen() {
     });
 
     if (!result.canceled && result.assets[0]) {
-      setEditData({...editData, avatar: result.assets[0].uri});
+      console.log('📸 Загружено фото с камеры:', result.assets[0].uri);
+      setEditData({...editData, photo: result.assets[0].uri, avatar: result.assets[0].uri});
     }
   };
 
@@ -467,9 +513,12 @@ export default function PersonalCabinetScreen() {
         try {
           const success = await forceInitializeStorage();
           if (success) {
-            showAlert('Успешно', 'Данные приложения перезагружены', 'success');
-            // Перезагружаем данные пользователя
-            await loadUserData();
+            showAlert('Успешно', 'Данные приложения перезагружены', 'success', async () => {
+              setAlert(prev => ({ ...prev, visible: false }));
+              setLoading(true);
+              await loadUserData();
+              setLoading(false);
+            });
           } else {
             showAlert('Ошибка', 'Не удалось перезагрузить данные', 'error');
           }
@@ -518,7 +567,31 @@ export default function PersonalCabinetScreen() {
             <View style={styles.profileSection}>
               <TouchableOpacity onPress={isEditing ? pickImage : undefined}>
                 <Image 
-                  source={{ uri: editData.avatar || currentUser.avatar || 'https://via.placeholder.com/150/333/fff?text=Player' }} 
+                  source={
+                    (editData.photo && typeof editData.photo === 'string' && (
+                      editData.photo.startsWith('data:image/') || 
+                      editData.photo.startsWith('http') || 
+                      editData.photo.startsWith('file://') || 
+                      editData.photo.startsWith('content://')
+                    )) || (editData.avatar && typeof editData.avatar === 'string' && (
+                      editData.avatar.startsWith('data:image/') || 
+                      editData.avatar.startsWith('http') || 
+                      editData.avatar.startsWith('file://') || 
+                      editData.avatar.startsWith('content://')
+                    )) || (currentUser.photo && typeof currentUser.photo === 'string' && (
+                      currentUser.photo.startsWith('data:image/') || 
+                      currentUser.photo.startsWith('http') || 
+                      currentUser.photo.startsWith('file://') || 
+                      currentUser.photo.startsWith('content://')
+                    )) || (currentUser.avatar && typeof currentUser.avatar === 'string' && (
+                      currentUser.avatar.startsWith('data:image/') || 
+                      currentUser.avatar.startsWith('http') || 
+                      currentUser.avatar.startsWith('file://') || 
+                      currentUser.avatar.startsWith('content://')
+                    ))
+                      ? { uri: editData.photo || editData.avatar || currentUser.photo || currentUser.avatar }
+                      : require('../assets/images/me.jpg')
+                  }
                   style={styles.profileImage}
                   onError={() => console.log('Ошибка загрузки изображения')}
                 />
@@ -529,23 +602,34 @@ export default function PersonalCabinetScreen() {
                 )}
               </TouchableOpacity>
               <View style={styles.nameRow}>
-                <Text style={styles.playerName}>{currentUser.name?.toUpperCase()}</Text>
-                {currentUser.status === 'player' && (
-                  isEditing ? (
-                    <TextInput
-                      style={styles.numberInput}
-                      value={editData.number || ''}
-                      onChangeText={(text) => setEditData({...editData, number: text})}
-                      placeholder="#"
-                      placeholderTextColor="#888"
-                      keyboardType="numeric"
-                      maxLength={2}
-                    />
-                  ) : currentUser.number ? (
-                    <View style={styles.numberBadge}>
-                      <Text style={styles.numberText}>#{currentUser.number}</Text>
-                    </View>
-                  ) : null
+                {currentUser.status === 'admin' ? (
+                  // Упрощенный профиль для администратора
+                  <View style={styles.adminProfile}>
+                    <Text style={styles.adminTitle}>Техническая поддержка</Text>
+                    <Text style={styles.adminSubtitle}>Обратитесь за помощью</Text>
+                  </View>
+                ) : (
+                  // Обычный профиль для остальных пользователей
+                  <>
+                    <Text style={styles.playerName}>{currentUser.name?.toUpperCase()}</Text>
+                    {currentUser.status === 'player' && (
+                      isEditing ? (
+                        <TextInput
+                          style={styles.numberInput}
+                          value={editData.number || ''}
+                          onChangeText={(text) => setEditData({...editData, number: text})}
+                          placeholder="#"
+                          placeholderTextColor="#888"
+                          keyboardType="numeric"
+                          maxLength={2}
+                        />
+                      ) : currentUser.number ? (
+                        <View style={styles.numberBadge}>
+                          <Text style={styles.numberText}>#{currentUser.number}</Text>
+                        </View>
+                      ) : null
+                    )}
+                  </>
                 )}
                 <TouchableOpacity 
                   style={styles.editButton} 
@@ -572,13 +656,62 @@ export default function PersonalCabinetScreen() {
                 >
                   <Ionicons name="sync" size={25} color="#FF4444" />
                 </TouchableOpacity>
+                
+                {/* Кнопка панели администратора */}
+                {currentUser.status === 'admin' && (
+                  <TouchableOpacity 
+                    style={[styles.editButton, { marginLeft: 10, backgroundColor: '#FF4444' }]} 
+                    onPress={() => {
+                      console.log('🔧 Нажата кнопка редактировать игроков');
+                      console.log('🔧 Статус пользователя:', currentUser.status);
+                      router.push('/admin');
+                    }}
+                  >
+                    <Ionicons name="people" size={25} color="#fff" />
+                  </TouchableOpacity>
+                )}
+                
+                {/* Кнопка принудительного сброса данных */}
+                <TouchableOpacity 
+                  style={[styles.editButton, { marginLeft: 10 }]} 
+                  onPress={() => {
+                    Alert.alert(
+                      'Сброс данных',
+                      'Это пересоздаст все данные с администратором. Продолжить?',
+                      [
+                        { text: 'Отмена', style: 'cancel' },
+                        { 
+                          text: 'Сбросить', 
+                          style: 'destructive',
+                          onPress: async () => {
+                            try {
+                              await forceInitializeStorage();
+                              await refreshFriends(); // Assuming refreshFriends is the correct function to call after reset
+                              Alert.alert('Успешно', 'Данные сброшены. Администратор: admin@hockeystars.com / admin123');
+                            } catch (error) {
+                              Alert.alert('Ошибка', 'Не удалось сбросить данные');
+                            }
+                          }
+                        }
+                      ]
+                    );
+                  }}
+                >
+                  <Ionicons name="refresh" size={25} color="#FF6B6B" />
+                </TouchableOpacity>
               </View>
-              <Text style={styles.playerStatus}>
-                {currentUser.status === 'player' ? 'Игрок' : 
-                 currentUser.status === 'coach' ? 'Тренер' : 
-                 currentUser.status === 'scout' ? 'Скаут' : 'Звезда'}
-              </Text>
-              {currentUser.team && <Text style={styles.playerTeam}>{currentUser.team}</Text>}
+              {currentUser.status !== 'admin' && (
+                <>
+                  <Text style={styles.playerStatus}>
+                    {currentUser.status === 'player' ? 'Игрок' : 
+                     currentUser.status === 'coach' ? 'Тренер' : 
+                     currentUser.status === 'scout' ? 'Скаут' : 
+                     currentUser.status === 'admin' ? 'Администратор' :
+                     currentUser.status === 'star' ? 'Звезда' : 'Игрок'}
+                  </Text>
+                  {currentUser.team && <Text style={styles.playerTeam}>{currentUser.team}</Text>}
+                </>
+              )}
             </View>
 
             {/* Статистика - только для обычных игроков */}
@@ -2019,6 +2152,24 @@ const styles = StyleSheet.create({
   fullScreenImage: {
     width: '100%',
     height: '100%',
+  },
+  adminProfile: {
+    alignItems: 'center',
+    padding: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 8,
+  },
+  adminTitle: {
+    fontSize: 16,
+    fontFamily: 'Gilroy-Bold',
+    color: '#FF4444',
+    marginBottom: 5,
+  },
+  adminSubtitle: {
+    fontSize: 14,
+    fontFamily: 'Gilroy-Regular',
+    color: '#fff',
+    textAlign: 'center',
   },
 
 }); 

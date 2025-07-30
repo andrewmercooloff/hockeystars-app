@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Image, Platform } from 'react-native';
 import Animated from 'react-native-reanimated';
+import { Ionicons } from '@expo/vector-icons';
 
 interface PuckProps {
   avatar?: string | null;
@@ -9,71 +10,130 @@ interface PuckProps {
   size?: number;
   points?: string;
   isStar?: boolean;
+  status?: string;
 }
 
-const Puck: React.FC<PuckProps> = React.memo(({ avatar, onPress, animatedStyle, size = 140, points, isStar }) => {
+const Puck: React.FC<PuckProps> = ({ 
+  avatar, 
+  onPress, 
+  animatedStyle, 
+  size = 140, 
+  points, 
+  isStar, 
+  status 
+}) => {
+  const [imageError, setImageError] = useState(false);
+  
   const avatarSize = size * 0.86;
   const borderRadius = size / 2;
   const avatarBorderRadius = avatarSize / 2;
+  const iconSize = avatarSize * 0.5;
 
-  // Получаем правильное изображение
+  const avatarBorderColor = (() => {
+    switch (status) {
+      case 'star': return '#FFD700';
+      case 'coach': return '#FF4444';
+      case 'scout': return '#888888';
+      case 'admin': return '#8A2BE2';
+      default: return '#FFFFFF';
+    }
+  })();
+
   const getImageSource = () => {
-    if (!avatar) {
-      return require('../assets/images/logo.png');
+    if (!avatar || imageError) {
+      return null;
     }
     
-    // Если это путь к локальному файлу
     if (typeof avatar === 'string') {
-      if (avatar.includes('kostitsyn')) {
-        return require('../assets/images/me.jpg'); // Временно используем me.jpg
-      } else if (avatar.includes('grabovsky')) {
-        return require('../assets/images/me.jpg'); // Временно используем me.jpg
-      } else if (avatar.includes('merkulov')) {
-        return require('../assets/images/me.jpg'); // Временно используем me.jpg
+      // Проверяем корректные URI
+      if (avatar.startsWith('data:image/') || 
+          avatar.startsWith('http') || 
+          avatar.startsWith('file://') || 
+          avatar.startsWith('content://')) {
+        return { uri: avatar };
+      }
+      
+      // Проверяем старые пути к файлам
+      if (avatar.includes('me.jpg')) {
+        return require('../assets/images/me.jpg');
+      }
+      
+      // Для некорректных идентификаторов показываем силуэт
+      if (avatar.includes('kostitsyn') || 
+          avatar.includes('grabovsky') || 
+          avatar.includes('sharangovich') || 
+          avatar.includes('merkulov') || 
+          avatar.includes('admin') || 
+          avatar === 'new_player') {
+        return null;
       }
     }
     
     return require('../assets/images/logo.png');
   };
 
+  const imageSource = getImageSource();
+
   return (
     <Animated.View style={[
-      isStar ? styles.starPuck : styles.puck, 
-      { width: size, height: size, borderRadius }, 
+      isStar ? styles.starPuck : styles.puck,
+      { 
+        width: size, 
+        height: size, 
+        borderRadius: borderRadius 
+      },
       animatedStyle
     ]}>
       <TouchableOpacity onPress={onPress} activeOpacity={0.8}>
-        <Image 
-          source={getImageSource()} 
-          style={[
-            isStar ? styles.starAvatar : styles.avatar, 
-            { width: avatarSize, height: avatarSize, borderRadius: avatarBorderRadius }
-          ]} 
-          resizeMode="cover"
-        />
-        
-        {/* Отображение очков для обычных игроков */}
-        {!isStar && points && (
-          <View style={[styles.pointsContainer, { bottom: -size * 0.05 }]}>
-            <Text style={[styles.pointsText, { fontSize: size * 0.12 }]}>{points}</Text>
+        {imageSource ? (
+          <Image 
+            source={imageSource} 
+            style={[
+              styles.avatar,
+              {
+                width: avatarSize,
+                height: avatarSize,
+                borderRadius: avatarBorderRadius,
+                borderWidth: 2,
+                borderColor: avatarBorderColor
+              }
+            ]}
+            onError={() => setImageError(true)}
+          />
+        ) : (
+          <View style={[
+            styles.avatarPlaceholder,
+            {
+              width: avatarSize,
+              height: avatarSize,
+              borderRadius: avatarBorderRadius,
+              borderWidth: 2,
+              borderColor: avatarBorderColor,
+              backgroundColor: '#2C3E50'
+            }
+          ]}>
+            <Ionicons 
+              name="person" 
+              size={iconSize} 
+              color="#FFFFFF" 
+            />
           </View>
         )}
         
-        {/* Звездочка для звездных игроков */}
-        {isStar && (
-          <View style={[styles.starContainer, { bottom: -size * 0.05 }]}>
-            <Text style={[styles.starText, { fontSize: size * 0.15 }]}>⭐</Text>
+        {points && (
+          <View style={styles.pointsContainer}>
+            <Text style={styles.pointsText}>{points}</Text>
           </View>
         )}
       </TouchableOpacity>
     </Animated.View>
   );
-});
+};
 
 const styles = StyleSheet.create({
   puck: {
     position: 'absolute',
-    backgroundColor: '#FFD700',
+    backgroundColor: '#000000',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
@@ -84,12 +144,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 4.65,
     elevation: 8,
-    borderWidth: 3,
-    borderColor: '#FFA500',
+    borderWidth: 2,
+    borderColor: '#333333',
   },
   starPuck: {
     position: 'absolute',
-    backgroundColor: '#FF6B6B',
+    backgroundColor: '#000000',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
@@ -100,27 +160,29 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 4.65,
     elevation: 8,
-    borderWidth: 3,
-    borderColor: '#FF4444',
+    borderWidth: 2,
+    borderColor: '#333333',
   },
   avatar: {
-    borderWidth: 2,
-    borderColor: '#FFF',
+    // Базовый стиль для аватара
   },
-  starAvatar: {
-    borderWidth: 2,
-    borderColor: '#FFF',
+  avatarPlaceholder: {
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   pointsContainer: {
     position: 'absolute',
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    backgroundColor: 'rgba(255, 215, 0, 0.9)',
     borderRadius: 12,
     paddingHorizontal: 8,
     paddingVertical: 2,
     alignSelf: 'center',
+    borderWidth: 1,
+    borderColor: '#FFD700',
   },
   pointsText: {
-    color: '#FFD700',
+    color: '#000000',
+    fontSize: 12,
     fontWeight: 'bold',
     textAlign: 'center',
   },
