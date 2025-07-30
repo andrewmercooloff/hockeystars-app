@@ -1,0 +1,5 @@
+[33ma8fe3a1[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mrestored-working-version[m[33m)[m Auto-save: 30.07.2025  9:39:29,69
+[33m267bbc8[m Save current state before fixes - working on restoring functionality
+[33ma03de52[m Fix registration OK button
+[33mfc839ad[m Fix login OK button - simplified alert logic
+[33m375fce0[m Fix alert state update bug - buttons now work correctly

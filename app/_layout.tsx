@@ -198,6 +198,7 @@ export default function RootLayout() {
     'Gilroy-Regular': require('../assets/fonts/gilroy-regular.ttf'),
     'Gilroy-Bold': require('../assets/fonts/gilroy-bold.ttf'),
   });
+  const [currentUser, setCurrentUser] = useState<Player | null>(null);
 
   useEffect(() => {
     if (fontsLoaded) {
@@ -206,6 +207,21 @@ export default function RootLayout() {
       initializeStorage();
     }
   }, [fontsLoaded]);
+
+  useEffect(() => {
+    const loadUser = async () => {
+      try {
+        const user = await loadCurrentUser();
+        setCurrentUser(user);
+      } catch (error) {
+        console.error('Ошибка загрузки текущего пользователя:', error);
+      }
+    };
+
+    loadUser();
+    const interval = setInterval(loadUser, 3000);
+    return () => clearInterval(interval);
+  }, []);
 
   if (!fontsLoaded) {
     return null;
@@ -240,24 +256,49 @@ export default function RootLayout() {
           headerTitle: () => <LogoHeader />,
         }}
       />
-      <Tabs.Screen
-        name="messages"
-        options={{
-          tabBarIcon: ({ size }) => (
-            <MessagesIcon size={size} />
-          ),
-          headerTitle: () => <LogoHeader />,
-        }}
-      />
-      <Tabs.Screen
-        name="notifications"
-        options={{
-          tabBarIcon: ({ size }) => (
-            <Ionicons name="notifications-outline" size={size} color="#fff" />
-          ),
-          headerTitle: () => <LogoHeader />,
-        }}
-      />
+      {currentUser ? (
+        <>
+          <Tabs.Screen
+            name="messages"
+            options={{
+              tabBarIcon: ({ size }) => (
+                <MessagesIcon size={size} />
+              ),
+              headerTitle: () => <LogoHeader />,
+            }}
+          />
+          <Tabs.Screen
+            name="notifications"
+            options={{
+              tabBarIcon: ({ size }) => (
+                <Ionicons name="notifications-outline" size={size} color="#fff" />
+              ),
+              headerTitle: () => <LogoHeader />,
+            }}
+          />
+        </>
+      ) : (
+        <>
+          <Tabs.Screen
+            name="login"
+            options={{
+              tabBarIcon: ({ size }) => (
+                <Ionicons name="log-in-outline" size={size} color="#fff" />
+              ),
+              headerTitle: () => <LogoHeader />,
+            }}
+          />
+          <Tabs.Screen
+            name="register"
+            options={{
+              tabBarIcon: ({ size }) => (
+                <Ionicons name="person-add-outline" size={size} color="#fff" />
+              ),
+              headerTitle: () => <LogoHeader />,
+            }}
+          />
+        </>
+      )}
       <Tabs.Screen
         name="player/[id]"
         options={{
