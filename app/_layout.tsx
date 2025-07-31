@@ -4,7 +4,7 @@ import { useFonts } from 'expo-font';
 import { SplashScreen, Tabs, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Image, Text, TouchableOpacity, View } from 'react-native';
-import { initializeStorage, loadCurrentUser, Player } from '../utils/playerStorage';
+import { initializeStorage, loadCurrentUser, loadNotifications, Player } from '../utils/playerStorage';
 
 const logo = require('../assets/images/logo.png');
 
@@ -25,10 +25,6 @@ const LogoHeader = () => {
 
   useEffect(() => {
     loadUser();
-    
-    // Убираем интервал из LogoHeader, так как проверка уже есть в основном компоненте
-    // const interval = setInterval(loadUser, 5000);
-    // return () => clearInterval(interval);
   }, []);
 
   // Обновляем данные при возврате на экран
@@ -98,14 +94,14 @@ const LogoHeader = () => {
             <Ionicons name="person" size={25} color="#fff" />
           )}
         </View>
-        {currentUser && currentUser.name && (
+        {currentUser && currentUser.name && currentUser.name.trim() !== '' && (
           <Text style={{
             color: '#fff',
             fontSize: 12,
             fontFamily: 'Gilroy-Regular',
             marginTop: 2,
           }}>
-            {currentUser.name}
+            {currentUser?.name || 'Пользователь'}
           </Text>
         )}
         <Text style={{
@@ -114,11 +110,12 @@ const LogoHeader = () => {
           fontFamily: 'Gilroy-Bold',
           marginTop: 1,
         }}>
-          {currentUser ? (
-            currentUser.status === 'player' ? 'Игрок' : 
-            currentUser.status === 'coach' ? 'Тренер' : 
-            currentUser.status === 'scout' ? 'Скаут' : 
-            currentUser.status === 'star' ? 'Звезда' : ''
+          {currentUser && currentUser.status ? (
+            currentUser?.status === 'player' ? 'Игрок' : 
+            currentUser?.status === 'coach' ? 'Тренер' : 
+            currentUser?.status === 'scout' ? 'Скаут' : 
+            currentUser?.status === 'star' ? 'Звезда' : 
+            currentUser?.status === 'admin' ? 'Техподдержка' : 'Пользователь'
           ) : 'Гость'}
         </Text>
       </TouchableOpacity>
@@ -127,37 +124,82 @@ const LogoHeader = () => {
 };
 
 export default function RootLayout() {
-  const [fontsLoaded] = useFonts({
+  const [loaded, error] = useFonts({
     'Gilroy-Regular': require('../assets/fonts/gilroy-regular.ttf'),
     'Gilroy-Bold': require('../assets/fonts/gilroy-bold.ttf'),
+    'SpaceMono': require('../assets/fonts/SpaceMono-Regular.ttf'),
   });
+
   const [currentUser, setCurrentUser] = useState<Player | null>(null);
 
+  const loadUser = async () => {
+    try {
+      const user = await loadCurrentUser();
+      if (user) {
+        // Загружаем непрочитанные уведомления
+        const notifications = await loadNotifications(user.id);
+        const unreadNotificationsCount = notifications.filter((n: any) => !n.isRead).length;
+        
+        // Загружаем непрочитанные сообщения
+        const { getUnreadMessageCount } = await import('../utils/playerStorage');
+        const unreadMessagesCount = await getUnreadMessageCount(user.id);
+        
+        console.log('🔔 Непрочитанных уведомлений для пользователя', user.name, ':', unreadNotificationsCount);
+        console.log('💬 Непрочитанных сообщений для пользователя', user.name, ':', unreadMessagesCount);
+        
+        setCurrentUser({ 
+          ...user, 
+          unreadNotificationsCount,
+          unreadMessagesCount 
+        });
+      } else {
+        setCurrentUser(null);
+      }
+    } catch (error) {
+      console.error('Ошибка загрузки текущего пользователя:', error);
+    }
+  };
+
+  // Функция для принудительного обновления счетчиков
+  const refreshCounters = async () => {
+    if (currentUser) {
+      await loadUser();
+    }
+  };
+
   useEffect(() => {
-    if (fontsLoaded) {
+    if (loaded) {
       SplashScreen.hideAsync();
       // Инициализируем хранилище при загрузке приложения
       initializeStorage();
     }
-  }, [fontsLoaded]);
+  }, [loaded]);
 
   useEffect(() => {
-    const loadUser = async () => {
-      try {
-        const user = await loadCurrentUser();
-        setCurrentUser(user);
-      } catch (error) {
-        console.error('Ошибка загрузки текущего пользователя:', error);
-      }
-    };
-
     loadUser();
-    // Увеличиваем интервал до 10 секунд для уменьшения количества логов
-    const interval = setInterval(loadUser, 10000);
+    // Уменьшаем интервал до 3 секунд для более частого обновления счетчиков
+    const interval = setInterval(loadUser, 3000);
     return () => clearInterval(interval);
   }, []);
 
-  if (!fontsLoaded) {
+  // Обновляем счетчик уведомлений при фокусе
+  useFocusEffect(
+    React.useCallback(() => {
+      if (currentUser) {
+        loadUser();
+      }
+    }, [currentUser?.id])
+  );
+
+  // Обновляем счетчики при фокусе на экране сообщений
+  useFocusEffect(
+    React.useCallback(() => {
+      console.log('🔄 Главный экран получил фокус, обновляем счетчики...');
+      refreshCounters();
+    }, [])
+  );
+
+  if (!loaded) {
     return null;
   }
 
@@ -193,18 +235,74 @@ export default function RootLayout() {
       <Tabs.Screen
         name="messages"
         options={{
-          tabBarIcon: ({ size }) => (
-            <Ionicons name="chatbubble-outline" size={size} color="#fff" />
-          ),
+          tabBarIcon: ({ size }) => {
+            console.log('💬 Рендерим иконку сообщений, currentUser:', currentUser?.name, 'unreadMessagesCount:', currentUser?.unreadMessagesCount);
+            return (
+              <View style={{
+                position: 'relative',
+              }}>
+                <Ionicons name="chatbubble-outline" size={size} color="#fff" />
+                {currentUser && currentUser.unreadMessagesCount && currentUser.unreadMessagesCount > 0 && (
+                  <View style={{
+                    position: 'absolute',
+                    top: -5,
+                    right: -5,
+                    backgroundColor: '#FF4444',
+                    borderRadius: 10,
+                    width: 20,
+                    height: 20,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                  }}>
+                    <Text style={{
+                      color: '#fff',
+                      fontSize: 12,
+                      fontFamily: 'Gilroy-Bold',
+                    }}>
+                      {currentUser.unreadMessagesCount}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            );
+          },
           headerTitle: () => <LogoHeader />,
         }}
       />
       <Tabs.Screen
         name="notifications"
         options={{
-          tabBarIcon: ({ size }) => (
-            <Ionicons name="notifications-outline" size={size} color="#fff" />
-          ),
+          tabBarIcon: ({ size }) => {
+            console.log('🔔 Рендерим иконку уведомлений, currentUser:', currentUser?.name, 'unreadCount:', currentUser?.unreadNotificationsCount);
+            return (
+              <View style={{
+                position: 'relative',
+              }}>
+                <Ionicons name="notifications-outline" size={size} color="#fff" />
+                {currentUser && currentUser.unreadNotificationsCount && currentUser.unreadNotificationsCount > 0 && (
+                  <View style={{
+                    position: 'absolute',
+                    top: -5,
+                    right: -5,
+                    backgroundColor: '#FF4444',
+                    borderRadius: 10,
+                    width: 20,
+                    height: 20,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                  }}>
+                    <Text style={{
+                      color: '#fff',
+                      fontSize: 12,
+                      fontFamily: 'Gilroy-Bold',
+                    }}>
+                      {currentUser.unreadNotificationsCount}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            );
+          },
           headerTitle: () => <LogoHeader />,
         }}
       />

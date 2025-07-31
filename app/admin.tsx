@@ -504,6 +504,11 @@ export default function AdminScreen() {
       // Принудительно обновляем FlatList
       setRefreshKey(prev => prev + 1);
       
+      // Принудительно обновляем главный экран
+      setTimeout(() => {
+        router.push({ pathname: '/', params: { refresh: Date.now().toString() } });
+      }, 100);
+      
       setIsEditing(false);
       setShowPlayerModal(false);
       setSelectedPlayer(null);

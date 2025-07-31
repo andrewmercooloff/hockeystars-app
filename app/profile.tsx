@@ -33,6 +33,15 @@ import VideoCarousel from '../components/VideoCarousel';
 
 const iceBg = require('../assets/images/led.jpg');
 
+function getStatusText(status?: string) {
+  if (status === 'player') return 'Игрок';
+  if (status === 'coach') return 'Тренер';
+  if (status === 'scout') return 'Скаут';
+  if (status === 'star') return 'Звезда';
+  if (status === 'admin') return 'Техподдержка';
+  return 'Неизвестно';
+}
+
 export default function PersonalCabinetScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
@@ -187,29 +196,30 @@ export default function PersonalCabinetScreen() {
   };
 
   const refreshFriends = async () => {
-    if (currentUser) {
-      try {
-        const friendsList = await getFriends(currentUser.id);
-        setFriends(friendsList);
-      } catch (error) {
-        console.error('Ошибка обновления друзей:', error);
-      }
+    if (!currentUser) return;
+    try {
+      const friendsList = await getFriends(currentUser.id);
+      setFriends(friendsList);
+    } catch (error) {
+      console.error('Ошибка обновления друзей:', error);
     }
   };
 
   const loadFriendRequests = async () => {
-    if (currentUser) {
-      try {
-        const requestsList = await getReceivedFriendRequests(currentUser.id);
-        setReceivedFriendRequests(requestsList);
-      } catch (error) {
-        console.error('Ошибка загрузки запросов дружбы:', error);
-      }
+    if (!currentUser) return;
+    try {
+      const requestsList = await getReceivedFriendRequests(currentUser.id);
+      setReceivedFriendRequests(requestsList);
+    } catch (error) {
+      console.error('Ошибка загрузки запросов дружбы:', error);
     }
   };
 
   const handleAcceptFriendRequest = async (requesterId: string) => {
-    if (!currentUser) return;
+    if (!currentUser) {
+      Alert.alert('Ошибка', 'Вы не авторизованы');
+      return;
+    }
     
     try {
       const success = await acceptFriendRequest(currentUser.id, requesterId);
@@ -227,7 +237,10 @@ export default function PersonalCabinetScreen() {
   };
 
   const handleDeclineFriendRequest = async (requesterId: string) => {
-    if (!currentUser) return;
+    if (!currentUser) {
+      Alert.alert('Ошибка', 'Вы не авторизованы');
+      return;
+    }
     
     try {
       const success = await declineFriendRequest(currentUser.id, requesterId);
@@ -301,6 +314,10 @@ export default function PersonalCabinetScreen() {
   };
 
   const pickImage = async () => {
+    if (!currentUser) {
+      Alert.alert('Ошибка', 'Вы не авторизованы');
+      return;
+    }
     Alert.alert(
       'Выберите источник фото',
       'Откуда хотите загрузить фото?',
@@ -322,6 +339,10 @@ export default function PersonalCabinetScreen() {
   };
 
   const pickFromGallery = async () => {
+    if (!currentUser) {
+      Alert.alert('Ошибка', 'Вы не авторизованы');
+      return;
+    }
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     
     if (status !== 'granted') {
@@ -343,6 +364,10 @@ export default function PersonalCabinetScreen() {
   };
 
   const takePhoto = async () => {
+    if (!currentUser) {
+      Alert.alert('Ошибка', 'Вы не авторизованы');
+      return;
+    }
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     
     if (status !== 'granted') {
@@ -364,6 +389,10 @@ export default function PersonalCabinetScreen() {
 
   // Функции для работы с фотографиями галереи
   const addPhotoToGallery = async () => {
+    if (!currentUser) {
+      Alert.alert('Ошибка', 'Вы не авторизованы');
+      return;
+    }
     Alert.alert(
       'Добавить фотографию',
       'Откуда хотите добавить фото?',
@@ -385,6 +414,10 @@ export default function PersonalCabinetScreen() {
   };
 
   const pickPhotoFromGallery = async () => {
+    if (!currentUser) {
+      Alert.alert('Ошибка', 'Вы не авторизованы');
+      return;
+    }
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     
     if (status !== 'granted') {
@@ -407,6 +440,10 @@ export default function PersonalCabinetScreen() {
   };
 
   const takePhotoForGallery = async () => {
+    if (!currentUser) {
+      Alert.alert('Ошибка', 'Вы не авторизованы');
+      return;
+    }
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     
     if (status !== 'granted') {
@@ -606,7 +643,7 @@ export default function PersonalCabinetScreen() {
                 )}
               </TouchableOpacity>
               <View style={styles.nameRow}>
-                {currentUser.status === 'admin' ? (
+                {currentUser?.status === 'admin' ? (
                   // Упрощенный профиль для администратора
                   <View style={styles.adminProfile}>
                     <Text style={styles.adminTitle}>Техническая поддержка</Text>
@@ -615,8 +652,8 @@ export default function PersonalCabinetScreen() {
                 ) : (
                   // Обычный профиль для остальных пользователей
                   <>
-                    <Text style={styles.playerName}>{currentUser.name?.toUpperCase()}</Text>
-                    {currentUser.status === 'player' && (
+                    <Text style={styles.playerName}>{(currentUser?.name || 'Пользователь').toUpperCase()}</Text>
+                    {currentUser?.status === 'player' && (
                       isEditing ? (
                         <TextInput
                           style={styles.numberInput}
@@ -629,7 +666,7 @@ export default function PersonalCabinetScreen() {
                         />
                       ) : currentUser.number ? (
                         <View style={styles.numberBadge}>
-                          <Text style={styles.numberText}>#{currentUser.number}</Text>
+                          <Text style={styles.numberText}>#{currentUser?.number || '0'}</Text>
                         </View>
                       ) : null
                     )}
@@ -656,12 +693,12 @@ export default function PersonalCabinetScreen() {
 
                 
                 {/* Кнопка панели администратора */}
-                {currentUser.status === 'admin' && (
+                {currentUser?.status === 'admin' && (
                   <TouchableOpacity 
                     style={[styles.editButton, { marginLeft: 10, backgroundColor: '#FF4444' }]} 
                     onPress={() => {
                       console.log('🔧 Нажата кнопка редактировать игроков');
-                      console.log('🔧 Статус пользователя:', currentUser.status);
+                      console.log('🔧 Статус пользователя:', currentUser?.status);
                       router.push('/admin');
                     }}
                   >
@@ -671,22 +708,18 @@ export default function PersonalCabinetScreen() {
                 
 
               </View>
-              {currentUser.status !== 'admin' && (
+                              {currentUser?.status !== 'admin' && (
                 <>
                   <Text style={styles.playerStatus}>
-                    {currentUser.status === 'player' ? 'Игрок' : 
-                     currentUser.status === 'coach' ? 'Тренер' : 
-                     currentUser.status === 'scout' ? 'Скаут' : 
-                     currentUser.status === 'admin' ? 'Администратор' :
-                     currentUser.status === 'star' ? 'Звезда' : 'Игрок'}
+                    {getStatusText(currentUser?.status)}
                   </Text>
-                  {currentUser.team && <Text style={styles.playerTeam}>{currentUser.team}</Text>}
+                  {currentUser?.team && <Text style={styles.playerTeam}>{currentUser?.team}</Text>}
                 </>
               )}
             </View>
 
             {/* Статистика - только для обычных игроков */}
-            {currentUser.status !== 'star' && (
+                            {currentUser?.status !== 'star' && (
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Статистика</Text>
                 {isEditing ? (
@@ -753,9 +786,9 @@ export default function PersonalCabinetScreen() {
                     </View>
                   </View>
                 ) : (() => {
-                  const goalsNum = parseInt(currentUser.goals || '0') || 0;
-                  const assistsNum = parseInt(currentUser.assists || '0') || 0;
-                  const gamesNum = parseInt(currentUser.games || '0') || 0;
+                  const goalsNum = parseInt(currentUser?.goals || '0') || 0;
+                  const assistsNum = parseInt(currentUser?.assists || '0') || 0;
+                  const gamesNum = parseInt(currentUser?.games || '0') || 0;
                   const pointsNum = goalsNum + assistsNum;
                   
                   // Показываем статистику только если есть хотя бы одно ненулевое значение
@@ -799,7 +832,7 @@ export default function PersonalCabinetScreen() {
             )}
 
             {/* Информация о команде для звезд */}
-            {currentUser.status === 'star' && (
+            {currentUser?.status === 'star' && (
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Информация о команде</Text>
                 <View style={styles.infoGrid}>
@@ -813,16 +846,16 @@ export default function PersonalCabinetScreen() {
                   </View>
                   <View style={styles.infoItem}>
                     <Text style={styles.infoLabel}>Страна</Text>
-                    <Text style={styles.infoValue}>{currentUser.country}</Text>
+                    <Text style={styles.infoValue}>{currentUser?.country || 'Не указана'}</Text>
                   </View>
                   <View style={styles.infoItem}>
                     <Text style={styles.infoLabel}>Позиция</Text>
                     <Text style={styles.infoValue}>{currentUser.position || 'Не указана'}</Text>
                   </View>
-                  {currentUser.grip && (
+                  {currentUser?.grip && (
                     <View style={styles.infoItem}>
                       <Text style={styles.infoLabel}>Хват</Text>
-                      <Text style={styles.infoValue}>{currentUser.grip}</Text>
+                                              <Text style={styles.infoValue}>{currentUser?.grip || 'Не указан'}</Text>
                     </View>
                   )}
                 </View>
@@ -846,10 +879,10 @@ export default function PersonalCabinetScreen() {
                       <Ionicons name="chevron-down" size={16} color="#fff" />
                     </TouchableOpacity>
                   ) : (
-                    <Text style={styles.infoValue}>{currentUser.country}</Text>
+                    <Text style={styles.infoValue}>{currentUser?.country || 'Не указана'}</Text>
                   )}
                 </View>
-                {currentUser.status === 'player' && (
+                {currentUser?.status === 'player' && (
                   <>
                     <View style={styles.infoItem}>
                       <Text style={styles.infoLabel}>Позиция</Text>
@@ -868,16 +901,16 @@ export default function PersonalCabinetScreen() {
                       )}
                     </View>
 
-                    {currentUser.birthDate && (
+                    {currentUser?.birthDate && (
                       <View style={styles.infoItem}>
                         <Text style={styles.infoLabel}>Дата рождения</Text>
-                        <Text style={styles.infoValue}>{currentUser.birthDate}</Text>
+                        <Text style={styles.infoValue}>{currentUser?.birthDate || 'Не указана'}</Text>
                       </View>
                     )}
-                    {currentUser.grip && (
+                    {currentUser?.grip && (
                       <View style={styles.infoItem}>
                         <Text style={styles.infoLabel}>Хват</Text>
-                        <Text style={styles.infoValue}>{currentUser.grip}</Text>
+                        <Text style={styles.infoValue}>{currentUser?.grip || 'Не указан'}</Text>
                       </View>
                     )}
                   </>
@@ -886,11 +919,11 @@ export default function PersonalCabinetScreen() {
             </View>
 
             {/* Физические данные - только для игроков */}
-            {currentUser.status === 'player' && (currentUser.height || currentUser.weight) && (
+            {currentUser?.status === 'player' && (currentUser?.height || currentUser?.weight) && (
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Физические данные</Text>
                 <View style={styles.infoGrid}>
-                  {currentUser.height && (
+                  {currentUser?.height && (
                     <View style={styles.infoItem}>
                       <Text style={styles.infoLabel}>Рост</Text>
                       {isEditing ? (
@@ -903,11 +936,11 @@ export default function PersonalCabinetScreen() {
                           keyboardType="numeric"
                         />
                       ) : (
-                        <Text style={styles.infoValue}>{currentUser.height} см</Text>
+                        <Text style={styles.infoValue}>{currentUser?.height || 'Не указан'} см</Text>
                       )}
                     </View>
                   )}
-                  {currentUser.weight && (
+                  {currentUser?.weight && (
                     <View style={styles.infoItem}>
                       <Text style={styles.infoLabel}>Вес</Text>
                       {isEditing ? (
@@ -920,7 +953,7 @@ export default function PersonalCabinetScreen() {
                           keyboardType="numeric"
                         />
                       ) : (
-                        <Text style={styles.infoValue}>{currentUser.weight} кг</Text>
+                        <Text style={styles.infoValue}>{currentUser?.weight || 'Не указан'} кг</Text>
                       )}
                     </View>
                   )}
@@ -929,7 +962,7 @@ export default function PersonalCabinetScreen() {
             )}
 
             {/* Дата начала занятий хоккеем - только для игроков (не звезд) */}
-            {currentUser.status === 'player' && (currentUser.hockeyStartDate || isEditing) && (
+            {currentUser?.status === 'player' && (currentUser?.hockeyStartDate || isEditing) && (
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Дата начала занятий хоккеем</Text>
                 <View style={styles.infoGrid}>
@@ -979,8 +1012,8 @@ export default function PersonalCabinetScreen() {
                       </View>
                     ) : (
                       <Text style={styles.infoValue}>
-                        {currentUser.hockeyStartDate ? 
-                          `${currentUser.hockeyStartDate} (${calculateHockeyExperience(currentUser.hockeyStartDate)})` : 
+                        {currentUser?.hockeyStartDate ? 
+                          `${currentUser?.hockeyStartDate} (${calculateHockeyExperience(currentUser?.hockeyStartDate || '')})` : 
                           'Не указана'
                         }
                       </Text>
@@ -1001,7 +1034,7 @@ export default function PersonalCabinetScreen() {
                   Поддерживаются: youtube.com/watch?v=, youtu.be/, youtube.com/shorts/, youtube.com/live/, m.youtube.com/
                 </Text>
               )}
-                {isEditing ? (
+              {isEditing ? (
                   <View>
                     {videoFields.map((video, index) => (
                       <View key={index} style={styles.videoFieldContainer}>
@@ -1094,8 +1127,8 @@ export default function PersonalCabinetScreen() {
             )}
 
             {/* Нормативы - только для игроков (не звезд) */}
-            {currentUser.status === 'player' && (
-              (currentUser.pullUps || currentUser.pushUps || currentUser.plankTime || currentUser.sprint100m || currentUser.longJump || isEditing) && (
+            {currentUser?.status === 'player' && (
+                              (currentUser?.pullUps || currentUser?.pushUps || currentUser?.plankTime || currentUser?.sprint100m || currentUser?.longJump || isEditing) && (
                 <View style={styles.section}>
                   <Text style={styles.sectionTitle}>Нормативы</Text>
                   <View style={styles.infoGrid}>
@@ -1112,7 +1145,7 @@ export default function PersonalCabinetScreen() {
                       />
                     ) : (
                       <Text style={styles.infoValue}>
-                        {currentUser.pullUps ? `${currentUser.pullUps} раз` : 'Не указано'}
+                        {currentUser?.pullUps ? `${currentUser.pullUps} раз` : 'Не указано'}
                       </Text>
                     )}
                   </View>
@@ -1129,7 +1162,7 @@ export default function PersonalCabinetScreen() {
                       />
                     ) : (
                       <Text style={styles.infoValue}>
-                        {currentUser.pushUps ? `${currentUser.pushUps} раз` : 'Не указано'}
+                        {currentUser?.pushUps ? `${currentUser.pushUps} раз` : 'Не указано'}
                       </Text>
                     )}
                   </View>
@@ -1146,7 +1179,7 @@ export default function PersonalCabinetScreen() {
                       />
                     ) : (
                       <Text style={styles.infoValue}>
-                        {currentUser.plankTime ? `${currentUser.plankTime} сек` : 'Не указано'}
+                        {currentUser?.plankTime ? `${currentUser.plankTime} сек` : 'Не указано'}
                       </Text>
                     )}
                   </View>
@@ -1163,7 +1196,7 @@ export default function PersonalCabinetScreen() {
                       />
                     ) : (
                       <Text style={styles.infoValue}>
-                        {currentUser.sprint100m ? `${currentUser.sprint100m} сек` : 'Не указано'}
+                        {currentUser?.sprint100m ? `${currentUser.sprint100m} сек` : 'Не указано'}
                       </Text>
                     )}
                   </View>
@@ -1180,7 +1213,7 @@ export default function PersonalCabinetScreen() {
                       />
                     ) : (
                       <Text style={styles.infoValue}>
-                        {currentUser.longJump ? `${currentUser.longJump} см` : 'Не указано'}
+                        {currentUser?.longJump ? `${currentUser.longJump} см` : 'Не указано'}
                       </Text>
                     )}
                   </View>
@@ -1191,8 +1224,8 @@ export default function PersonalCabinetScreen() {
 
 
             {/* Фотографии - только для игроков (не звезд) */}
-            {currentUser.status === 'player' && (
-              (currentUser.photos && currentUser.photos.length > 0) || isEditing ? (
+            {currentUser?.status === 'player' && (
+                              (currentUser?.photos && currentUser.photos.length > 0) || isEditing ? (
                 <View style={styles.section}>
                   <Text style={styles.sectionTitle}>Фотографии</Text>
                   {isEditing && (
@@ -1230,7 +1263,7 @@ export default function PersonalCabinetScreen() {
                         </View>
                       )}
                     </View>
-                  ) : currentUser.photos && currentUser.photos.length > 0 ? (
+                  ) : currentUser?.photos && currentUser.photos.length > 0 ? (
                     <View style={styles.galleryContainer}>
                       <View style={styles.galleryGrid}>
                         {currentUser.photos.map((photo, index) => (
@@ -1607,7 +1640,7 @@ const styles = StyleSheet.create({
     marginTop: -6,
   },
   numberText: {
-    fontSize: 14,
+    fontSize: 21,
     fontFamily: 'Gilroy-Bold',
     color: '#fff',
   },

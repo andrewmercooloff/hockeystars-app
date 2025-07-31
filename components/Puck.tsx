@@ -57,20 +57,9 @@ const Puck: React.FC<PuckProps> = ({
       if (avatar.includes('me.jpg')) {
         return require('../assets/images/me.jpg');
       }
-      
-      // Для всех тестовых игроков показываем силуэт
-      if (avatar === 'kostitsyn1' || 
-          avatar === 'kostitsyn2' || 
-          avatar === 'grabovsky' || 
-          avatar === 'sharangovich' || 
-          avatar === 'merkulov1' || 
-          avatar === 'admin' || 
-          avatar === 'new_player') {
-        return null;
-      }
     }
     
-    // Для всех остальных случаев тоже показываем силуэт
+    // Для всех остальных случаев показываем силуэт
     return null;
   };
 

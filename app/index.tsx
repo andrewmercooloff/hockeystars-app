@@ -217,11 +217,14 @@ export default function HomeScreen() {
   const params = useLocalSearchParams();
   const [players, setPlayers] = useState<Player[]>([]);
   const [loading, setLoading] = useState(true);
+  const [imageLoaded, setImageLoaded] = useState(false);
   const [currentUser, setCurrentUser] = useState<Player | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
   const { puckPositions = [] } = usePuckCollisionSystem(players);
+
+
 
   const refreshPlayers = useCallback(async () => {
     try {
@@ -292,8 +295,13 @@ export default function HomeScreen() {
   if (loading) {
     return (
       <View style={styles.container}>
-        <ImageBackground source={iceBg} style={styles.hockeyRink} resizeMode="cover">
-          <View style={styles.innerBorder} />
+        <ImageBackground 
+          source={iceBg} 
+          style={styles.hockeyRink} 
+          resizeMode="cover"
+          onLoad={() => setImageLoaded(true)}
+        >
+          {imageLoaded && <View style={styles.innerBorder} />}
           <View style={styles.loadingContainer}>
             <Text style={styles.loadingText}>Загрузка игроков...</Text>
           </View>
@@ -304,8 +312,13 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      <ImageBackground source={iceBg} style={styles.hockeyRink} resizeMode="cover">
-        <View style={styles.innerBorder} />
+      <ImageBackground 
+        source={iceBg} 
+        style={styles.hockeyRink} 
+        resizeMode="cover"
+        onLoad={() => setImageLoaded(true)}
+      >
+        {imageLoaded && <View style={styles.innerBorder} />}
         
         {/* Анимированные шайбы игроков */}
         {puckPositions.map((position) => {
@@ -380,8 +393,9 @@ const styles = StyleSheet.create({
     height: '100%',
     borderRadius: 60,
     overflow: 'hidden',
-    borderWidth: 4,
-    borderColor: '#666',
+    // Убираем внешнюю границу, чтобы избежать дублирования
+    // borderWidth: 4,
+    // borderColor: '#666',
   },
   innerBorder: {
     position: 'absolute',
@@ -389,12 +403,50 @@ const styles = StyleSheet.create({
     left: 5,
     right: 5,
     bottom: 235,
-    borderWidth: 3,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
+    borderWidth: 4,
+    borderColor: 'rgba(255, 255, 255, 0.4)',
     borderRadius: 50,
   },
   puckContainer: {
     position: 'absolute',
+  },
+  logoPuckContainer: {
+    position: 'absolute',
+    top: 0,
+    left: width / 2 - 100,
+    zIndex: 1000,
+  },
+  logoPuck: {
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    backgroundColor: '#000',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 4,
+    borderColor: '#FF4444',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 8,
+    },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 12,
+  },
+  logoImage: {
+    width: 160,
+    height: 160,
+  },
+  logoImageContainer: {
+    position: 'absolute',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  adminPuckContainer: {
+    position: 'absolute',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   loadingContainer: {
     flex: 1,

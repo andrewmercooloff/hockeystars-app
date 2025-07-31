@@ -1,24 +1,23 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  Image, 
-  ScrollView, 
-  TouchableOpacity, 
-  ImageBackground,
-  Alert,
-  RefreshControl
-} from 'react-native';
-import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { 
-  loadCurrentUser, 
-  getUserConversations, 
-  getPlayerById,
-  getUnreadMessageCount,
-  Player,
-  Message 
+import { useFocusEffect, useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import {
+    Alert,
+    Image,
+    ImageBackground,
+    RefreshControl,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
+} from 'react-native';
+import {
+    getPlayerById,
+    getUserConversations,
+    loadCurrentUser,
+    Message,
+    Player
 } from '../utils/playerStorage';
 
 const iceBg = require('../assets/images/led.jpg');
@@ -40,6 +39,14 @@ export default function MessagesScreen() {
     loadChats();
   }, []);
 
+  // Обновляем список сообщений при фокусе на экране
+  useFocusEffect(
+    React.useCallback(() => {
+      console.log('🔄 Экран сообщений получил фокус, обновляем данные...');
+      loadChats();
+    }, [])
+  );
+
   const loadChats = async () => {
     try {
       const user = await loadCurrentUser();
@@ -49,8 +56,10 @@ export default function MessagesScreen() {
         return;
       }
 
+      console.log('💬 Загружаем чаты для пользователя:', user.name);
       setCurrentUser(user);
       const conversations = await getUserConversations(user.id);
+      console.log('💬 Получены беседы:', Object.keys(conversations).length);
       
       const chatPreviews: ChatPreview[] = [];
       
@@ -59,18 +68,24 @@ export default function MessagesScreen() {
           const otherPlayer = await getPlayerById(otherUserId);
           if (otherPlayer) {
             const lastMessage = messages[messages.length - 1];
-            const unreadCount = await getUnreadMessageCount(user.id);
+            
+            // Подсчитываем непрочитанные сообщения только для этой беседы
+            const unreadCount = messages.filter(m => 
+              m.receiverId === user.id && !m.isRead
+            ).length;
+            
+            console.log('💬 Обрабатываем беседу с:', otherPlayer.name, 'сообщений:', messages.length, 'непрочитанных:', unreadCount);
             
             chatPreviews.push({
               player: otherPlayer,
               lastMessage,
-              unreadCount: messages.filter(m => 
-                m.receiverId === user.id && !m.isRead
-              ).length
+              unreadCount
             });
           }
         }
       }
+      
+      console.log('💬 Создано превью чатов:', chatPreviews.length);
       
       // Сортируем по времени последнего сообщения
       chatPreviews.sort((a, b) => {
@@ -224,7 +239,8 @@ export default function MessagesScreen() {
                     <Text style={styles.chatStatus}>
                       {chat.player.status === 'player' ? 'Игрок' : 
                        chat.player.status === 'coach' ? 'Тренер' : 
-                       chat.player.status === 'scout' ? 'Скаут' : 'Звезда'}
+                       chat.player.status === 'scout' ? 'Скаут' : 
+                       chat.player.status === 'admin' ? 'Техподдержка' : 'Звезда'}
                     </Text>
                   </View>
                 </TouchableOpacity>

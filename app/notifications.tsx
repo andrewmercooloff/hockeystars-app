@@ -1,29 +1,25 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  Image, 
-  ScrollView, 
-  TouchableOpacity, 
-  ImageBackground,
-  Alert,
-  RefreshControl
-} from 'react-native';
-import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { 
-  loadCurrentUser, 
-  getUserConversations, 
-  getPlayerById,
-  getUnreadMessageCount,
-  loadNotifications,
-  markNotificationAsRead,
-  deleteNotification,
-  clearAllNotifications,
-  Player,
-  Message,
-  Notification
+import { useFocusEffect, useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useState } from 'react';
+import {
+    Alert,
+    Image,
+    ImageBackground,
+    RefreshControl,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
+} from 'react-native';
+import {
+    clearAllNotifications,
+    getPlayerById,
+    getUserConversations,
+    loadCurrentUser,
+    loadNotifications,
+    markNotificationAsRead,
+    Player
 } from '../utils/playerStorage';
 
 const iceBg = require('../assets/images/led.jpg');
@@ -52,6 +48,14 @@ export default function NotificationsScreen() {
     loadNotificationsData();
   }, []);
 
+  // Обновляем уведомления при фокусе на экране
+  useFocusEffect(
+    useCallback(() => {
+      console.log('🔄 Экран уведомлений получил фокус, обновляем данные...');
+      loadNotificationsData();
+    }, [])
+  );
+
   const loadNotificationsData = async () => {
     try {
       const user = await loadCurrentUser();
@@ -64,7 +68,8 @@ export default function NotificationsScreen() {
       setCurrentUser(user);
       
       // Загружаем все уведомления из хранилища
-      const storedNotifications = await loadNotifications();
+      const storedNotifications = await loadNotifications(user.id);
+      console.log('🔔 Загружено уведомлений из хранилища:', storedNotifications.length);
       
       // Фильтруем уведомления, которые относятся к текущему пользователю
       const userNotifications = storedNotifications.filter(notification => {
@@ -78,6 +83,9 @@ export default function NotificationsScreen() {
         }
         return true;
       });
+      
+      console.log('🔔 Отфильтровано уведомлений для пользователя:', userNotifications.length);
+      console.log('🔔 Детали уведомлений:', userNotifications);
       
       // Создаем уведомления на основе непрочитанных сообщений (только если их нет в хранилище)
       const conversations = await getUserConversations(user.id);
@@ -122,6 +130,9 @@ export default function NotificationsScreen() {
       
       // Сортируем по времени (новые сверху)
       allNotifications.sort((a, b) => b.timestamp - a.timestamp);
+      
+      console.log('🔔 Финальный список уведомлений:', allNotifications.length);
+      console.log('🔔 Детали финальных уведомлений:', allNotifications);
       
       setNotifications(allNotifications);
     } catch (error) {

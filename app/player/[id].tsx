@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
     Alert,
     Image,
@@ -18,7 +19,7 @@ import NormativesSection from '../../components/NormativesSection';
 import PhotosSection from '../../components/PhotosSection';
 import VideoCarousel from '../../components/VideoCarousel';
 import YouTubeVideo from '../../components/YouTubeVideo';
-import { acceptFriendRequest, cancelFriendRequest, declineFriendRequest, getFriends, getFriendshipStatus, getPlayerById, loadCurrentUser, Player, removeFriend, sendFriendRequest } from '../../utils/playerStorage';
+import { acceptFriendRequest, cancelFriendRequest, clearAllFriendRequests, createFriendRequestNotification, debugFriendRequests, declineFriendRequest, getFriends, getFriendshipStatus, getPlayerById, loadCurrentUser, Player, removeFriend, sendFriendRequest } from '../../utils/playerStorage';
 
 const iceBg = require('../../assets/images/led.jpg');
 
@@ -85,18 +86,35 @@ export default function PlayerProfile() {
     loadPlayerData();
   }, [id]);
 
+  // Добавляем обновление при фокусе экрана
+  useFocusEffect(
+    useCallback(() => {
+      console.log('🔄 Экран профиля игрока получил фокус, обновляем данные...');
+      loadPlayerData();
+    }, [id])
+  );
+
   const loadPlayerData = async () => {
     try {
       if (id) {
         const playerData = await getPlayerById(id as string);
         const userData = await loadCurrentUser();
         console.log('Loaded player data:', playerData?.name, 'Status:', playerData?.status, 'Is star:', playerData?.status === 'star');
+        console.log('📸 Фото игрока:', {
+          name: playerData?.name,
+          hasPhoto: !!playerData?.photo,
+          hasAvatar: !!playerData?.avatar,
+          photoLength: playerData?.photo?.length || 0,
+          avatarLength: playerData?.avatar?.length || 0
+        });
         setPlayer(playerData);
         setCurrentUser(userData);
         
         // Проверяем статус дружбы, если пользователь авторизован
         if (userData && playerData) {
+          console.log('🔍 Проверяем статус дружбы между пользователем', userData.name, 'и игроком', playerData.name);
           const friendsStatus = await getFriendshipStatus(userData.id, playerData.id);
+          console.log('🔍 Получен статус дружбы:', friendsStatus);
           setFriendshipStatus(friendsStatus);
         }
         
@@ -189,6 +207,7 @@ export default function PlayerProfile() {
         }
       } else if (friendshipStatus === 'received_request') {
         console.log('🔧 Принимаем запрос');
+        console.log('🔧 Параметры для acceptFriendRequest:', { currentUserId: currentUser.id, playerId: player.id });
         // Принимаем запрос
         const success = await acceptFriendRequest(currentUser.id, player.id);
         console.log('🔧 acceptFriendRequest результат:', success);
@@ -276,6 +295,95 @@ export default function PlayerProfile() {
     );
   };
 
+  const handleDebugFriendRequests = async () => {
+    console.log('🔧 Отладка запросов дружбы...');
+    await debugFriendRequests();
+    showCustomAlert('Отладка', 'Проверьте консоль для информации о запросах дружбы', 'info');
+  };
+
+  const handleClearAllFriendRequests = async () => {
+    console.log('🔧 Очистка всех запросов дружбы...');
+    await clearAllFriendRequests();
+    showCustomAlert('Очистка', 'Все запросы дружбы очищены', 'info');
+    // Обновляем данные после очистки
+    await loadPlayerData();
+  };
+
+  const handleTestNotification = async () => {
+    if (!currentUser || !player) return;
+    
+    console.log('🔔 Тестируем создание уведомления...');
+    await createFriendRequestNotification(player.id, currentUser.id);
+    showCustomAlert('Тест', 'Тестовое уведомление создано', 'info');
+  };
+
+  const handleViewAllNotifications = async () => {
+    try {
+      const notificationsData = await AsyncStorage.getItem('hockeystars_notifications');
+      const allNotifications = notificationsData ? JSON.parse(notificationsData) : [];
+      console.log('🔔 Все уведомления в системе:', allNotifications);
+      showCustomAlert('Отладка', `Всего уведомлений: ${allNotifications.length}`, 'info');
+    } catch (error) {
+      console.error('❌ Ошибка просмотра уведомлений:', error);
+    }
+  };
+
+  const handleSendFriendRequestFromPlayer = async () => {
+    if (!currentUser || !player) return;
+    
+    console.log('🔔 Отправляем запрос дружбы от игрока к администратору...');
+    try {
+      await sendFriendRequest(player.id, currentUser.id);
+      showCustomAlert('Успех', 'Запрос дружбы отправлен от имени игрока', 'success');
+    } catch (error) {
+      console.error('❌ Ошибка отправки запроса дружбы:', error);
+      showCustomAlert('Ошибка', 'Не удалось отправить запрос дружбы', 'error');
+    }
+  };
+
+  const handleTestMessage = async () => {
+    if (!currentUser || !player) return;
+    
+    console.log('💬 Тестируем отправку сообщения...');
+    try {
+      const { sendMessageSimple } = await import('../../utils/playerStorage');
+      const success = await sendMessageSimple(player.id, currentUser.id, 'Тестовое сообщение от игрока!');
+      if (success) {
+        showCustomAlert('Успех', 'Тестовое сообщение отправлено', 'success');
+      } else {
+        showCustomAlert('Ошибка', 'Не удалось отправить сообщение', 'error');
+      }
+    } catch (error) {
+      console.error('❌ Ошибка отправки тестового сообщения:', error);
+      showCustomAlert('Ошибка', 'Не удалось отправить сообщение', 'error');
+    }
+  };
+
+  const handleViewAllMessages = async () => {
+    try {
+      const messagesData = await AsyncStorage.getItem('hockeystars_messages');
+      const allMessages = messagesData ? JSON.parse(messagesData) : [];
+      console.log('💬 Все сообщения в системе:', allMessages);
+      showCustomAlert('Отладка', `Всего сообщений: ${allMessages.length}`, 'info');
+    } catch (error) {
+      console.error('❌ Ошибка просмотра сообщений:', error);
+    }
+  };
+
+  const handleRefreshCounters = async () => {
+    if (!currentUser) return;
+    
+    console.log('🔄 Принудительно обновляем счетчики...');
+    try {
+      const { getUnreadMessageCount } = await import('../../utils/playerStorage');
+      const unreadMessagesCount = await getUnreadMessageCount(currentUser.id);
+      console.log('💬 Обновленный счетчик непрочитанных сообщений:', unreadMessagesCount);
+      showCustomAlert('Обновление', `Непрочитанных сообщений: ${unreadMessagesCount}`, 'info');
+    } catch (error) {
+      console.error('❌ Ошибка обновления счетчиков:', error);
+    }
+  };
+
   if (loading) {
     return (
       <View style={styles.container}>
@@ -317,17 +425,18 @@ export default function PlayerProfile() {
             {/* Фото и основная информация */}
             <View style={styles.profileSection}>
               {(() => {
-                const hasValidImage = player.avatar && typeof player.avatar === 'string' && (
-                  player.avatar.startsWith('data:image/') || 
-                  player.avatar.startsWith('http') || 
-                  player.avatar.startsWith('file://') || 
-                  player.avatar.startsWith('content://')
+                const imageSource = player.avatar || player.photo;
+                const hasValidImage = imageSource && typeof imageSource === 'string' && (
+                  imageSource.startsWith('data:image/') || 
+                  imageSource.startsWith('http') || 
+                  imageSource.startsWith('file://') || 
+                  imageSource.startsWith('content://')
                 );
 
                 if (hasValidImage) {
                   return (
                     <Image 
-                      source={{ uri: player.avatar }}
+                      source={{ uri: imageSource }}
                       style={styles.profileImage}
                       onError={() => console.log('Ошибка загрузки изображения')}
                     />
@@ -364,7 +473,8 @@ export default function PlayerProfile() {
                 <Text style={styles.playerStatus}>
                   {player.status === 'player' ? 'Игрок' : 
                    player.status === 'coach' ? 'Тренер' : 
-                   player.status === 'scout' ? 'Скаут' : 'Звезда'}
+                   player.status === 'scout' ? 'Скаут' : 
+                   player.status === 'admin' ? 'Техподдержка' : 'Звезда'}
                 </Text>
               </View>
               {player.team && <Text style={styles.playerTeam}>{player.team}</Text>}
@@ -482,6 +592,91 @@ export default function PlayerProfile() {
                     </View>
                   </>
                 )}
+              </View>
+            )}
+
+            {/* Кнопка отладки для администратора */}
+            {currentUser && currentUser.status === 'admin' && (
+              <View style={styles.section}>
+                <TouchableOpacity 
+                  style={[styles.friendRequestButton, { backgroundColor: 'rgba(0, 0, 255, 0.3)', borderColor: '#0000FF' }]} 
+                  onPress={handleDebugFriendRequests}
+                >
+                  <Ionicons name="bug-outline" size={20} color="#fff" />
+                  <Text style={styles.friendRequestButtonText}>
+                    Отладка запросов дружбы
+                  </Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity 
+                  style={[styles.friendRequestButton, { backgroundColor: 'rgba(255, 0, 0, 0.3)', borderColor: '#FF0000', marginTop: 10 }]} 
+                  onPress={handleClearAllFriendRequests}
+                >
+                  <Ionicons name="trash-outline" size={20} color="#fff" />
+                  <Text style={styles.friendRequestButtonText}>
+                    Очистить все запросы дружбы
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                  style={[styles.friendRequestButton, { backgroundColor: 'rgba(0, 255, 0, 0.3)', borderColor: '#00FF00', marginTop: 10 }]} 
+                  onPress={handleTestNotification}
+                >
+                  <Ionicons name="notifications-outline" size={20} color="#fff" />
+                  <Text style={styles.friendRequestButtonText}>
+                    Тест уведомления
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                  style={[styles.friendRequestButton, { backgroundColor: 'rgba(255, 165, 0, 0.3)', borderColor: '#FFA500', marginTop: 10 }]} 
+                  onPress={handleViewAllNotifications}
+                >
+                  <Ionicons name="eye-outline" size={20} color="#fff" />
+                  <Text style={styles.friendRequestButtonText}>
+                    Просмотр всех уведомлений
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                  style={[styles.friendRequestButton, { backgroundColor: 'rgba(128, 0, 128, 0.3)', borderColor: '#800080', marginTop: 10 }]} 
+                  onPress={handleSendFriendRequestFromPlayer}
+                >
+                  <Ionicons name="person-add-outline" size={20} color="#fff" />
+                  <Text style={styles.friendRequestButtonText}>
+                    Отправить запрос от игрока
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                  style={[styles.friendRequestButton, { backgroundColor: 'rgba(0, 128, 128, 0.3)', borderColor: '#008080', marginTop: 10 }]} 
+                  onPress={handleTestMessage}
+                >
+                  <Ionicons name="chatbubble-outline" size={20} color="#fff" />
+                  <Text style={styles.friendRequestButtonText}>
+                    Тест сообщения
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                  style={[styles.friendRequestButton, { backgroundColor: 'rgba(128, 128, 0, 0.3)', borderColor: '#808000', marginTop: 10 }]} 
+                  onPress={handleViewAllMessages}
+                >
+                  <Ionicons name="eye-outline" size={20} color="#fff" />
+                  <Text style={styles.friendRequestButtonText}>
+                    Просмотр всех сообщений
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                  style={[styles.friendRequestButton, { backgroundColor: 'rgba(75, 0, 130, 0.3)', borderColor: '#4B0082', marginTop: 10 }]} 
+                  onPress={handleRefreshCounters}
+                >
+                  <Ionicons name="refresh-outline" size={20} color="#fff" />
+                  <Text style={styles.friendRequestButtonText}>
+                    Обновить счетчики
+                  </Text>
+                </TouchableOpacity>
               </View>
             )}
 
@@ -621,8 +816,8 @@ export default function PlayerProfile() {
               </View>
             )}
 
-            {/* Фотографии - показываем только НЕ звездам */}
-            {player && player.status && player.status.trim() !== 'star' ? (
+            {/* Фотографии - показываем только НЕ звездам и НЕ администраторам */}
+            {player && player.status && player.status.trim() !== 'star' && player.status.trim() !== 'admin' ? (
               (currentUser && currentUser.id === player.id) || 
               friendshipStatus === 'friends' || 
               currentUser?.status === 'coach' || 
@@ -643,8 +838,8 @@ export default function PlayerProfile() {
               )
             ) : null}
 
-            {/* Нормативы - показываем только НЕ звездам */}
-            {player && player.status && player.status.trim() !== 'star' ? (
+            {/* Нормативы - показываем только НЕ звездам и НЕ администраторам */}
+            {player && player.status && player.status.trim() !== 'star' && player.status.trim() !== 'admin' ? (
               (currentUser && currentUser.id === player.id) || 
               friendshipStatus === 'friends' || 
               currentUser?.status === 'coach' || 
@@ -732,16 +927,16 @@ export default function PlayerProfile() {
                         style={[styles.actionButton, styles.starButton]} 
                         onPress={handleRequestAutograph}
                       >
-                        <Ionicons name="create-outline" size={20} color="#fff" />
-                        <Text style={styles.actionButtonText}>Попросить автограф</Text>
+                        <Ionicons name="create-outline" size={20} color="#000" />
+                        <Text style={styles.starButtonText}>Попросить автограф</Text>
                       </TouchableOpacity>
                       
                       <TouchableOpacity 
                         style={[styles.actionButton, styles.starButton]} 
                         onPress={handleRequestStick}
                       >
-                        <Ionicons name="key-outline" size={20} color="#fff" />
-                        <Text style={styles.actionButtonText}>Попросить клюшку</Text>
+                        <Ionicons name="key-outline" size={20} color="#000" />
+                        <Text style={styles.starButtonText}>Попросить клюшку</Text>
                       </TouchableOpacity>
                     </>
                   ) : (
@@ -965,6 +1160,12 @@ const styles = StyleSheet.create({
     color: '#fff',
     marginLeft: 8,
   },
+  starButtonText: {
+    fontSize: 14,
+    fontFamily: 'Gilroy-Bold',
+    color: '#000', // Черный текст для кнопок звезд
+    marginLeft: 8,
+  },
   section: {
     backgroundColor: 'rgba(0, 0, 0, 0.9)',
     borderRadius: 15,
@@ -1159,8 +1360,8 @@ const styles = StyleSheet.create({
     marginTop: 5,
   },
   starButton: {
-    backgroundColor: '#FFD700',
-    borderColor: '#FF8C00',
+    backgroundColor: '#DAA520', // Темнее золотой
+    borderColor: '#B8860B', // Темнее оранжевый
   },
   videoModalOverlay: {
     flex: 1,

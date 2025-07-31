@@ -1,28 +1,28 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  Image, 
-  ScrollView, 
-  TouchableOpacity, 
-  ImageBackground,
-  TextInput,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  BackHandler
-} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { 
-  getPlayerById, 
-  loadCurrentUser, 
-  Player, 
-  sendMessage, 
-  getConversation, 
-  markMessagesAsRead,
-  Message 
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useEffect, useRef, useState } from 'react';
+import {
+    Alert,
+    BackHandler,
+    Image,
+    ImageBackground,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
+} from 'react-native';
+import {
+    getConversation,
+    getPlayerById,
+    loadCurrentUser,
+    markMessagesAsRead,
+    Message,
+    Player,
+    sendMessageSimple
 } from '../../utils/playerStorage';
 
 const iceBg = require('../../assets/images/led.jpg');
@@ -119,7 +119,7 @@ export default function ChatScreen() {
     }
 
     try {
-      const success = await sendMessage(currentUser.id, otherPlayer.id, newMessage.trim());
+      const success = await sendMessageSimple(currentUser.id, otherPlayer.id, newMessage.trim());
       if (success) {
         setNewMessage('');
         await loadMessages();
@@ -191,7 +191,8 @@ export default function ChatScreen() {
                 <Text style={styles.headerStatus}>
                   {otherPlayer.status === 'player' ? 'Игрок' : 
                    otherPlayer.status === 'coach' ? 'Тренер' : 
-                   otherPlayer.status === 'scout' ? 'Скаут' : 'Звезда'}
+                   otherPlayer.status === 'scout' ? 'Скаут' : 
+                   otherPlayer.status === 'admin' ? 'Техподдержка' : 'Звезда'}
                 </Text>
               </View>
             </View>
