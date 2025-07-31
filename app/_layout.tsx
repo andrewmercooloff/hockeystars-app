@@ -3,8 +3,11 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
 import { SplashScreen, Tabs, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Image, Text, TouchableOpacity, View } from 'react-native';
+import { Image, LogBox, Text, TouchableOpacity, View } from 'react-native';
 import { initializeStorage, loadCurrentUser, loadNotifications, Player } from '../utils/playerStorage';
+
+// Отключаем все предупреждения
+LogBox.ignoreAllLogs();
 
 const logo = require('../assets/images/logo.png');
 
@@ -88,7 +91,7 @@ const LogoHeader = () => {
                 borderRadius: 22.5,
                 resizeMode: 'cover'
               }}
-              onError={() => console.log('Profile image failed to load')}
+              onError={() => {}}
             />
           ) : (
             <Ionicons name="person" size={25} color="#fff" />
@@ -144,8 +147,7 @@ export default function RootLayout() {
         const { getUnreadMessageCount } = await import('../utils/playerStorage');
         const unreadMessagesCount = await getUnreadMessageCount(user.id);
         
-        console.log('🔔 Непрочитанных уведомлений для пользователя', user.name, ':', unreadNotificationsCount);
-        console.log('💬 Непрочитанных сообщений для пользователя', user.name, ':', unreadMessagesCount);
+        // Обновлены счетчики уведомлений и сообщений
         
         setCurrentUser({ 
           ...user, 
@@ -194,7 +196,7 @@ export default function RootLayout() {
   // Обновляем счетчики при фокусе на экране сообщений
   useFocusEffect(
     React.useCallback(() => {
-      console.log('🔄 Главный экран получил фокус, обновляем счетчики...');
+              // Главный экран получил фокус
       refreshCounters();
     }, [])
   );
@@ -236,7 +238,7 @@ export default function RootLayout() {
         name="messages"
         options={{
           tabBarIcon: ({ size }) => {
-            console.log('💬 Рендерим иконку сообщений, currentUser:', currentUser?.name, 'unreadMessagesCount:', currentUser?.unreadMessagesCount);
+            // Рендерим иконку сообщений
             return (
               <View style={{
                 position: 'relative',
@@ -273,7 +275,7 @@ export default function RootLayout() {
         name="notifications"
         options={{
           tabBarIcon: ({ size }) => {
-            console.log('🔔 Рендерим иконку уведомлений, currentUser:', currentUser?.name, 'unreadCount:', currentUser?.unreadNotificationsCount);
+            // Рендерим иконку уведомлений
             return (
               <View style={{
                 position: 'relative',
@@ -355,7 +357,7 @@ export default function RootLayout() {
           headerTitle: () => <LogoHeader />,
         }}
       />
-      {/* Убираем неиспользуемый экран (tabs) для устранения предупреждений */}
+      
       {/* <Tabs.Screen
         name="(tabs)"
         options={{

@@ -111,7 +111,7 @@ const Puck: React.FC<PuckProps> = ({
           </View>
         )}
         
-        {points && status === 'player' && (
+        {points && status === 'player' && points !== 'NaN' && points !== 'undefined' && typeof points === 'string' && points.length > 0 && (
           <View style={styles.pointsContainer}>
             <Text style={styles.pointsText}>{points}</Text>
           </View>

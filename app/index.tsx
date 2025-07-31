@@ -79,8 +79,8 @@ const usePuckCollisionSystem = (players: Player[]) => {
             id: player.id,
             x: newX,
             y: newY,
-            vx: (Math.random() - 0.5) * 0.15,
-            vy: (Math.random() - 0.5) * 0.15,
+            vx: (Math.random() - 0.5) * 0.39, // Увеличено в 2.6 раза с 0.15 до 0.39
+            vy: (Math.random() - 0.5) * 0.39, // Увеличено в 2.6 раза с 0.15 до 0.39
             size: puckSize,
           });
         }
@@ -148,7 +148,7 @@ const usePuckCollisionSystem = (players: Player[]) => {
           });
           
           // Ограничение максимальной скорости для стабильности
-          const maxSpeed = 2.0;
+          const maxSpeed = 5.2; // Увеличено в 2.6 раза с 2.0 до 5.2
           const currentSpeed = Math.sqrt(newVx * newVx + newVy * newVy);
           if (currentSpeed > maxSpeed) {
             newVx = (newVx / currentSpeed) * maxSpeed;
@@ -156,7 +156,7 @@ const usePuckCollisionSystem = (players: Player[]) => {
           }
           
           // Минимальная скорость для предотвращения остановки
-          const minSpeed = 0.08;
+          const minSpeed = 0.208; // Увеличено в 2.6 раза с 0.08 до 0.208
           if (currentSpeed < minSpeed) {
             const angle = Math.random() * 2 * Math.PI;
             newVx = Math.cos(angle) * minSpeed;
@@ -202,7 +202,16 @@ const PuckAnimator = ({ player, position, onNav }: {
         animatedStyle={animatedStyle}
         size={position.size}
         points={player.goals && player.assists ? 
-          `${parseInt(player.goals) + parseInt(player.assists)}` : undefined}
+          (() => {
+            try {
+              const goals = parseInt(player.goals) || 0;
+              const assists = parseInt(player.assists) || 0;
+              const total = goals + assists;
+              return total > 0 && !isNaN(total) ? total.toString() : undefined;
+            } catch (error) {
+              return undefined;
+            }
+          })() : undefined}
         isStar={player.status === 'star'}
         status={player.status}
       />
@@ -278,7 +287,6 @@ export default function HomeScreen() {
   // Обработка параметра refresh для принудительного обновления
   useEffect(() => {
     if (params.refresh) {
-      console.log('Принудительное обновление главного экрана');
       refreshPlayers();
       checkForNewUser();
     }
@@ -320,7 +328,7 @@ export default function HomeScreen() {
       >
         {imageLoaded && <View style={styles.innerBorder} />}
         
-        {/* Анимированные шайбы игроков */}
+
         {puckPositions.map((position) => {
           const player = players.find(p => p.id === position.id);
           if (!player) return null;
@@ -343,7 +351,7 @@ export default function HomeScreen() {
 
         
 
-        {/* Модальное окно авторизации */}
+
         <Modal
           visible={showAuthModal}
           transparent={true}

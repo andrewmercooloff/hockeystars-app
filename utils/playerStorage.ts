@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-console.log('📦 utils/playerStorage.ts загружен');
+// utils/playerStorage.ts загружен
 
 export interface Player {
   id: string;
@@ -219,7 +219,7 @@ export const loadPlayers = async (): Promise<Player[]> => {
     const playersData = await AsyncStorage.getItem(PLAYERS_KEY);
     if (playersData) {
       const players = JSON.parse(playersData);
-      console.log(`📊 Загружено ${players.length} игроков`);
+      // Загружено игроков
       return players;
     }
     return [];
@@ -309,7 +309,7 @@ export const loadCurrentUser = async (): Promise<Player | null> => {
     const userData = await AsyncStorage.getItem(CURRENT_USER_KEY);
     if (userData) {
       const user = JSON.parse(userData);
-      console.log('👤 Текущий пользователь загружен:', user?.name || 'Без имени');
+      // Текущий пользователь загружен
       return user;
     }
     console.log('👤 Текущий пользователь не найден');
@@ -394,7 +394,7 @@ export const getMessages = async (userId1: string, userId2: string): Promise<Mes
 
 export const getUnreadMessageCount = async (userId: string): Promise<number> => {
   try {
-    console.log('💬 Подсчитываем непрочитанные сообщения для пользователя:', userId);
+    // Подсчитываем непрочитанные сообщения
     
     const messagesData = await AsyncStorage.getItem(MESSAGES_KEY);
     if (messagesData) {
@@ -403,19 +403,11 @@ export const getUnreadMessageCount = async (userId: string): Promise<number> => 
         msg.receiverId === userId && !msg.read
       );
       
-      console.log('💬 Всего сообщений:', allMessages.length);
-      console.log('💬 Непрочитанных сообщений:', unreadMessages.length);
-      console.log('💬 Детали непрочитанных сообщений:', unreadMessages.map(m => ({
-        id: m.id,
-        senderId: m.senderId,
-        receiverId: m.receiverId,
-        text: m.text.substring(0, 20) + '...',
-        read: m.read
-      })));
+      // Подсчет сообщений завершен
       
       return unreadMessages.length;
     }
-    console.log('💬 Нет сообщений в системе');
+    // Нет сообщений в системе
     return 0;
   } catch (error) {
     console.error('❌ Ошибка подсчета непрочитанных сообщений:', error);
@@ -885,7 +877,7 @@ export const getUserConversations = async (userId: string): Promise<any[]> => {
 
 export const loadNotifications = async (userId: string): Promise<any[]> => {
   try {
-    console.log('🔔 Загрузка уведомлений пользователя:', userId);
+    // Загрузка уведомлений пользователя
     const notificationsData = await AsyncStorage.getItem('hockeystars_notifications');
     const allNotifications = notificationsData ? JSON.parse(notificationsData) : [];
     
@@ -900,7 +892,7 @@ export const loadNotifications = async (userId: string): Promise<any[]> => {
       return true;
     });
     
-    console.log('🔔 Найдено уведомлений для пользователя', userId, ':', userNotifications.length);
+    // Найдено уведомлений для пользователя
     return userNotifications;
   } catch (error) {
     console.error('❌ Ошибка загрузки уведомлений:', error);

@@ -594,7 +594,7 @@ export default function PersonalCabinetScreen() {
             
 
 
-            {/* Фото и основная информация */}
+    
             <View style={styles.profileSection}>
               <TouchableOpacity onPress={isEditing ? pickImage : undefined} style={styles.photoContainer}>
                 {(() => {
@@ -692,7 +692,7 @@ export default function PersonalCabinetScreen() {
                 
 
                 
-                {/* Кнопка панели администратора */}
+        
                 {currentUser?.status === 'admin' && (
                   <TouchableOpacity 
                     style={[styles.editButton, { marginLeft: 10, backgroundColor: '#FF4444' }]} 
@@ -718,7 +718,7 @@ export default function PersonalCabinetScreen() {
               )}
             </View>
 
-            {/* Статистика - только для обычных игроков */}
+    
                             {currentUser?.status !== 'star' && (
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Статистика</Text>
@@ -831,7 +831,7 @@ export default function PersonalCabinetScreen() {
               </View>
             )}
 
-            {/* Информация о команде для звезд */}
+    
             {currentUser?.status === 'star' && (
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Информация о команде</Text>
@@ -862,7 +862,7 @@ export default function PersonalCabinetScreen() {
               </View>
             )}
 
-            {/* Основная информация */}
+    
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Основная информация</Text>
               <View style={styles.infoGrid}>
@@ -918,7 +918,7 @@ export default function PersonalCabinetScreen() {
               </View>
             </View>
 
-            {/* Физические данные - только для игроков */}
+    
             {currentUser?.status === 'player' && (currentUser?.height || currentUser?.weight) && (
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Физические данные</Text>
@@ -961,7 +961,7 @@ export default function PersonalCabinetScreen() {
               </View>
             )}
 
-            {/* Дата начала занятий хоккеем - только для игроков (не звезд) */}
+    
             {currentUser?.status === 'player' && (currentUser?.hockeyStartDate || isEditing) && (
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Дата начала занятий хоккеем</Text>
@@ -1126,9 +1126,8 @@ export default function PersonalCabinetScreen() {
               </View>
             )}
 
-            {/* Нормативы - только для игроков (не звезд) */}
-            {currentUser?.status === 'player' && (
-                              (currentUser?.pullUps || currentUser?.pushUps || currentUser?.plankTime || currentUser?.sprint100m || currentUser?.longJump || isEditing) && (
+            {currentUser?.status === 'player' && 
+              (currentUser?.pullUps || currentUser?.pushUps || currentUser?.plankTime || currentUser?.sprint100m || currentUser?.longJump || isEditing) && (
                 <View style={styles.section}>
                   <Text style={styles.sectionTitle}>Нормативы</Text>
                   <View style={styles.infoGrid}>
@@ -1219,7 +1218,7 @@ export default function PersonalCabinetScreen() {
                   </View>
                 </View>
               </View>
-            ))}
+            )}
 
 
 

@@ -3,22 +3,22 @@ import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-    Image,
-    Modal,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  Image,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import CustomAlert from '../components/CustomAlert';
 import PageWrapper from '../components/PageWrapper';
 import {
-    Player,
-    calculateHockeyExperience,
-    loadCurrentUser,
-    saveCurrentUser,
-    updatePlayer
+  Player,
+  calculateHockeyExperience,
+  loadCurrentUser,
+  saveCurrentUser,
+  updatePlayer
 } from '../utils/playerStorage';
 
 export default function ProfileScreen() {
@@ -144,7 +144,7 @@ export default function ProfileScreen() {
     <PageWrapper title="Профиль" showBottomNav={false}>
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
 
-        {/* Основная информация */}
+
         <View style={styles.profileSection}>
           <View style={styles.avatarContainer}>
             {currentUser.avatar ? (
@@ -182,7 +182,7 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        {/* Статистика */}
+
         <View style={styles.statsSection}>
           <Text style={styles.sectionTitle}>Статистика</Text>
           <View style={styles.statsGrid}>
@@ -201,14 +201,14 @@ export default function ProfileScreen() {
             <View style={styles.statItem}>
               <Text style={styles.statValue}>
                 {currentUser.goals && currentUser.assists ? 
-                  parseInt(currentUser.goals) + parseInt(currentUser.assists) : '0'}
+                  (parseInt(currentUser.goals) || 0) + (parseInt(currentUser.assists) || 0) : '0'}
               </Text>
               <Text style={styles.statLabel}>Очки</Text>
             </View>
           </View>
         </View>
 
-        {/* Детальная информация */}
+
         <View style={styles.detailsSection}>
           <Text style={styles.sectionTitle}>Информация</Text>
           
@@ -234,7 +234,9 @@ export default function ProfileScreen() {
             <Ionicons name="calendar" size={20} color="#FF4444" />
             <Text style={styles.infoLabel}>Возраст:</Text>
             <Text style={styles.infoValue}>
-              {currentUser.age ? `${currentUser.age} лет` : 'Не указан'}
+              {currentUser.birthDate ? 
+                `${new Date().getFullYear() - new Date(currentUser.birthDate).getFullYear()} лет` : 
+                'Не указан'}
             </Text>
           </View>
 
@@ -255,7 +257,7 @@ export default function ProfileScreen() {
           )}
         </View>
 
-        {/* Действия */}
+
         <View style={styles.actionsSection}>
           <TouchableOpacity 
             style={styles.actionButton}
@@ -277,7 +279,7 @@ export default function ProfileScreen() {
         </View>
       </ScrollView>
 
-      {/* Модальное окно выхода */}
+
       <Modal
         visible={showLogoutModal}
         transparent={true}
@@ -317,7 +319,6 @@ export default function ProfileScreen() {
         confirmText="OK"
         showCancel={false}
       />
-      </ScrollView>
     </PageWrapper>
   );
 }

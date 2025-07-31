@@ -224,7 +224,7 @@ export default function HomeScreen() {
     <PageWrapper showHeader={false} showBottomNav={false}>
       <View style={styles.innerBorder} />
       
-      {/* Анимированные шайбы игроков */}
+      
       {puckPositions.map((position) => {
         const player = players.find(p => p.id === position.id);
         if (!player) return null;
@@ -245,7 +245,7 @@ export default function HomeScreen() {
         );
       })}
 
-      {/* Кнопки управления */}
+      
       <View style={styles.authButtons}>
         <TouchableOpacity 
           style={styles.authButton} 
@@ -294,7 +294,7 @@ export default function HomeScreen() {
         )}
       </View>
 
-        {/* Модальное окно авторизации */}
+
         <Modal
           visible={showAuthModal}
           transparent={true}

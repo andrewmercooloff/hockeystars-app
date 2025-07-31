@@ -344,7 +344,7 @@ export default function PlayerProfile() {
   const handleTestMessage = async () => {
     if (!currentUser || !player) return;
     
-    console.log('💬 Тестируем отправку сообщения...');
+            // Тестируем отправку сообщения
     try {
       const { sendMessageSimple } = await import('../../utils/playerStorage');
       const success = await sendMessageSimple(player.id, currentUser.id, 'Тестовое сообщение от игрока!');
@@ -363,7 +363,7 @@ export default function PlayerProfile() {
     try {
       const messagesData = await AsyncStorage.getItem('hockeystars_messages');
       const allMessages = messagesData ? JSON.parse(messagesData) : [];
-      console.log('💬 Все сообщения в системе:', allMessages);
+              // Все сообщения в системе
       showCustomAlert('Отладка', `Всего сообщений: ${allMessages.length}`, 'info');
     } catch (error) {
       console.error('❌ Ошибка просмотра сообщений:', error);
@@ -377,7 +377,7 @@ export default function PlayerProfile() {
     try {
       const { getUnreadMessageCount } = await import('../../utils/playerStorage');
       const unreadMessagesCount = await getUnreadMessageCount(currentUser.id);
-      console.log('💬 Обновленный счетчик непрочитанных сообщений:', unreadMessagesCount);
+              // Обновленный счетчик непрочитанных сообщений
       showCustomAlert('Обновление', `Непрочитанных сообщений: ${unreadMessagesCount}`, 'info');
     } catch (error) {
       console.error('❌ Ошибка обновления счетчиков:', error);

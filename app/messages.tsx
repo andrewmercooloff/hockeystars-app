@@ -56,10 +56,10 @@ export default function MessagesScreen() {
         return;
       }
 
-      console.log('💬 Загружаем чаты для пользователя:', user.name);
+      // Загружаем чаты для пользователя
       setCurrentUser(user);
       const conversations = await getUserConversations(user.id);
-      console.log('💬 Получены беседы:', Object.keys(conversations).length);
+              // Получены беседы
       
       const chatPreviews: ChatPreview[] = [];
       
@@ -74,7 +74,7 @@ export default function MessagesScreen() {
               m.receiverId === user.id && !m.isRead
             ).length;
             
-            console.log('💬 Обрабатываем беседу с:', otherPlayer.name, 'сообщений:', messages.length, 'непрочитанных:', unreadCount);
+            // Обрабатываем беседу
             
             chatPreviews.push({
               player: otherPlayer,
@@ -85,7 +85,7 @@ export default function MessagesScreen() {
         }
       }
       
-      console.log('💬 Создано превью чатов:', chatPreviews.length);
+              // Создано превью чатов
       
       // Сортируем по времени последнего сообщения
       chatPreviews.sort((a, b) => {
