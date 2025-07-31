@@ -1,7 +1,6 @@
 import { supabase } from './supabase';
 
-// Интерфейс для данных из Supabase (snake_case)
-export interface SupabasePlayer {
+export interface Player {
   id: string;
   name: string;
   position: string;
@@ -33,54 +32,21 @@ export interface SupabasePlayer {
   updated_at?: string;
 }
 
-// Интерфейс для приложения (camelCase) - совместимый со старым кодом
-export interface Player {
-  id: string;
-  name: string;
-  position: string;
-  team: string;
-  age: number;
-  height: string;
-  weight: string;
-  avatar?: string;
-  email?: string;
-  password?: string;
-  status?: string;
-  birthDate?: string;
-  hockeyStartDate?: string;
-  experience?: string;
-  achievements?: string;
-  phone?: string;
-  city?: string;
-  goals?: string;
-  assists?: string;
-  country?: string;
-  grip?: string;
-  games?: string;
-  pullUps?: string;
-  pushUps?: string;
-  plankTime?: string;
-  sprint100m?: string;
-  longJump?: string;
-  unreadNotificationsCount?: number;
-  unreadMessagesCount?: number;
-}
-
 export interface Message {
   id: string;
-  senderId: string;
-  receiverId: string;
+  sender_id: string;
+  receiver_id: string;
   text: string;
-  timestamp: Date;
   read: boolean;
+  created_at: string;
 }
 
 export interface FriendRequest {
   id: string;
-  fromId: string;
-  toId: string;
+  from_id: string;
+  to_id: string;
   status: 'pending' | 'accepted' | 'rejected';
-  timestamp: Date;
+  created_at: string;
 }
 
 export interface Notification {
@@ -93,72 +59,6 @@ export interface Notification {
   data?: any;
   created_at: string;
 }
-
-// Функции преобразования данных
-const convertSupabaseToPlayer = (supabasePlayer: SupabasePlayer): Player => {
-  return {
-    id: supabasePlayer.id,
-    name: supabasePlayer.name,
-    position: supabasePlayer.position,
-    team: supabasePlayer.team,
-    age: supabasePlayer.age,
-    height: supabasePlayer.height ? `${supabasePlayer.height} см` : '',
-    weight: supabasePlayer.weight ? `${supabasePlayer.weight} кг` : '',
-    avatar: supabasePlayer.avatar,
-    email: supabasePlayer.email,
-    password: supabasePlayer.password,
-    status: supabasePlayer.status,
-    birthDate: supabasePlayer.birth_date,
-    hockeyStartDate: supabasePlayer.hockey_start_date,
-    experience: supabasePlayer.experience ? supabasePlayer.experience.toString() : '',
-    achievements: supabasePlayer.achievements,
-    phone: supabasePlayer.phone,
-    city: supabasePlayer.city,
-    goals: supabasePlayer.goals ? supabasePlayer.goals.toString() : '0',
-    assists: supabasePlayer.assists ? supabasePlayer.assists.toString() : '0',
-    country: supabasePlayer.country,
-    grip: supabasePlayer.grip,
-    games: supabasePlayer.games ? supabasePlayer.games.toString() : '0',
-    pullUps: supabasePlayer.pull_ups ? supabasePlayer.pull_ups.toString() : '0',
-    pushUps: supabasePlayer.push_ups ? supabasePlayer.push_ups.toString() : '0',
-    plankTime: supabasePlayer.plank_time ? supabasePlayer.plank_time.toString() : '0',
-    sprint100m: supabasePlayer.sprint_100m ? supabasePlayer.sprint_100m.toString() : '0',
-    longJump: supabasePlayer.long_jump ? supabasePlayer.long_jump.toString() : '0',
-    unreadNotificationsCount: 0,
-    unreadMessagesCount: 0
-  };
-};
-
-const convertPlayerToSupabase = (player: Omit<Player, 'id' | 'unreadNotificationsCount' | 'unreadMessagesCount'>): Omit<SupabasePlayer, 'id' | 'created_at' | 'updated_at'> => {
-  return {
-    name: player.name,
-    position: player.position,
-    team: player.team,
-    age: player.age,
-    height: parseInt(player.height) || 0,
-    weight: parseInt(player.weight) || 0,
-    avatar: player.avatar,
-    email: player.email,
-    password: player.password,
-    status: player.status,
-    birth_date: player.birthDate,
-    hockey_start_date: player.hockeyStartDate,
-    experience: player.experience ? parseInt(player.experience) : 0,
-    achievements: player.achievements,
-    phone: player.phone,
-    city: player.city,
-    goals: player.goals ? parseInt(player.goals) : 0,
-    assists: player.assists ? parseInt(player.assists) : 0,
-    country: player.country,
-    grip: player.grip,
-    games: player.games ? parseInt(player.games) : 0,
-    pull_ups: player.pullUps ? parseInt(player.pullUps) : 0,
-    push_ups: player.pushUps ? parseInt(player.pushUps) : 0,
-    plank_time: player.plankTime ? parseInt(player.plankTime) : 0,
-    sprint_100m: player.sprint100m ? parseFloat(player.sprint100m) : 0,
-    long_jump: player.longJump ? parseInt(player.longJump) : 0
-  };
-};
 
 // Инициализация хранилища
 export const initializeStorage = async (): Promise<void> => {
@@ -194,8 +94,7 @@ export const loadPlayers = async (): Promise<Player[]> => {
       return [];
     }
     
-    // Преобразуем данные из Supabase в формат приложения
-    return (data || []).map(convertSupabaseToPlayer);
+    return data || [];
   } catch (error) {
     console.error('❌ Ошибка загрузки игроков:', error);
     return [];
@@ -216,7 +115,7 @@ export const getPlayerById = async (id: string): Promise<Player | null> => {
       return null;
     }
     
-    return convertSupabaseToPlayer(data);
+    return data;
   } catch (error) {
     console.error('❌ Ошибка получения игрока:', error);
     return null;
@@ -224,13 +123,11 @@ export const getPlayerById = async (id: string): Promise<Player | null> => {
 };
 
 // Добавление нового игрока
-export const addPlayer = async (player: Omit<Player, 'id' | 'unreadNotificationsCount' | 'unreadMessagesCount'>): Promise<Player> => {
+export const addPlayer = async (player: Omit<Player, 'id' | 'created_at' | 'updated_at'>): Promise<Player> => {
   try {
-    const supabasePlayer = convertPlayerToSupabase(player);
-    
     const { data, error } = await supabase
       .from('players')
-      .insert([supabasePlayer])
+      .insert([player])
       .select()
       .single();
     
@@ -240,7 +137,7 @@ export const addPlayer = async (player: Omit<Player, 'id' | 'unreadNotifications
     }
     
     console.log('✅ Игрок добавлен:', data.name);
-    return convertSupabaseToPlayer(data);
+    return data;
   } catch (error) {
     console.error('❌ Ошибка добавления игрока:', error);
     throw error;
@@ -250,43 +147,9 @@ export const addPlayer = async (player: Omit<Player, 'id' | 'unreadNotifications
 // Обновление игрока
 export const updatePlayer = async (id: string, updates: Partial<Player>): Promise<Player | null> => {
   try {
-    // Преобразуем обновления в формат Supabase
-    const supabaseUpdates: Partial<SupabasePlayer> = {};
-    
-    if (updates.height) supabaseUpdates.height = parseInt(updates.height) || 0;
-    if (updates.weight) supabaseUpdates.weight = parseInt(updates.weight) || 0;
-    if (updates.birthDate) supabaseUpdates.birth_date = updates.birthDate;
-    if (updates.hockeyStartDate) supabaseUpdates.hockey_start_date = updates.hockeyStartDate;
-    if (updates.experience) supabaseUpdates.experience = parseInt(updates.experience) || 0;
-    if (updates.goals) supabaseUpdates.goals = parseInt(updates.goals) || 0;
-    if (updates.assists) supabaseUpdates.assists = parseInt(updates.assists) || 0;
-    if (updates.games) supabaseUpdates.games = parseInt(updates.games) || 0;
-    if (updates.pullUps) supabaseUpdates.pull_ups = parseInt(updates.pullUps) || 0;
-    if (updates.pushUps) supabaseUpdates.push_ups = parseInt(updates.pushUps) || 0;
-    if (updates.plankTime) supabaseUpdates.plank_time = parseInt(updates.plankTime) || 0;
-    if (updates.sprint100m) supabaseUpdates.sprint_100m = parseFloat(updates.sprint100m) || 0;
-    if (updates.longJump) supabaseUpdates.long_jump = parseInt(updates.longJump) || 0;
-    
-    // Добавляем остальные поля напрямую
-    Object.assign(supabaseUpdates, {
-      name: updates.name,
-      position: updates.position,
-      team: updates.team,
-      age: updates.age,
-      avatar: updates.avatar,
-      email: updates.email,
-      password: updates.password,
-      status: updates.status,
-      achievements: updates.achievements,
-      phone: updates.phone,
-      city: updates.city,
-      country: updates.country,
-      grip: updates.grip
-    });
-    
     const { data, error } = await supabase
       .from('players')
-      .update(supabaseUpdates)
+      .update(updates)
       .eq('id', id)
       .select()
       .single();
@@ -296,7 +159,7 @@ export const updatePlayer = async (id: string, updates: Partial<Player>): Promis
       return null;
     }
     
-    return convertSupabaseToPlayer(data);
+    return data;
   } catch (error) {
     console.error('❌ Ошибка обновления игрока:', error);
     return null;
@@ -318,7 +181,7 @@ export const findPlayerByCredentials = async (email: string, password: string): 
       return null;
     }
     
-    return convertSupabaseToPlayer(data);
+    return data;
   } catch (error) {
     console.error('❌ Ошибка поиска игрока:', error);
     return null;
@@ -329,7 +192,7 @@ export const findPlayerByCredentials = async (email: string, password: string): 
 export const saveCurrentUser = async (user: Player): Promise<void> => {
   try {
     // Используем AsyncStorage только для текущей сессии
-    const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+    const { AsyncStorage } = await import('@react-native-async-storage/async-storage');
     await AsyncStorage.setItem('hockeystars_current_user', JSON.stringify(user));
   } catch (error) {
     console.error('❌ Ошибка сохранения текущего пользователя:', error);
@@ -339,7 +202,7 @@ export const saveCurrentUser = async (user: Player): Promise<void> => {
 // Загрузка текущего пользователя
 export const loadCurrentUser = async (): Promise<Player | null> => {
   try {
-    const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+    const { AsyncStorage } = await import('@react-native-async-storage/async-storage');
     const userData = await AsyncStorage.getItem('hockeystars_current_user');
     return userData ? JSON.parse(userData) : null;
   } catch (error) {
@@ -351,7 +214,7 @@ export const loadCurrentUser = async (): Promise<Player | null> => {
 // Выход пользователя
 export const logoutUser = async (): Promise<void> => {
   try {
-    const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+    const { AsyncStorage } = await import('@react-native-async-storage/async-storage');
     await AsyncStorage.removeItem('hockeystars_current_user');
   } catch (error) {
     console.error('❌ Ошибка выхода:', error);
@@ -359,18 +222,11 @@ export const logoutUser = async (): Promise<void> => {
 };
 
 // Отправка сообщения
-export const sendMessage = async (message: Omit<Message, 'id' | 'timestamp'>): Promise<Message> => {
+export const sendMessage = async (message: Omit<Message, 'id' | 'created_at'>): Promise<Message> => {
   try {
-    const supabaseMessage = {
-      sender_id: message.senderId,
-      receiver_id: message.receiverId,
-      text: message.text,
-      read: message.read
-    };
-    
     const { data, error } = await supabase
       .from('messages')
-      .insert([supabaseMessage])
+      .insert([message])
       .select()
       .single();
     
@@ -379,14 +235,7 @@ export const sendMessage = async (message: Omit<Message, 'id' | 'timestamp'>): P
       throw error;
     }
     
-    return {
-      id: data.id,
-      senderId: data.sender_id,
-      receiverId: data.receiver_id,
-      text: data.text,
-      timestamp: new Date(data.created_at),
-      read: data.read
-    };
+    return data;
   } catch (error) {
     console.error('❌ Ошибка отправки сообщения:', error);
     throw error;
@@ -407,14 +256,7 @@ export const getMessages = async (userId1: string, userId2: string): Promise<Mes
       return [];
     }
     
-    return (data || []).map(msg => ({
-      id: msg.id,
-      senderId: msg.sender_id,
-      receiverId: msg.receiver_id,
-      text: msg.text,
-      timestamp: new Date(msg.created_at),
-      read: msg.read
-    }));
+    return data || [];
   } catch (error) {
     console.error('❌ Ошибка получения сообщений:', error);
     return [];
@@ -439,13 +281,7 @@ export const sendFriendRequest = async (fromId: string, toId: string): Promise<F
       throw error;
     }
     
-    return {
-      id: data.id,
-      fromId: data.from_id,
-      toId: data.to_id,
-      status: data.status,
-      timestamp: new Date(data.created_at)
-    };
+    return data;
   } catch (error) {
     console.error('❌ Ошибка отправки запроса дружбы:', error);
     throw error;
@@ -466,13 +302,7 @@ export const getFriendRequests = async (userId: string): Promise<FriendRequest[]
       return [];
     }
     
-    return (data || []).map(req => ({
-      id: req.id,
-      fromId: req.from_id,
-      toId: req.to_id,
-      status: req.status,
-      timestamp: new Date(req.created_at)
-    }));
+    return data || [];
   } catch (error) {
     console.error('❌ Ошибка получения запросов дружбы:', error);
     return [];
@@ -554,7 +384,7 @@ export const getFriends = async (userId: string): Promise<Player[]> => {
       return [];
     }
     
-    return (friends || []).map(convertSupabaseToPlayer);
+    return friends || [];
   } catch (error) {
     console.error('❌ Ошибка получения друзей:', error);
     return [];
@@ -599,65 +429,6 @@ export const clearAllData = async (): Promise<boolean> => {
   }
 };
 
-// Исправление поврежденных данных (заглушка для совместимости)
-export const fixCorruptedData = async (): Promise<void> => {
-  try {
-    console.log('🔧 Исправление поврежденных данных...');
-    // В Supabase версии эта функция не нужна, так как данные хранятся в базе
-    console.log('✅ Данные в Supabase не требуют исправления');
-  } catch (error) {
-    console.error('❌ Ошибка исправления данных:', error);
-  }
-};
-
-// Загрузка уведомлений (заглушка для совместимости)
-export const loadNotifications = async (userId?: string): Promise<any[]> => {
-  try {
-    console.log('🔔 Загрузка уведомлений (заглушка)...');
-    // В локальной версии уведомления не реализованы
-    return [];
-  } catch (error) {
-    console.error('❌ Ошибка загрузки уведомлений:', error);
-    return [];
-  }
-};
-
-// Создание уведомления (заглушка для совместимости)
-export const createNotification = async (notification: any): Promise<any> => {
-  try {
-    console.log('🔔 Создание уведомления (заглушка)...');
-    // В локальной версии уведомления не реализованы
-    return notification;
-  } catch (error) {
-    console.error('❌ Ошибка создания уведомления:', error);
-    return notification;
-  }
-};
-
-// Отметка уведомления как прочитанного (заглушка для совместимости)
-export const markNotificationAsRead = async (notificationId: string): Promise<boolean> => {
-  try {
-    console.log('🔔 Отметка уведомления как прочитанного (заглушка)...');
-    // В локальной версии уведомления не реализованы
-    return true;
-  } catch (error) {
-    console.error('❌ Ошибка отметки уведомления:', error);
-    return false;
-  }
-};
-
-// Принудительная инициализация хранилища (заглушка для совместимости)
-export const forceInitializeStorage = async (): Promise<boolean> => {
-  try {
-    console.log('🔧 Принудительная инициализация Supabase хранилища...');
-    await initializeStorage();
-    return true;
-  } catch (error) {
-    console.error('❌ Ошибка принудительной инициализации:', error);
-    return false;
-  }
-};
-
 // Создание администратора
 export const createAdmin = async (): Promise<Player | null> => {
   try {
@@ -694,7 +465,7 @@ export const createAdmin = async (): Promise<Player | null> => {
     }
     
     console.log('✅ Администратор создан:', data.name);
-    return convertSupabaseToPlayer(data);
+    return data;
   } catch (error) {
     console.error('❌ Ошибка создания администратора:', error);
     return null;

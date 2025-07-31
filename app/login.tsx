@@ -1,17 +1,17 @@
-import React, { useState } from 'react';
-import { 
-  View, 
-  Text, 
-  TextInput, 
-  TouchableOpacity, 
-  StyleSheet, 
-  ImageBackground
-} from 'react-native';
-import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
-import { findPlayerByCredentials, saveCurrentUser } from '../utils/playerStorage';
+import { useRouter } from 'expo-router';
+import React, { useState } from 'react';
+import {
+    ImageBackground,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
+} from 'react-native';
 import CustomAlert from '../components/CustomAlert';
+import { findPlayerByCredentials, saveCurrentUser } from '../utils/playerStorage';
 
 const iceBg = require('../assets/images/led.jpg');
 
@@ -35,7 +35,8 @@ export default function LoginScreen() {
   const closeAlertAndGoHome = () => {
     setAlert({ ...alert, visible: false });
     setTimeout(() => {
-      router.push('/');
+      // Переходим на главный экран с параметром refresh для обновления данных
+      router.push('/?refresh=true');
     }, 100);
   };
 
@@ -114,6 +115,9 @@ export default function LoginScreen() {
                   placeholder="Введите логин"
                   placeholderTextColor="#888"
                   autoCapitalize="none"
+                  autoComplete="username"
+                  textContentType="username"
+                  autoCorrect={false}
                 />
               </View>
 
@@ -127,6 +131,9 @@ export default function LoginScreen() {
                   placeholder="Введите пароль"
                   placeholderTextColor="#888"
                   secureTextEntry={true}
+                  autoComplete="password"
+                  textContentType="password"
+                  autoCorrect={false}
                 />
               </View>
 

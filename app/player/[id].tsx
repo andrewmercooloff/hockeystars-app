@@ -100,11 +100,9 @@ export default function PlayerProfile() {
         const playerData = await getPlayerById(id as string);
         const userData = await loadCurrentUser();
         console.log('Loaded player data:', playerData?.name, 'Status:', playerData?.status, 'Is star:', playerData?.status === 'star');
-        console.log('📸 Фото игрока:', {
+        console.log('📸 Аватар игрока:', {
           name: playerData?.name,
-          hasPhoto: !!playerData?.photo,
           hasAvatar: !!playerData?.avatar,
-          photoLength: playerData?.photo?.length || 0,
           avatarLength: playerData?.avatar?.length || 0
         });
         setPlayer(playerData);
@@ -425,7 +423,7 @@ export default function PlayerProfile() {
             {/* Фото и основная информация */}
             <View style={styles.profileSection}>
               {(() => {
-                const imageSource = player.avatar || player.photo;
+                const imageSource = player.avatar;
                 const hasValidImage = imageSource && typeof imageSource === 'string' && (
                   imageSource.startsWith('data:image/') || 
                   imageSource.startsWith('http') || 

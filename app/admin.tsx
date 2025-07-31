@@ -67,21 +67,16 @@ const AdminHeader = () => {
         onPress={handleProfilePress}
       >
         <View style={styles.profileIcon}>
-          {currentUser?.photo || currentUser?.avatar ? (
+          {currentUser?.avatar ? (
             <Image
               source={
-                (currentUser.photo && typeof currentUser.photo === 'string' && (
-                  currentUser.photo.startsWith('data:image/') || 
-                  currentUser.photo.startsWith('http') || 
-                  currentUser.photo.startsWith('file://') || 
-                  currentUser.photo.startsWith('content://')
-                )) || (currentUser.avatar && typeof currentUser.avatar === 'string' && (
+                (currentUser.avatar && typeof currentUser.avatar === 'string' && (
                   currentUser.avatar.startsWith('data:image/') || 
                   currentUser.avatar.startsWith('http') || 
                   currentUser.avatar.startsWith('file://') || 
                   currentUser.avatar.startsWith('content://')
                 ))
-                  ? { uri: currentUser.photo || currentUser.avatar }
+                  ? { uri: currentUser.avatar }
                   : require('../assets/images/me.jpg')
               }
               style={styles.profileImage}
@@ -232,7 +227,6 @@ export default function AdminScreen() {
       sprint100m: player.sprint100m || '',
       longJump: player.longJump || '',
       status: player.status || 'player',
-      photo: player.photo || '',
       avatar: player.avatar || ''
     });
     setIsEditing(true);
@@ -474,8 +468,8 @@ export default function AdminScreen() {
       console.log('🔄 Админ обновляет игрока:', selectedPlayer.name);
       console.log('📸 Данные для сохранения:', editData);
       console.log('📸 ID игрока:', selectedPlayer.id);
-      console.log('📸 Тип фото:', typeof editData.photo);
-      console.log('📸 Длина фото:', editData.photo?.length || 0);
+      console.log('📸 Тип аватара:', typeof editData.avatar);
+      console.log('📸 Длина аватара:', editData.avatar?.length || 0);
       
       if (Platform.OS === 'web') {
         console.log('🌐 Веб-версия: сохраняем данные');
@@ -491,9 +485,7 @@ export default function AdminScreen() {
       // Проверяем, сохранилось ли фото
       const updatedPlayer = updatedPlayers.find(p => p.id === selectedPlayer.id);
       if (updatedPlayer) {
-        console.log('📸 Проверяем сохраненное фото:', {
-          hasPhoto: !!updatedPlayer.photo,
-          photoLength: updatedPlayer.photo?.length || 0,
+        console.log('📸 Проверяем сохраненный аватар:', {
           hasAvatar: !!updatedPlayer.avatar,
           avatarLength: updatedPlayer.avatar?.length || 0
         });
@@ -548,33 +540,33 @@ export default function AdminScreen() {
   const renderPlayerItem = ({ item }: { item: Player }) => {
     // Функция для получения правильного источника изображения
     const getImageSource = () => {
-      if (!item.photo) {
+      if (!item.avatar) {
         return require('../assets/images/me.jpg');
       }
       
-      if (typeof item.photo === 'string') {
+      if (typeof item.avatar === 'string') {
         // Проверяем, это ли base64 строка (загруженное фото)
-        if (item.photo.startsWith('data:image/')) {
-          return { uri: item.photo };
+        if (item.avatar.startsWith('data:image/')) {
+          return { uri: item.avatar };
         }
         
         // Проверяем, это ли URI (фото загруженное пользователем)
-        if (item.photo.startsWith('http') || item.photo.startsWith('file://') || item.photo.startsWith('content://')) {
-          return { uri: item.photo };
+        if (item.avatar.startsWith('http') || item.avatar.startsWith('file://') || item.avatar.startsWith('content://')) {
+          return { uri: item.avatar };
         }
         
         // Проверяем идентификаторы тестовых игроков
-        if (item.photo.includes('kostitsyn1') || item.photo.includes('kostitsyn2')) {
+        if (item.avatar.includes('kostitsyn1') || item.avatar.includes('kostitsyn2')) {
           return require('../assets/images/me.jpg');
-        } else if (item.photo.includes('grabovsky')) {
+        } else if (item.avatar.includes('grabovsky')) {
           return require('../assets/images/me.jpg');
-        } else if (item.photo.includes('sharangovich')) {
+        } else if (item.avatar.includes('sharangovich')) {
           return require('../assets/images/me.jpg');
-        } else if (item.photo.includes('merkulov1') || item.photo.includes('merkulov2')) {
+        } else if (item.avatar.includes('merkulov1') || item.avatar.includes('merkulov2')) {
           return require('../assets/images/me.jpg');
-        } else if (item.photo.includes('admin')) {
+        } else if (item.avatar.includes('admin')) {
           return require('../assets/images/me.jpg');
-        } else if (item.photo === 'new_player') {
+        } else if (item.avatar === 'new_player') {
           return require('../assets/images/me.jpg');
         }
       }
@@ -692,13 +684,13 @@ export default function AdminScreen() {
               >
                 <Image 
                   source={
-                    editData.photo && typeof editData.photo === 'string' && (
-                      editData.photo.startsWith('data:image/') || 
-                      editData.photo.startsWith('http') || 
-                      editData.photo.startsWith('file://') || 
-                      editData.photo.startsWith('content://')
+                    editData.avatar && typeof editData.avatar === 'string' && (
+                      editData.avatar.startsWith('data:image/') || 
+                      editData.avatar.startsWith('http') || 
+                      editData.avatar.startsWith('file://') || 
+                      editData.avatar.startsWith('content://')
                     )
-                      ? { uri: editData.photo }
+                      ? { uri: editData.avatar }
                       : require('../assets/images/me.jpg')
                   }
                   style={[

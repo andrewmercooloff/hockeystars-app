@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
-import { SplashScreen, Tabs, useRouter } from 'expo-router';
+import { SplashScreen, Tabs, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Image, LogBox, Text, TouchableOpacity, View } from 'react-native';
 import { initializeStorage, loadCurrentUser, loadNotifications, Player } from '../utils/playerStorage';
@@ -15,6 +15,7 @@ const logo = require('../assets/images/logo.png');
 
 const LogoHeader = () => {
   const router = useRouter();
+  const params = useLocalSearchParams();
   const [currentUser, setCurrentUser] = useState<Player | null>(null);
 
   const loadUser = async () => {
@@ -36,6 +37,14 @@ const LogoHeader = () => {
       loadUser();
     }, [])
   );
+
+  // Обновляем данные при изменении параметров
+  useEffect(() => {
+    if (params.refresh) {
+      console.log('🔄 Обновление данных в заголовке...');
+      loadUser();
+    }
+  }, [params.refresh]);
 
   return (
     <View style={{ 
@@ -68,21 +77,16 @@ const LogoHeader = () => {
           borderWidth: 2,
           borderColor: '#fff',
         }}>
-          {currentUser?.photo || currentUser?.avatar ? (
+          {currentUser?.avatar ? (
             <Image
               source={
-                (currentUser.photo && typeof currentUser.photo === 'string' && (
-                  currentUser.photo.startsWith('data:image/') || 
-                  currentUser.photo.startsWith('http') || 
-                  currentUser.photo.startsWith('file://') || 
-                  currentUser.photo.startsWith('content://')
-                )) || (currentUser.avatar && typeof currentUser.avatar === 'string' && (
+                (currentUser.avatar && typeof currentUser.avatar === 'string' && (
                   currentUser.avatar.startsWith('data:image/') || 
                   currentUser.avatar.startsWith('http') || 
                   currentUser.avatar.startsWith('file://') || 
                   currentUser.avatar.startsWith('content://')
                 ))
-                  ? { uri: currentUser.photo || currentUser.avatar }
+                  ? { uri: currentUser.avatar }
                   : require('../assets/images/me.jpg')
               }
               style={{

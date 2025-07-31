@@ -24,7 +24,11 @@ import {
   saveCurrentUser, 
   forceInitializeStorage,
   addAdminToExistingData,
-  getFriends
+  getFriends,
+  cleanDuplicateAdmins,
+  fixAdminData,
+  recreateAdmin,
+  clearAllAppData
 } from '../utils/playerStorage';
 import * as ImagePicker from 'expo-image-picker';
 import CustomAlert from '../components/CustomAlert';
@@ -152,6 +156,14 @@ export default function PersonalCabinetScreen() {
     }, [])
   );
 
+  // Обновляем данные при изменении параметров
+  useEffect(() => {
+    if (params.refresh) {
+      console.log('🔄 Принудительное обновление данных в профиле...');
+      loadUserData();
+    }
+  }, [params.refresh]);
+
 
 
 
@@ -276,7 +288,7 @@ export default function PersonalCabinetScreen() {
       console.log('Объединенные видео:', goalsText);
       const updatedUser = { ...currentUser, ...editData, favoriteGoals: goalsText };
       console.log('Обновленный пользователь:', updatedUser);
-      console.log('📸 Фото в обновленном пользователе:', updatedUser.photo, 'аватар:', updatedUser.avatar);
+      console.log('📸 Аватар в обновленном пользователе:', updatedUser.avatar);
       await updatePlayer(currentUser.id, updatedUser);
       console.log('Пользователь обновлен в хранилище');
       
@@ -304,6 +316,8 @@ export default function PersonalCabinetScreen() {
         router.setParams({ refresh: Date.now().toString() });
         // Принудительно обновляем список игроков на главном экране с параметром обновления
         router.push({ pathname: '/', params: { refresh: Date.now().toString() } });
+        // Обновляем данные в личном кабинете
+        loadUserData();
       }, 100);
       
       showAlert('Успешно', 'Данные обновлены', 'success');
@@ -359,7 +373,7 @@ export default function PersonalCabinetScreen() {
 
     if (!result.canceled && result.assets[0]) {
       console.log('📸 Загружено фото из галереи:', result.assets[0].uri);
-      setEditData({...editData, photo: result.assets[0].uri, avatar: result.assets[0].uri});
+      setEditData({...editData, avatar: result.assets[0].uri});
     }
   };
 
@@ -383,7 +397,7 @@ export default function PersonalCabinetScreen() {
 
     if (!result.canceled && result.assets[0]) {
       console.log('📸 Загружено фото с камеры:', result.assets[0].uri);
-      setEditData({...editData, photo: result.assets[0].uri, avatar: result.assets[0].uri});
+      setEditData({...editData, avatar: result.assets[0].uri});
     }
   };
 
@@ -598,21 +612,11 @@ export default function PersonalCabinetScreen() {
             <View style={styles.profileSection}>
               <TouchableOpacity onPress={isEditing ? pickImage : undefined} style={styles.photoContainer}>
                 {(() => {
-                  const hasValidImage = (editData.photo && typeof editData.photo === 'string' && (
-                    editData.photo.startsWith('data:image/') || 
-                    editData.photo.startsWith('http') || 
-                    editData.photo.startsWith('file://') || 
-                    editData.photo.startsWith('content://')
-                  )) || (editData.avatar && typeof editData.avatar === 'string' && (
+                  const hasValidImage = (editData.avatar && typeof editData.avatar === 'string' && (
                     editData.avatar.startsWith('data:image/') || 
                     editData.avatar.startsWith('http') || 
                     editData.avatar.startsWith('file://') || 
                     editData.avatar.startsWith('content://')
-                  )) || (currentUser?.photo && typeof currentUser.photo === 'string' && (
-                    currentUser.photo.startsWith('data:image/') || 
-                    currentUser.photo.startsWith('http') || 
-                    currentUser.photo.startsWith('file://') || 
-                    currentUser.photo.startsWith('content://')
                   )) || (currentUser?.avatar && typeof currentUser.avatar === 'string' && (
                     currentUser.avatar.startsWith('data:image/') || 
                     currentUser.avatar.startsWith('http') || 
@@ -623,7 +627,7 @@ export default function PersonalCabinetScreen() {
                   if (hasValidImage) {
                     return (
                       <Image 
-                        source={{ uri: editData.photo || editData.avatar || currentUser?.photo || currentUser?.avatar }}
+                        source={{ uri: editData.avatar || currentUser?.avatar }}
                         style={styles.profileImage}
                         onError={() => console.log('Ошибка загрузки изображения')}
                       />
@@ -694,16 +698,86 @@ export default function PersonalCabinetScreen() {
                 
         
                 {currentUser?.status === 'admin' && (
-                  <TouchableOpacity 
-                    style={[styles.editButton, { marginLeft: 10, backgroundColor: '#FF4444' }]} 
-                    onPress={() => {
-                      console.log('🔧 Нажата кнопка редактировать игроков');
-                      console.log('🔧 Статус пользователя:', currentUser?.status);
-                      router.push('/admin');
-                    }}
-                  >
-                    <Ionicons name="people" size={25} color="#fff" />
-                  </TouchableOpacity>
+                  <>
+                    <TouchableOpacity 
+                      style={[styles.editButton, { marginLeft: 10, backgroundColor: '#FF4444' }]} 
+                      onPress={() => {
+                        console.log('🔧 Нажата кнопка редактировать игроков');
+                        console.log('🔧 Статус пользователя:', currentUser?.status);
+                        router.push('/admin');
+                      }}
+                    >
+                      <Ionicons name="people" size={25} color="#fff" />
+                    </TouchableOpacity>
+                    
+                    <TouchableOpacity 
+                      style={[styles.editButton, { marginLeft: 10, backgroundColor: '#8A2BE2' }]} 
+                      onPress={async () => {
+                        console.log('🧹 Нажата кнопка очистки дублирующихся администраторов');
+                        try {
+                          await cleanDuplicateAdmins();
+                          await fixAdminData();
+                          showAlert('Успешно', 'Дублирующиеся администраторы очищены и данные исправлены', 'success');
+                          // Перезагружаем данные пользователя
+                          await loadUserData();
+                        } catch (error) {
+                          console.error('❌ Ошибка очистки:', error);
+                          showAlert('Ошибка', 'Не удалось очистить дублирующиеся данные', 'error');
+                        }
+                      }}
+                    >
+                      <Ionicons name="trash" size={25} color="#fff" />
+                    </TouchableOpacity>
+                    
+                    <TouchableOpacity 
+                      style={[styles.editButton, { marginLeft: 10, backgroundColor: '#FF6B35' }]} 
+                      onPress={async () => {
+                        console.log('🔄 Нажата кнопка пересоздания администратора');
+                        try {
+                          await recreateAdmin();
+                          showAlert('Успешно', 'Администратор пересоздан. Перезайдите в систему.', 'success', () => {
+                            handleLogout();
+                          });
+                        } catch (error) {
+                          console.error('❌ Ошибка пересоздания:', error);
+                          showAlert('Ошибка', 'Не удалось пересоздать администратора', 'error');
+                        }
+                      }}
+                    >
+                      <Ionicons name="refresh" size={25} color="#fff" />
+                    </TouchableOpacity>
+                    
+                    <TouchableOpacity 
+                      style={[styles.editButton, { marginLeft: 10, backgroundColor: '#FF0000' }]} 
+                      onPress={async () => {
+                        console.log('🗑️ Нажата кнопка полной очистки данных');
+                        Alert.alert(
+                          '⚠️ ВНИМАНИЕ!',
+                          'Это действие удалит ВСЕ данные приложения включая всех пользователей, сообщения, дружбы и уведомления. Это действие НЕОБРАТИМО!',
+                          [
+                            { text: 'Отмена', style: 'cancel' },
+                            { 
+                              text: 'УДАЛИТЬ ВСЕ', 
+                              style: 'destructive',
+                              onPress: async () => {
+                                try {
+                                  await clearAllAppData();
+                                  showAlert('Успешно', 'Все данные приложения удалены. Приложение будет перезапущено.', 'success', () => {
+                                    handleLogout();
+                                  });
+                                } catch (error) {
+                                  console.error('❌ Ошибка очистки:', error);
+                                  showAlert('Ошибка', 'Не удалось очистить данные', 'error');
+                                }
+                              }
+                            }
+                          ]
+                        );
+                      }}
+                    >
+                      <Ionicons name="nuclear" size={25} color="#fff" />
+                    </TouchableOpacity>
+                  </>
                 )}
                 
 

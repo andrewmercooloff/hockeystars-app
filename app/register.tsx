@@ -1,22 +1,22 @@
+import { Ionicons } from '@expo/vector-icons';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import * as ImagePicker from 'expo-image-picker';
+import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { 
-  View, 
-  Text, 
-  TextInput, 
-  TouchableOpacity, 
-  StyleSheet, 
-  ScrollView, 
+import {
+  Alert,
+  Image,
   ImageBackground,
   Platform,
-  Image,
-  Alert
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
-import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import * as ImagePicker from 'expo-image-picker';
-import DateTimePicker from '@react-native-community/datetimepicker';
-import { addPlayer, Player, saveCurrentUser } from '../utils/playerStorage';
 import CustomAlert from '../components/CustomAlert';
+import { addPlayer, saveCurrentUser } from '../utils/playerStorage';
 
 const iceBg = require('../assets/images/led.jpg');
 
@@ -35,7 +35,7 @@ export default function RegisterScreen() {
     grip: '', // хват
     height: '', // рост
     weight: '', // вес
-    photo: null as string | null
+    avatar: null as string | null
   });
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date(2008, 0, 1)); // 1 января 2008
@@ -124,7 +124,7 @@ export default function RegisterScreen() {
 
       if (!result.canceled && result.assets[0]) {
         console.log('📸 Фото выбрано:', result.assets[0].uri);
-        setFormData({...formData, photo: result.assets[0].uri});
+        setFormData({...formData, avatar: result.assets[0].uri});
       }
     } catch (error) {
       console.error('❌ Ошибка выбора фото из галереи:', error);
@@ -156,7 +156,7 @@ export default function RegisterScreen() {
 
       if (!result.canceled && result.assets[0]) {
         console.log('📸 Фото снято:', result.assets[0].uri);
-        setFormData({...formData, photo: result.assets[0].uri});
+        setFormData({...formData, avatar: result.assets[0].uri});
       }
     } catch (error) {
       console.error('❌ Ошибка при съемке фото:', error);
@@ -221,8 +221,8 @@ export default function RegisterScreen() {
         grip: formData.grip,
         height: formData.height,
         weight: formData.weight,
-        photo: formData.photo || 'new_player', // Используем photo вместо avatar
-        avatar: formData.photo || 'new_player', // Также сохраняем в avatar для совместимости
+        avatar: formData.avatar || 'new_player', // Используем avatar для профиля
+        age: 0, // Добавляем возраст по умолчанию
       });
       
       console.log('Регистрация игрока:', newPlayer);
@@ -335,6 +335,9 @@ export default function RegisterScreen() {
               placeholder="Придумайте логин"
               placeholderTextColor="#888"
               autoCapitalize="none"
+              autoComplete="username"
+              textContentType="username"
+              autoCorrect={false}
             />
           </View>
 
@@ -348,6 +351,9 @@ export default function RegisterScreen() {
               placeholder="Придумайте пароль"
               placeholderTextColor="#888"
               secureTextEntry={true}
+              autoComplete="password"
+              textContentType="password"
+              autoCorrect={false}
             />
           </View>
 
@@ -533,8 +539,8 @@ export default function RegisterScreen() {
           <View style={styles.inputContainer}>
             <Text style={styles.label}>Фото профиля</Text>
             <View style={styles.photoContainer}>
-              {formData.photo ? (
-                <Image source={{ uri: formData.photo }} style={styles.photoPreview} />
+              {formData.avatar ? (
+                <Image source={{ uri: formData.avatar }} style={styles.photoPreview} />
               ) : (
                 <View style={styles.photoPlaceholder}>
                   <Ionicons name="camera" size={30} color="#888" />

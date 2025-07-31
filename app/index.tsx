@@ -197,7 +197,7 @@ const PuckAnimator = ({ player, position, onNav }: {
   return (
     <Animated.View style={[styles.puckContainer, animatedStyle]}>
       <Puck
-        avatar={player.avatar || player.photo}
+                        avatar={player.avatar}
         onPress={onNav}
         animatedStyle={animatedStyle}
         size={position.size}
@@ -237,7 +237,9 @@ export default function HomeScreen() {
 
   const refreshPlayers = useCallback(async () => {
     try {
+      console.log('🔄 Загрузка игроков...');
       const loadedPlayers = await loadPlayers();
+      console.log(`✅ Загружено игроков: ${loadedPlayers.length}`);
       setPlayers(loadedPlayers);
     } catch (error) {
       console.error('❌ Ошибка обновления игроков:', error);
@@ -247,6 +249,11 @@ export default function HomeScreen() {
   const checkForNewUser = useCallback(async () => {
     try {
       const user = await loadCurrentUser();
+      if (user) {
+        console.log(`👤 Текущий пользователь: ${user.name} (${user.status})`);
+      } else {
+        console.log('👤 Пользователь не авторизован');
+      }
       setCurrentUser(user);
     } catch (error) {
       console.error('❌ Ошибка загрузки пользователя:', error);
@@ -278,19 +285,24 @@ export default function HomeScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      console.log('🔄 Обновление данных при фокусе на экране...');
       refreshPlayers();
-      // Убираем частую проверку пользователя при фокусе
-      // checkForNewUser();
-    }, [refreshPlayers])
+      checkForNewUser();
+    }, [refreshPlayers, checkForNewUser])
   );
 
   // Обработка параметра refresh для принудительного обновления
   useEffect(() => {
     if (params.refresh) {
+      console.log('🔄 Принудительное обновление данных после входа...');
       refreshPlayers();
       checkForNewUser();
+      // Очищаем параметр refresh после использования
+      setTimeout(() => {
+        router.setParams({ refresh: undefined });
+      }, 1000);
     }
-  }, [params.refresh, refreshPlayers, checkForNewUser]);
+  }, [params.refresh, refreshPlayers, checkForNewUser, router]);
 
   useEffect(() => {
     const interval = setInterval(() => {
