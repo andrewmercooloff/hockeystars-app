@@ -18,9 +18,10 @@ import {
 import CustomAlert from '../../components/CustomAlert';
 import NormativesSection from '../../components/NormativesSection';
 import PhotosSection from '../../components/PhotosSection';
+import TeamsDisplay from '../../components/TeamsDisplay';
 import VideoCarousel from '../../components/VideoCarousel';
 import YouTubeVideo from '../../components/YouTubeVideo';
-import { acceptFriendRequest, calculateHockeyExperience, cancelFriendRequest, clearAllFriendRequests, createFriendRequestNotification, debugFriendRequests, declineFriendRequest, getFriends, getFriendshipStatus, getPlayerById, loadCurrentUser, Player, removeFriend, sendFriendRequest, updatePlayer } from '../../utils/playerStorage';
+import { acceptFriendRequest, calculateHockeyExperience, cancelFriendRequest, clearAllFriendRequests, createFriendRequestNotification, debugFriendRequests, declineFriendRequest, getFriends, getFriendshipStatus, getPlayerById, getPlayerTeams, loadCurrentUser, Player, PlayerTeam, removeFriend, sendFriendRequest, updatePlayer } from '../../utils/playerStorage';
 import { supabase } from '../../utils/supabase';
 
 const iceBg = require('../../assets/images/led.jpg');
@@ -58,6 +59,7 @@ export default function PlayerProfile() {
   const [showPositionPicker, setShowPositionPicker] = useState(false);
   const [videoFields, setVideoFields] = useState<Array<{url: string, timeCode: string}>>([{ url: '', timeCode: '' }]);
   const [galleryPhotos, setGalleryPhotos] = useState<string[]>([]);
+  const [playerTeams, setPlayerTeams] = useState<PlayerTeam[]>([]);
   
   // Массивы для селекторов
   const countries = ['Беларусь', 'Россия', 'Канада', 'США', 'Финляндия', 'Швеция', 'Литва', 'Латвия', 'Польша'];
@@ -91,6 +93,17 @@ export default function PlayerProfile() {
           hasAvatar: !!playerData?.avatar,
           avatarLength: playerData?.avatar?.length || 0
         });
+        
+        // Загружаем команды игрока
+        if (playerData) {
+          try {
+            const teams = await getPlayerTeams(playerData.id);
+            setPlayerTeams(teams);
+            console.log('🏒 Команды игрока:', teams);
+          } catch (error) {
+            console.error('Ошибка загрузки команд игрока:', error);
+          }
+        }
         
         // Добавляем подробную отладочную информацию
         if (playerData) {
@@ -650,6 +663,16 @@ export default function PlayerProfile() {
                 <Text style={styles.hockeyExperience}>
                   В хоккее {calculateHockeyExperience(player.hockeyStartDate)}
                 </Text>
+              )}
+              
+              {/* Отображение команд */}
+              {playerTeams.length > 0 && (
+                <View style={styles.teamsSection}>
+                  <TeamsDisplay
+                    teams={playerTeams}
+                    compact={true}
+                  />
+                </View>
               )}
               
 
@@ -2175,6 +2198,10 @@ const styles = StyleSheet.create({
     fontFamily: 'Gilroy-Regular',
     color: '#fff',
     textAlign: 'center',
+  },
+  teamsSection: {
+    marginTop: 15,
+    paddingHorizontal: 20,
   },
   modalCancelButton: {
     marginTop: 20,

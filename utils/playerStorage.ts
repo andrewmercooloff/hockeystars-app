@@ -37,11 +37,30 @@ export interface SupabasePlayer {
 }
 
 // Интерфейс для приложения (camelCase) - совместимый со старым кодом
+export interface Team {
+  id: string;
+  name: string;
+  type: 'club' | 'national' | 'regional' | 'school';
+  country?: string;
+  city?: string;
+}
+
+export interface PlayerTeam {
+  teamId: string;
+  teamName: string;
+  teamType: string;
+  teamCountry?: string;
+  teamCity?: string;
+  isPrimary: boolean;
+  joinedDate?: string;
+}
+
 export interface Player {
   id: string;
   name: string;
   position: string;
-  team: string;
+  team: string; // основная команда (для обратной совместимости)
+  teams?: PlayerTeam[]; // все команды игрока
   age: number;
   height: string;
   weight: string;
@@ -180,6 +199,168 @@ const convertSupabaseToPlayer = (supabasePlayer: SupabasePlayer): Player => {
   console.log('     hockeyStartDate:', result.hockeyStartDate);
   
   return result;
+};
+
+// Функции для работы с командами
+
+// Поиск команд по названию
+export const searchTeams = async (searchTerm: string): Promise<Team[]> => {
+  try {
+    const { data, error } = await supabase
+      .rpc('search_teams', { search_term: searchTerm });
+    
+    if (error) {
+      console.error('❌ Ошибка поиска команд:', error);
+      return [];
+    }
+    
+    return (data || []).map((team: any) => ({
+      id: team.id,
+      name: team.name,
+      type: team.type,
+      country: team.country,
+      city: team.city
+    }));
+  } catch (error) {
+    console.error('❌ Ошибка поиска команд:', error);
+    return [];
+  }
+};
+
+// Создание новой команды
+export const createTeam = async (teamData: Omit<Team, 'id'>): Promise<Team | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('teams')
+      .insert({
+        name: teamData.name,
+        type: teamData.type,
+        country: teamData.country,
+        city: teamData.city
+      })
+      .select()
+      .single();
+    
+    if (error) {
+      console.error('❌ Ошибка создания команды:', error);
+      return null;
+    }
+    
+    return {
+      id: data.id,
+      name: data.name,
+      type: data.type,
+      country: data.country,
+      city: data.city
+    };
+  } catch (error) {
+    console.error('❌ Ошибка создания команды:', error);
+    return null;
+  }
+};
+
+// Получение команд игрока
+export const getPlayerTeams = async (playerId: string): Promise<PlayerTeam[]> => {
+  try {
+    const { data, error } = await supabase
+      .rpc('get_player_teams', { player_uuid: playerId });
+    
+    if (error) {
+      console.error('❌ Ошибка получения команд игрока:', error);
+      return [];
+    }
+    
+    return (data || []).map((team: any) => ({
+      teamId: team.team_id,
+      teamName: team.team_name,
+      teamType: team.team_type,
+      teamCountry: team.team_country,
+      teamCity: team.team_city,
+      isPrimary: team.is_primary,
+      joinedDate: team.joined_date
+    }));
+  } catch (error) {
+    console.error('❌ Ошибка получения команд игрока:', error);
+    return [];
+  }
+};
+
+// Добавление команды игроку
+export const addPlayerTeam = async (playerId: string, teamId: string, isPrimary: boolean = false): Promise<boolean> => {
+  try {
+    const { error } = await supabase
+      .from('player_teams')
+      .insert({
+        player_id: playerId,
+        team_id: teamId,
+        is_primary: isPrimary,
+        joined_date: new Date().toISOString().split('T')[0]
+      });
+    
+    if (error) {
+      console.error('❌ Ошибка добавления команды игроку:', error);
+      return false;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('❌ Ошибка добавления команды игроку:', error);
+    return false;
+  }
+};
+
+// Удаление команды у игрока
+export const removePlayerTeam = async (playerId: string, teamId: string): Promise<boolean> => {
+  try {
+    const { error } = await supabase
+      .from('player_teams')
+      .delete()
+      .eq('player_id', playerId)
+      .eq('team_id', teamId);
+    
+    if (error) {
+      console.error('❌ Ошибка удаления команды у игрока:', error);
+      return false;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('❌ Ошибка удаления команды у игрока:', error);
+    return false;
+  }
+};
+
+// Установка основной команды
+export const setPrimaryTeam = async (playerId: string, teamId: string): Promise<boolean> => {
+  try {
+    // Сначала сбрасываем все команды как не основные
+    const { error: resetError } = await supabase
+      .from('player_teams')
+      .update({ is_primary: false })
+      .eq('player_id', playerId);
+    
+    if (resetError) {
+      console.error('❌ Ошибка сброса основных команд:', resetError);
+      return false;
+    }
+    
+    // Затем устанавливаем выбранную команду как основную
+    const { error: setError } = await supabase
+      .from('player_teams')
+      .update({ is_primary: true })
+      .eq('player_id', playerId)
+      .eq('team_id', teamId);
+    
+    if (setError) {
+      console.error('❌ Ошибка установки основной команды:', setError);
+      return false;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('❌ Ошибка установки основной команды:', error);
+    return false;
+  }
 };
 
 const convertPlayerToSupabase = (player: Omit<Player, 'id' | 'unreadNotificationsCount' | 'unreadMessagesCount'>): Omit<SupabasePlayer, 'id' | 'created_at' | 'updated_at'> => {

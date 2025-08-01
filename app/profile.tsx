@@ -29,12 +29,20 @@ import {
   clearAllData,
   getReceivedFriendRequests,
   acceptFriendRequest,
-  declineFriendRequest
+  declineFriendRequest,
+  Team,
+  PlayerTeam,
+  getPlayerTeams,
+  addPlayerTeam,
+  removePlayerTeam,
+  setPrimaryTeam
 } from '../utils/playerStorage';
 import * as ImagePicker from 'expo-image-picker';
 import CustomAlert from '../components/CustomAlert';
 import YouTubeVideo from '../components/YouTubeVideo';
 import VideoCarousel from '../components/VideoCarousel';
+import TeamSelector from '../components/TeamSelector';
+import TeamsDisplay from '../components/TeamsDisplay';
 import { uploadImageToStorage, isLocalImage } from '../utils/uploadImage';
 
 const iceBg = require('../assets/images/led.jpg');
@@ -64,6 +72,8 @@ export default function PersonalCabinetScreen() {
   const [selectedVideo, setSelectedVideo] = useState<{ url: string; timeCode?: string } | null>(null);
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
   const [receivedFriendRequests, setReceivedFriendRequests] = useState<Player[]>([]);
+  const [playerTeams, setPlayerTeams] = useState<PlayerTeam[]>([]);
+  const [selectedTeams, setSelectedTeams] = useState<Team[]>([]);
   const [alert, setAlert] = useState({
     visible: false,
     title: '',
@@ -203,6 +213,9 @@ export default function PersonalCabinetScreen() {
         // Инициализируем фотографии
         setGalleryPhotos(user.photos || []);
         
+        // Загружаем команды игрока
+        await loadPlayerTeams();
+        
         // Загружаем список друзей
         const friendsList = await getFriends(user.id);
         setFriends(friendsList);
@@ -228,6 +241,26 @@ export default function PersonalCabinetScreen() {
       setFriends(friendsList);
     } catch (error) {
       console.error('Ошибка обновления друзей:', error);
+    }
+  };
+
+  const loadPlayerTeams = async () => {
+    if (!currentUser) return;
+    try {
+      const teams = await getPlayerTeams(currentUser.id);
+      setPlayerTeams(teams);
+      
+      // Конвертируем PlayerTeam в Team для TeamSelector
+      const teamsForSelector = teams.map(team => ({
+        id: team.teamId,
+        name: team.teamName,
+        type: team.teamType as 'club' | 'national' | 'regional' | 'school',
+        country: team.teamCountry,
+        city: team.teamCity
+      }));
+      setSelectedTeams(teamsForSelector);
+    } catch (error) {
+      console.error('Ошибка загрузки команд игрока:', error);
     }
   };
 
@@ -259,6 +292,32 @@ export default function PersonalCabinetScreen() {
     } catch (error) {
       console.error('Ошибка принятия запроса дружбы:', error);
       showAlert('Ошибка', 'Произошла ошибка при принятии запроса', 'error');
+    }
+  };
+
+  const handleTeamsChange = async (teams: Team[]) => {
+    if (!currentUser) return;
+    
+    try {
+      // Удаляем все текущие команды
+      for (const team of playerTeams) {
+        await removePlayerTeam(currentUser.id, team.teamId);
+      }
+      
+      // Добавляем новые команды
+      for (let i = 0; i < teams.length; i++) {
+        const team = teams[i];
+        const isPrimary = i === 0; // Первая команда становится основной
+        await addPlayerTeam(currentUser.id, team.id, isPrimary);
+      }
+      
+      // Обновляем список команд
+      await loadPlayerTeams();
+      
+      showAlert('Успешно', 'Команды обновлены', 'success');
+    } catch (error) {
+      console.error('Ошибка обновления команд:', error);
+      showAlert('Ошибка', 'Не удалось обновить команды', 'error');
     }
   };
 
@@ -1024,6 +1083,24 @@ export default function PersonalCabinetScreen() {
                 )}
               </View>
             </View>
+
+            {/* Секция команд */}
+            {currentUser?.status === 'player' && (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Команды</Text>
+                {isEditing ? (
+                  <TeamSelector
+                    selectedTeams={selectedTeams}
+                    onTeamsChange={handleTeamsChange}
+                  />
+                ) : (
+                  <TeamsDisplay
+                    teams={playerTeams}
+                    compact={false}
+                  />
+                )}
+              </View>
+            )}
 
     
             {currentUser?.status === 'player' && (currentUser?.height || currentUser?.weight) && (
