@@ -854,12 +854,9 @@ export default function PersonalCabinetScreen() {
                         style={styles.statEditInput}
                         value={editData.goals || ''}
                         onChangeText={(text) => {
-                          const newGoals = text;
-                          const newPoints = calculatePoints(newGoals, editData.assists || '');
                           setEditData({
                             ...editData, 
-                            goals: newGoals, 
-                            points: newPoints
+                            goals: text
                           });
                         }}
                         placeholder="0"
@@ -873,12 +870,9 @@ export default function PersonalCabinetScreen() {
                         style={styles.statEditInput}
                         value={editData.assists || ''}
                         onChangeText={(text) => {
-                          const newAssists = text;
-                          const newPoints = calculatePoints(editData.goals || '', newAssists);
                           setEditData({
                             ...editData, 
-                            assists: newAssists, 
-                            points: newPoints
+                            assists: text
                           });
                         }}
                         placeholder="0"
@@ -890,7 +884,7 @@ export default function PersonalCabinetScreen() {
                       <Text style={styles.statEditLabel}>Очков</Text>
                       <TextInput
                         style={[styles.statEditInput, styles.readOnlyInput]}
-                        value={editData.points || '0'}
+                        value={calculatePoints(editData.goals || currentUser?.goals || '0', editData.assists || currentUser?.assists || '0')}
                         editable={false}
                         placeholder="0"
                         placeholderTextColor="#888"
@@ -1760,13 +1754,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#FF4444',
     borderRadius: 15,
     paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingVertical: 8,
     minWidth: 30,
     textAlign: 'center',
-    fontSize: 14,
+    fontSize: 18,
     fontFamily: 'Gilroy-Bold',
     color: '#fff',
     borderWidth: 0,
+    marginTop: -4,
   },
   playerStatus: {
     fontSize: 16,
