@@ -29,6 +29,9 @@ export interface SupabasePlayer {
   plank_time?: number;
   sprint_100m?: number;
   long_jump?: number;
+  favorite_goals?: string;
+  photos?: string;
+  number?: string;
   created_at?: string;
   updated_at?: string;
 }
@@ -62,6 +65,9 @@ export interface Player {
   plankTime?: string;
   sprint100m?: string;
   longJump?: string;
+  favoriteGoals?: string;
+  photos?: string[];
+  number?: string;
   unreadNotificationsCount?: number;
   unreadMessagesCount?: number;
 }
@@ -102,8 +108,8 @@ const convertSupabaseToPlayer = (supabasePlayer: SupabasePlayer): Player => {
     position: supabasePlayer.position,
     team: supabasePlayer.team,
     age: supabasePlayer.age,
-    height: supabasePlayer.height ? `${supabasePlayer.height} см` : '',
-    weight: supabasePlayer.weight ? `${supabasePlayer.weight} кг` : '',
+    height: supabasePlayer.height ? supabasePlayer.height.toString() : '',
+    weight: supabasePlayer.weight ? supabasePlayer.weight.toString() : '',
     avatar: supabasePlayer.avatar,
     email: supabasePlayer.email,
     password: supabasePlayer.password,
@@ -124,6 +130,17 @@ const convertSupabaseToPlayer = (supabasePlayer: SupabasePlayer): Player => {
     plankTime: supabasePlayer.plank_time ? supabasePlayer.plank_time.toString() : '0',
     sprint100m: supabasePlayer.sprint_100m ? supabasePlayer.sprint_100m.toString() : '0',
     longJump: supabasePlayer.long_jump ? supabasePlayer.long_jump.toString() : '0',
+    favoriteGoals: supabasePlayer.favorite_goals || '',
+    photos: supabasePlayer.photos && supabasePlayer.photos !== '[]' ? 
+      (() => {
+        try {
+          return JSON.parse(supabasePlayer.photos);
+        } catch (error) {
+          console.error('Ошибка парсинга photos:', error);
+          return [];
+        }
+      })() : [],
+    number: supabasePlayer.number || '',
     unreadNotificationsCount: 0,
     unreadMessagesCount: 0
   };
@@ -156,7 +173,10 @@ const convertPlayerToSupabase = (player: Omit<Player, 'id' | 'unreadNotification
     push_ups: player.pushUps ? parseInt(player.pushUps) : 0,
     plank_time: player.plankTime ? parseInt(player.plankTime) : 0,
     sprint_100m: player.sprint100m ? parseFloat(player.sprint100m) : 0,
-    long_jump: player.longJump ? parseInt(player.longJump) : 0
+    long_jump: player.longJump ? parseInt(player.longJump) : 0,
+    favorite_goals: player.favoriteGoals || '',
+    photos: player.photos && player.photos.length > 0 ? JSON.stringify(player.photos) : '[]',
+    number: player.number || ''
   };
 };
 
@@ -226,7 +246,10 @@ export const getPlayerById = async (id: string): Promise<Player | null> => {
 // Добавление нового игрока
 export const addPlayer = async (player: Omit<Player, 'id' | 'unreadNotificationsCount' | 'unreadMessagesCount'>): Promise<Player> => {
   try {
+    console.log('🔄 Добавляем игрока:', JSON.stringify(player, null, 2));
+    
     const supabasePlayer = convertPlayerToSupabase(player);
+    console.log('📤 Данные для Supabase:', JSON.stringify(supabasePlayer, null, 2));
     
     const { data, error } = await supabase
       .from('players')
@@ -236,6 +259,10 @@ export const addPlayer = async (player: Omit<Player, 'id' | 'unreadNotifications
     
     if (error) {
       console.error('❌ Ошибка добавления игрока:', error);
+      console.error('Детали ошибки:', error.message);
+      console.error('Код ошибки:', error.code);
+      console.error('Детали:', error.details);
+      console.error('Подсказка:', error.hint);
       throw error;
     }
     
@@ -266,6 +293,9 @@ export const updatePlayer = async (id: string, updates: Partial<Player>): Promis
     if (updates.plankTime) supabaseUpdates.plank_time = parseInt(updates.plankTime) || 0;
     if (updates.sprint100m) supabaseUpdates.sprint_100m = parseFloat(updates.sprint100m) || 0;
     if (updates.longJump) supabaseUpdates.long_jump = parseInt(updates.longJump) || 0;
+    if (updates.favoriteGoals !== undefined) supabaseUpdates.favorite_goals = updates.favoriteGoals;
+    if (updates.photos !== undefined) supabaseUpdates.photos = updates.photos && updates.photos.length > 0 ? JSON.stringify(updates.photos) : '[]';
+    if (updates.number !== undefined) supabaseUpdates.number = updates.number;
     
     // Добавляем остальные поля напрямую
     Object.assign(supabaseUpdates, {
@@ -698,5 +728,55 @@ export const createAdmin = async (): Promise<Player | null> => {
   } catch (error) {
     console.error('❌ Ошибка создания администратора:', error);
     return null;
+  }
+};
+
+// Функция для получения полученных запросов дружбы
+export const getReceivedFriendRequests = async (userId: string): Promise<Player[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('friend_requests')
+      .select(`
+        *,
+        players!friend_requests_from_id_fkey(*)
+      `)
+      .eq('to_id', userId)
+      .eq('status', 'pending');
+    
+    if (error) {
+      console.error('❌ Ошибка загрузки запросов дружбы:', error);
+      return [];
+    }
+    
+    return (data || []).map(item => convertSupabaseToPlayer(item.players));
+  } catch (error) {
+    console.error('❌ Ошибка загрузки запросов дружбы:', error);
+    return [];
+  }
+};
+
+// Функция для исправления данных администратора
+export const fixAdminData = async (): Promise<void> => {
+  try {
+    console.log('🔧 Исправление данных администратора...');
+    
+    const { data: admins, error } = await supabase
+      .from('players')
+      .select('*')
+      .eq('status', 'admin');
+    
+    if (error) {
+      console.error('❌ Ошибка поиска администраторов:', error);
+      return;
+    }
+    
+    if (admins && admins.length > 0) {
+      console.log(`✅ Найдено администраторов: ${admins.length}`);
+    } else {
+      console.log('⚠️ Администраторы не найдены, создаем нового...');
+      await createAdmin();
+    }
+  } catch (error) {
+    console.error('❌ Ошибка исправления данных администратора:', error);
   }
 }; 

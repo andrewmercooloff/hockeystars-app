@@ -20,6 +20,7 @@ import PhotosSection from '../../components/PhotosSection';
 import VideoCarousel from '../../components/VideoCarousel';
 import YouTubeVideo from '../../components/YouTubeVideo';
 import { acceptFriendRequest, cancelFriendRequest, clearAllFriendRequests, createFriendRequestNotification, debugFriendRequests, declineFriendRequest, getFriends, getFriendshipStatus, getPlayerById, loadCurrentUser, Player, removeFriend, sendFriendRequest } from '../../utils/playerStorage';
+import { supabase } from '../../utils/supabase';
 
 const iceBg = require('../../assets/images/led.jpg');
 
@@ -110,10 +111,16 @@ export default function PlayerProfile() {
         
         // Проверяем статус дружбы, если пользователь авторизован
         if (userData && playerData) {
-          console.log('🔍 Проверяем статус дружбы между пользователем', userData.name, 'и игроком', playerData.name);
-          const friendsStatus = await getFriendshipStatus(userData.id, playerData.id);
-          console.log('🔍 Получен статус дружбы:', friendsStatus);
-          setFriendshipStatus(friendsStatus);
+          // Если пользователь смотрит свой профиль, устанавливаем статус 'friends'
+          if (userData.id === playerData.id) {
+            console.log('🔍 Пользователь смотрит свой профиль, устанавливаем статус friends');
+            setFriendshipStatus('friends');
+          } else {
+            console.log('🔍 Проверяем статус дружбы между пользователем', userData.name, 'и игроком', playerData.name);
+            const friendsStatus = await getFriendshipStatus(userData.id, playerData.id);
+            console.log('🔍 Получен статус дружбы:', friendsStatus);
+            setFriendshipStatus(friendsStatus);
+          }
         }
         
         // Загружаем список друзей игрока
@@ -380,6 +387,52 @@ export default function PlayerProfile() {
     } catch (error) {
       console.error('❌ Ошибка обновления счетчиков:', error);
     }
+  };
+
+  const handleDeletePlayer = async () => {
+    if (!currentUser || currentUser.status !== 'admin') {
+      showCustomAlert('Ошибка', 'Только администратор может удалять пользователей', 'error');
+      return;
+    }
+
+    if (!player) {
+      showCustomAlert('Ошибка', 'Данные игрока не найдены', 'error');
+      return;
+    }
+
+    // Запрашиваем подтверждение
+    showCustomAlert(
+      'Удаление пользователя',
+      `Вы уверены, что хотите удалить пользователя "${player.name}"? Это действие нельзя отменить.`,
+      'warning',
+      async () => {
+        try {
+          console.log('🗑️ Удаляем пользователя:', player.id);
+          
+          // Удаляем пользователя из базы данных
+          const { error } = await supabase
+            .from('players')
+            .delete()
+            .eq('id', player.id);
+          
+          if (error) {
+            console.error('❌ Ошибка удаления пользователя:', error);
+            showCustomAlert('Ошибка', 'Не удалось удалить пользователя', 'error');
+          } else {
+            console.log('✅ Пользователь успешно удален');
+            showCustomAlert(
+              'Успешно', 
+              `Пользователь "${player.name}" удален`,
+              'success',
+              () => router.push('/')
+            );
+          }
+        } catch (error) {
+          console.error('❌ Общая ошибка удаления:', error);
+          showCustomAlert('Ошибка', 'Произошла ошибка при удалении пользователя', 'error');
+        }
+      }
+    );
   };
 
   if (loading) {
@@ -836,20 +889,27 @@ export default function PlayerProfile() {
               )
             ) : null}
 
-            {/* Нормативы - показываем только НЕ звездам и НЕ администраторам */}
+            {/* Нормативы - показываем только если есть данные и НЕ звездам и НЕ администраторам */}
             {player && player.status && player.status.trim() !== 'star' && player.status.trim() !== 'admin' ? (
               (currentUser && currentUser.id === player.id) || 
               friendshipStatus === 'friends' || 
               currentUser?.status === 'coach' || 
               currentUser?.status === 'scout' ||
               currentUser?.status === 'admin' ? (
-                <NormativesSection
-                  pullUps={player.pullUps}
-                  pushUps={player.pushUps}
-                  plankTime={player.plankTime}
-                  sprint100m={player.sprint100m}
-                  longJump={player.longJump}
-                />
+                // Проверяем, есть ли данные нормативов
+                (player.pullUps && player.pullUps !== '0') ||
+                (player.pushUps && player.pushUps !== '0') ||
+                (player.plankTime && player.plankTime !== '0') ||
+                (player.sprint100m && player.sprint100m !== '0') ||
+                (player.longJump && player.longJump !== '0') ? (
+                  <NormativesSection
+                    pullUps={player.pullUps}
+                    pushUps={player.pushUps}
+                    plankTime={player.plankTime}
+                    sprint100m={player.sprint100m}
+                    longJump={player.longJump}
+                  />
+                ) : null // Не показываем секцию, если данных нет
               ) : (
                 <View style={styles.section}>
                   <Text style={styles.sectionTitle}>Нормативы</Text>
@@ -918,6 +978,17 @@ export default function PlayerProfile() {
               ) : currentUser ? (
                 // Если пользователь авторизован и смотрит чужой профиль - показываем кнопки взаимодействия
                 <>
+                  {/* Кнопка удаления для администратора */}
+                  {currentUser.status === 'admin' && (
+                    <TouchableOpacity 
+                      style={[styles.actionButton, styles.deleteButton]} 
+                      onPress={handleDeletePlayer}
+                    >
+                      <Ionicons name="trash-outline" size={20} color="#fff" />
+                      <Text style={styles.actionButtonText}>Удалить пользователя</Text>
+                    </TouchableOpacity>
+                  )}
+                  
                   {player.status === 'star' ? (
                     // Специальные кнопки для звезд
                     <>
@@ -993,20 +1064,20 @@ export default function PlayerProfile() {
         </View>
       </Modal>
 
-      {/* Кастомный алерт */}
+      {/* Модальное окно для уведомлений */}
       <CustomAlert
         visible={alert.visible}
         title={alert.title}
         message={alert.message}
         type={alert.type}
-        onConfirm={alert.onConfirm}
-        onCancel={alert.onCancel}
-        onSecondary={alert.onSecondary}
-        showCancel={alert.showCancel}
-        showSecondary={alert.showSecondary}
+        onConfirm={() => {
+          setAlert({ ...alert, visible: false });
+          if (alert.onConfirm) alert.onConfirm();
+        }}
+        onCancel={() => setAlert({ ...alert, visible: false })}
         confirmText={alert.confirmText}
         cancelText={alert.cancelText}
-        secondaryText={alert.secondaryText}
+        showCancel={alert.showCancel}
       />
     </View>
   );
@@ -1403,6 +1474,10 @@ const styles = StyleSheet.create({
   },
   editButton: {
     marginLeft: 10,
+  },
+  deleteButton: {
+    backgroundColor: '#FF4444', // Красный цвет для удаления
+    borderColor: '#CC0000',
   },
 
 }); 

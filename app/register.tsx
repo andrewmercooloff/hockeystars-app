@@ -208,8 +208,10 @@ export default function RegisterScreen() {
     }
 
     try {
+      console.log('📝 Данные формы для регистрации:', JSON.stringify(formData, null, 2));
+      
       // Добавляем игрока в хранилище
-      const newPlayer = await addPlayer({
+      const playerData = {
         email: formData.username, // Используем username как email для входа
         password: formData.password,
         name: formData.name,
@@ -221,9 +223,14 @@ export default function RegisterScreen() {
         grip: formData.grip,
         height: formData.height,
         weight: formData.weight,
+        number: formData.number, // Добавляем номер игрока
         avatar: formData.avatar || 'new_player', // Используем avatar для профиля
         age: 0, // Добавляем возраст по умолчанию
-      });
+      };
+      
+      console.log('📤 Данные для addPlayer:', JSON.stringify(playerData, null, 2));
+      
+      const newPlayer = await addPlayer(playerData);
       
       console.log('Регистрация игрока:', newPlayer);
       

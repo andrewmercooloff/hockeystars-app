@@ -77,29 +77,34 @@ const LogoHeader = () => {
           borderWidth: 2,
           borderColor: '#fff',
         }}>
-          {currentUser?.avatar ? (
-            <Image
-              source={
-                (currentUser.avatar && typeof currentUser.avatar === 'string' && (
-                  currentUser.avatar.startsWith('data:image/') || 
-                  currentUser.avatar.startsWith('http') || 
-                  currentUser.avatar.startsWith('file://') || 
-                  currentUser.avatar.startsWith('content://')
-                ))
-                  ? { uri: currentUser.avatar }
-                  : require('../assets/images/me.jpg')
-              }
-              style={{
-                width: 45,
-                height: 45,
-                borderRadius: 22.5,
-                resizeMode: 'cover'
-              }}
-              onError={() => {}}
-            />
-          ) : (
-            <Ionicons name="person" size={25} color="#fff" />
-          )}
+          {(() => {
+            // Отладочная информация для администратора
+            if (currentUser?.status === 'admin') {
+              console.log('🔍 Заголовок - Администратор - отладка аватара:');
+              console.log('   currentUser.avatar:', currentUser.avatar);
+              console.log('   Условие отображения:', !!currentUser?.avatar);
+            }
+            
+            return currentUser?.avatar ? (
+              <Image
+                source={{ uri: currentUser.avatar }}
+                style={{
+                  width: 45,
+                  height: 45,
+                  borderRadius: 22.5,
+                  resizeMode: 'cover'
+                }}
+                onError={(error) => {
+                  console.log('❌ Заголовок - Ошибка загрузки изображения:', error);
+                  if (currentUser?.status === 'admin') {
+                    console.log('   Администратор - ошибка загрузки аватара в заголовке');
+                  }
+                }}
+              />
+            ) : (
+              <Ionicons name="person" size={25} color="#fff" />
+            );
+          })()}
         </View>
         {currentUser && currentUser.name && currentUser.name.trim() !== '' && (
           <Text style={{

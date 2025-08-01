@@ -57,6 +57,11 @@ const Puck: React.FC<PuckProps> = ({
       if (avatar.includes('me.jpg')) {
         return require('../assets/images/me.jpg');
       }
+      
+      // Если это просто строка, но не URI, попробуем как URI
+      if (avatar.trim().length > 0) {
+        return { uri: avatar };
+      }
     }
     
     // Для всех остальных случаев показываем силуэт

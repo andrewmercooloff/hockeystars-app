@@ -23,17 +23,19 @@ import {
   loadCurrentUser, 
   saveCurrentUser, 
   forceInitializeStorage,
-  addAdminToExistingData,
   getFriends,
-  cleanDuplicateAdmins,
   fixAdminData,
-  recreateAdmin,
-  clearAllAppData
+  createAdmin,
+  clearAllData,
+  getReceivedFriendRequests,
+  acceptFriendRequest,
+  declineFriendRequest
 } from '../utils/playerStorage';
 import * as ImagePicker from 'expo-image-picker';
 import CustomAlert from '../components/CustomAlert';
 import YouTubeVideo from '../components/YouTubeVideo';
 import VideoCarousel from '../components/VideoCarousel';
+import { uploadImageToStorage, isLocalImage } from '../utils/uploadImage';
 
 const iceBg = require('../assets/images/led.jpg');
 
@@ -373,7 +375,16 @@ export default function PersonalCabinetScreen() {
 
     if (!result.canceled && result.assets[0]) {
       console.log('📸 Загружено фото из галереи:', result.assets[0].uri);
-      setEditData({...editData, avatar: result.assets[0].uri});
+      
+      // Загружаем изображение в Supabase Storage
+      const uploadedUrl = await uploadImageToStorage(result.assets[0].uri);
+      if (uploadedUrl) {
+        console.log('✅ Изображение загружено в Storage:', uploadedUrl);
+        setEditData({...editData, avatar: uploadedUrl});
+      } else {
+        console.log('⚠️ Не удалось загрузить в Storage, используем локальный путь');
+        setEditData({...editData, avatar: result.assets[0].uri});
+      }
     }
   };
 
@@ -397,7 +408,16 @@ export default function PersonalCabinetScreen() {
 
     if (!result.canceled && result.assets[0]) {
       console.log('📸 Загружено фото с камеры:', result.assets[0].uri);
-      setEditData({...editData, avatar: result.assets[0].uri});
+      
+      // Загружаем изображение в Supabase Storage
+      const uploadedUrl = await uploadImageToStorage(result.assets[0].uri);
+      if (uploadedUrl) {
+        console.log('✅ Изображение загружено в Storage:', uploadedUrl);
+        setEditData({...editData, avatar: uploadedUrl});
+      } else {
+        console.log('⚠️ Не удалось загрузить в Storage, используем локальный путь');
+        setEditData({...editData, avatar: result.assets[0].uri});
+      }
     }
   };
 
@@ -612,33 +632,30 @@ export default function PersonalCabinetScreen() {
             <View style={styles.profileSection}>
               <TouchableOpacity onPress={isEditing ? pickImage : undefined} style={styles.photoContainer}>
                 {(() => {
-                  const hasValidImage = (editData.avatar && typeof editData.avatar === 'string' && (
-                    editData.avatar.startsWith('data:image/') || 
-                    editData.avatar.startsWith('http') || 
-                    editData.avatar.startsWith('file://') || 
-                    editData.avatar.startsWith('content://')
-                  )) || (currentUser?.avatar && typeof currentUser.avatar === 'string' && (
-                    currentUser.avatar.startsWith('data:image/') || 
-                    currentUser.avatar.startsWith('http') || 
-                    currentUser.avatar.startsWith('file://') || 
-                    currentUser.avatar.startsWith('content://')
-                  ));
-
-                  if (hasValidImage) {
-                    return (
-                      <Image 
-                        source={{ uri: editData.avatar || currentUser?.avatar }}
-                        style={styles.profileImage}
-                        onError={() => console.log('Ошибка загрузки изображения')}
-                      />
-                    );
-                  } else {
-                    return (
-                      <View style={[styles.profileImage, styles.avatarPlaceholder]}>
-                        <Ionicons name="person" size={48} color="#FFFFFF" />
-                      </View>
-                    );
+                  // Отладочная информация для администратора
+                  if (currentUser?.status === 'admin') {
+                    console.log('🔍 Администратор - отладка аватара:');
+                    console.log('   editData.avatar:', editData.avatar);
+                    console.log('   currentUser.avatar:', currentUser.avatar);
+                    console.log('   Условие отображения:', !!(editData.avatar || currentUser?.avatar));
                   }
+                  
+                  return editData.avatar || currentUser?.avatar ? (
+                    <Image
+                      source={{ uri: editData.avatar || currentUser?.avatar }}
+                      style={styles.profileImage}
+                      onError={(error) => {
+                        console.log('❌ Ошибка загрузки изображения:', error);
+                        if (currentUser?.status === 'admin') {
+                          console.log('   Администратор - ошибка загрузки аватара');
+                        }
+                      }}
+                    />
+                  ) : (
+                    <View style={[styles.profileImage, styles.avatarPlaceholder]}>
+                      <Ionicons name="person" size={48} color="#FFFFFF" />
+                    </View>
+                  );
                 })()}
                 {isEditing && (
                   <View style={styles.editOverlay}>
@@ -713,16 +730,15 @@ export default function PersonalCabinetScreen() {
                     <TouchableOpacity 
                       style={[styles.editButton, { marginLeft: 10, backgroundColor: '#8A2BE2' }]} 
                       onPress={async () => {
-                        console.log('🧹 Нажата кнопка очистки дублирующихся администраторов');
+                        console.log('🧹 Нажата кнопка исправления данных администратора');
                         try {
-                          await cleanDuplicateAdmins();
                           await fixAdminData();
-                          showAlert('Успешно', 'Дублирующиеся администраторы очищены и данные исправлены', 'success');
+                          showAlert('Успешно', 'Данные администратора исправлены', 'success');
                           // Перезагружаем данные пользователя
                           await loadUserData();
                         } catch (error) {
-                          console.error('❌ Ошибка очистки:', error);
-                          showAlert('Ошибка', 'Не удалось очистить дублирующиеся данные', 'error');
+                          console.error('❌ Ошибка исправления:', error);
+                          showAlert('Ошибка', 'Не удалось исправить данные', 'error');
                         }
                       }}
                     >
@@ -732,15 +748,15 @@ export default function PersonalCabinetScreen() {
                     <TouchableOpacity 
                       style={[styles.editButton, { marginLeft: 10, backgroundColor: '#FF6B35' }]} 
                       onPress={async () => {
-                        console.log('🔄 Нажата кнопка пересоздания администратора');
+                        console.log('🔄 Нажата кнопка создания администратора');
                         try {
-                          await recreateAdmin();
-                          showAlert('Успешно', 'Администратор пересоздан. Перезайдите в систему.', 'success', () => {
+                          await createAdmin();
+                          showAlert('Успешно', 'Администратор создан. Перезайдите в систему.', 'success', () => {
                             handleLogout();
                           });
                         } catch (error) {
-                          console.error('❌ Ошибка пересоздания:', error);
-                          showAlert('Ошибка', 'Не удалось пересоздать администратора', 'error');
+                          console.error('❌ Ошибка создания:', error);
+                          showAlert('Ошибка', 'Не удалось создать администратора', 'error');
                         }
                       }}
                     >
@@ -761,7 +777,7 @@ export default function PersonalCabinetScreen() {
                               style: 'destructive',
                               onPress: async () => {
                                 try {
-                                  await clearAllAppData();
+                                  await clearAllData();
                                   showAlert('Успешно', 'Все данные приложения удалены. Приложение будет перезапущено.', 'success', () => {
                                     handleLogout();
                                   });
@@ -1010,7 +1026,7 @@ export default function PersonalCabinetScreen() {
                           keyboardType="numeric"
                         />
                       ) : (
-                        <Text style={styles.infoValue}>{currentUser?.height || 'Не указан'} см</Text>
+                        <Text style={styles.infoValue}>{currentUser?.height ? `${currentUser.height} см` : 'Не указан'}</Text>
                       )}
                     </View>
                   )}
@@ -1027,7 +1043,7 @@ export default function PersonalCabinetScreen() {
                           keyboardType="numeric"
                         />
                       ) : (
-                        <Text style={styles.infoValue}>{currentUser?.weight || 'Не указан'} кг</Text>
+                        <Text style={styles.infoValue}>{currentUser?.weight ? `${currentUser.weight} кг` : 'Не указан'}</Text>
                       )}
                     </View>
                   )}
