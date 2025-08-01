@@ -12,21 +12,12 @@ import {
 } from 'react-native';
 import YouTubeVideo from './YouTubeVideo';
 
-interface VideoCarouselProps {
-  videos: Array<{ url: string; timeCode?: string }>;
-  onVideoPress?: (video: { url: string; timeCode?: string }) => void;
-}
-
-const { width: screenWidth } = Dimensions.get('window');
-
-export default function VideoCarousel({ videos, onVideoPress }: VideoCarouselProps) {
-  const [selectedVideo, setSelectedVideo] = useState<{ url: string; timeCode?: string } | null>(null);
-  const [currentIndex, setCurrentIndex] = useState(0);
-
-  const getYouTubeThumbnail = (url: string): string => {
-    // Простая и надежная функция для извлечения video ID из YouTube URL
+// Компонент для изображения с fallback
+const YouTubeThumbnail = ({ videoUrl }: { videoUrl: string }) => {
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  
+  const getVideoId = (url: string): string | null => {
     const cleanUrl = url.trim();
-    
     const patterns = [
       /youtube\.com\/watch\?v=([a-zA-Z0-9_-]+)/i,
       /youtu\.be\/([a-zA-Z0-9_-]+)/i,
@@ -39,19 +30,64 @@ export default function VideoCarousel({ videos, onVideoPress }: VideoCarouselPro
     for (const pattern of patterns) {
       const videoIdMatch = cleanUrl.match(pattern);
       if (videoIdMatch && videoIdMatch[1]) {
-        const videoId = videoIdMatch[1];
-        // Для Live трансляций используем другой формат превью
-        if (cleanUrl.toLowerCase().includes('/live/')) {
-          return `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
-        }
-        // Пробуем разные форматы превью, начиная с самого качественного
-        return `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+        return videoIdMatch[1];
       }
     }
-    
-    console.log('❌ Не удалось извлечь video ID из URL:', cleanUrl);
-    return 'https://via.placeholder.com/300x200/333/666?text=Video';
+    return null;
   };
+  
+  const videoId = getVideoId(videoUrl);
+  
+  if (!videoId) {
+    return (
+      <Image
+        source={{ uri: 'https://via.placeholder.com/300x200/333/666?text=Video' }}
+        style={styles.thumbnail}
+        resizeMode="cover"
+      />
+    );
+  }
+  
+  // Разные форматы превью в порядке приоритета
+  const thumbnailFormats = [
+    `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
+    `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
+    `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`,
+    `https://img.youtube.com/vi/${videoId}/sddefault.jpg`,
+    `https://img.youtube.com/vi/${videoId}/default.jpg`
+  ];
+  
+  const currentThumbnail = thumbnailFormats[currentImageIndex];
+  
+  const handleError = () => {
+    console.log(`❌ Ошибка загрузки превью ${currentImageIndex + 1} для видео:`, videoUrl);
+    if (currentImageIndex < thumbnailFormats.length - 1) {
+      setCurrentImageIndex(currentImageIndex + 1);
+    }
+  };
+  
+  return (
+    <Image
+      source={{ uri: currentThumbnail }}
+      style={styles.thumbnail}
+      resizeMode="cover"
+      onError={handleError}
+    />
+  );
+};
+
+interface VideoCarouselProps {
+  videos: Array<{ url: string; timeCode?: string }>;
+  onVideoPress?: (video: { url: string; timeCode?: string }) => void;
+}
+
+const { width: screenWidth } = Dimensions.get('window');
+
+export default function VideoCarousel({ videos, onVideoPress }: VideoCarouselProps) {
+  const [selectedVideo, setSelectedVideo] = useState<{ url: string; timeCode?: string } | null>(null);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  
+  console.log('🎥 VideoCarousel получил видео:', videos);
 
   const handleVideoPress = (video: { url: string; timeCode?: string }) => {
     if (onVideoPress) {
@@ -95,14 +131,7 @@ export default function VideoCarousel({ videos, onVideoPress }: VideoCarouselPro
             style={styles.videoCard}
             onPress={() => handleVideoPress(video)}
           >
-            <Image
-              source={{ uri: getYouTubeThumbnail(video.url) }}
-              style={styles.thumbnail}
-              resizeMode="cover"
-              onError={() => {
-                console.log('❌ Ошибка загрузки превью для видео:', video.url);
-              }}
-            />
+            <YouTubeThumbnail videoUrl={video.url} />
             <View style={styles.playButton}>
               <Ionicons name="play-circle" size={40} color="#FF4444" />
             </View>

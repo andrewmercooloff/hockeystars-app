@@ -320,9 +320,11 @@ export default function PlayerProfile() {
 
   // Функция для парсинга URL и таймкода
   const parseVideoUrl = (input: string): { url: string; timeCode?: string } => {
+    console.log('🔍 parseVideoUrl обрабатывает:', input);
     const timeMatch = input.match(/\(время:\s*(\d{1,2}:\d{2})\)/);
     const timeCode = timeMatch ? timeMatch[1] : undefined;
     const url = input.replace(/\s*\(время:\s*\d{1,2}:\d{2}\)/, '').trim();
+    console.log('🔍 Результат parseVideoUrl:', { url, timeCode });
     return { url, timeCode };
   };
 
@@ -1148,10 +1150,19 @@ export default function PlayerProfile() {
                     </View>
                   </View>
                 ) : player.favoriteGoals ? (
-                  <VideoCarousel
-                    videos={player.favoriteGoals.split('\n').filter(goal => goal.trim()).map(goal => parseVideoUrl(goal.trim()))}
-                    onVideoPress={(video) => setSelectedVideo(video)}
-                  />
+                  (() => {
+                    const videoUrls = player.favoriteGoals.split('\n').filter(goal => goal.trim());
+                    const parsedVideos = videoUrls.map(goal => parseVideoUrl(goal.trim()));
+                    console.log('🎥 Обработка видео в профиле:');
+                    console.log('   Исходные строки:', videoUrls);
+                    console.log('   Обработанные видео:', parsedVideos);
+                    return (
+                      <VideoCarousel
+                        videos={parsedVideos}
+                        onVideoPress={(video) => setSelectedVideo(video)}
+                      />
+                    );
+                  })()
                 ) : null}
               </View>
             )}
