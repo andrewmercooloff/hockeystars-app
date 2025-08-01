@@ -643,7 +643,6 @@ export const fixCorruptedData = async (): Promise<void> => {
 // Загрузка уведомлений (заглушка для совместимости)
 export const loadNotifications = async (userId?: string): Promise<any[]> => {
   try {
-    console.log('🔔 Загрузка уведомлений (заглушка)...');
     // В локальной версии уведомления не реализованы
     return [];
   } catch (error) {
@@ -791,13 +790,11 @@ export const getUnreadMessageCount = async (userId: string): Promise<number> => 
       .eq('read', false);
     
     if (error) {
-      console.error('❌ Ошибка получения непрочитанных сообщений:', error);
       return 0;
     }
     
     return data?.length || 0;
   } catch (error) {
-    console.error('❌ Ошибка получения непрочитанных сообщений:', error);
     return 0;
   }
 }; 

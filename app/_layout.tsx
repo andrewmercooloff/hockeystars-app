@@ -78,13 +78,6 @@ const LogoHeader = () => {
           borderColor: '#fff',
         }}>
           {(() => {
-            // Отладочная информация для администратора
-            if (currentUser?.status === 'admin') {
-              console.log('🔍 Заголовок - Администратор - отладка аватара:');
-              console.log('   currentUser.avatar:', currentUser.avatar);
-              console.log('   Условие отображения:', !!currentUser?.avatar);
-            }
-            
             return currentUser?.avatar ? (
               <Image
                 source={{ uri: currentUser.avatar }}
@@ -148,15 +141,13 @@ export default function RootLayout() {
     try {
       const user = await loadCurrentUser();
       if (user) {
-        // Загружаем непрочитанные уведомления
+        // Загружаем непрочитанные уведомления (без логов)
         const notifications = await loadNotifications(user.id);
         const unreadNotificationsCount = notifications.filter((n: any) => !n.isRead).length;
         
-        // Загружаем непрочитанные сообщения
+        // Загружаем непрочитанные сообщения (без логов)
         const { getUnreadMessageCount } = await import('../utils/playerStorage');
         const unreadMessagesCount = await getUnreadMessageCount(user.id);
-        
-        // Обновлены счетчики уведомлений и сообщений
         
         setCurrentUser({ 
           ...user, 
