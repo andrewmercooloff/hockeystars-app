@@ -779,4 +779,25 @@ export const fixAdminData = async (): Promise<void> => {
   } catch (error) {
     console.error('❌ Ошибка исправления данных администратора:', error);
   }
+};
+
+// Функция для получения количества непрочитанных сообщений
+export const getUnreadMessageCount = async (userId: string): Promise<number> => {
+  try {
+    const { data, error } = await supabase
+      .from('messages')
+      .select('id')
+      .eq('receiver_id', userId)
+      .eq('read', false);
+    
+    if (error) {
+      console.error('❌ Ошибка получения непрочитанных сообщений:', error);
+      return 0;
+    }
+    
+    return data?.length || 0;
+  } catch (error) {
+    console.error('❌ Ошибка получения непрочитанных сообщений:', error);
+    return 0;
+  }
 }; 
