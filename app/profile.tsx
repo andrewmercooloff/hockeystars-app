@@ -174,6 +174,18 @@ export default function PersonalCabinetScreen() {
     try {
       const user = await loadCurrentUser();
       if (user) {
+        console.log('🔍 Данные пользователя в личном кабинете:');
+        console.log('   Имя:', user.name);
+        console.log('   Статус:', user.status);
+        console.log('   Дата начала хоккея:', user.hockeyStartDate);
+        console.log('   Нормативы:');
+        console.log('     pullUps:', user.pullUps);
+        console.log('     pushUps:', user.pushUps);
+        console.log('     plankTime:', user.plankTime);
+        console.log('     sprint100m:', user.sprint100m);
+        console.log('     longJump:', user.longJump);
+        console.log('   Видео:', user.favoriteGoals);
+        
         setCurrentUser(user);
         setEditData(user);
         // Инициализируем поля видео
@@ -291,6 +303,14 @@ export default function PersonalCabinetScreen() {
       const updatedUser = { ...currentUser, ...editData, favoriteGoals: goalsText };
       console.log('Обновленный пользователь:', updatedUser);
       console.log('📸 Аватар в обновленном пользователе:', updatedUser.avatar);
+      console.log('📊 Нормативы в обновленном пользователе:');
+      console.log('   pullUps:', updatedUser.pullUps);
+      console.log('   pushUps:', updatedUser.pushUps);
+      console.log('   plankTime:', updatedUser.plankTime);
+      console.log('   sprint100m:', updatedUser.sprint100m);
+      console.log('   longJump:', updatedUser.longJump);
+      console.log('🎥 Видео в обновленном пользователе:', updatedUser.favoriteGoals);
+      console.log('🏒 Дата начала хоккея:', updatedUser.hockeyStartDate);
       await updatePlayer(currentUser.id, updatedUser);
       console.log('Пользователь обновлен в хранилище');
       
@@ -312,15 +332,18 @@ export default function PersonalCabinetScreen() {
         setVideoFields(videoData.length > 0 ? videoData : [{ url: '', timeCode: '' }]);
       }
       
-      // Принудительно обновляем заголовок и список игроков
-      setTimeout(() => {
-        // Это заставит заголовок перезагрузить данные
-        router.setParams({ refresh: Date.now().toString() });
-        // Принудительно обновляем список игроков на главном экране с параметром обновления
-        router.push({ pathname: '/', params: { refresh: Date.now().toString() } });
+      // Принудительно обновляем данные
+      setTimeout(async () => {
+        console.log('🔄 Принудительное обновление данных...');
+        
         // Обновляем данные в личном кабинете
-        loadUserData();
-      }, 100);
+        await loadUserData();
+        
+        // Возвращаемся на главный экран
+        router.push('/');
+        
+        console.log('✅ Данные обновлены');
+      }, 300);
       
       showAlert('Успешно', 'Данные обновлены', 'success');
     } catch (error) {
@@ -1052,7 +1075,7 @@ export default function PersonalCabinetScreen() {
             )}
 
     
-            {currentUser?.status === 'player' && (currentUser?.hockeyStartDate || isEditing) && (
+            {currentUser?.status === 'player' && (
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Дата начала занятий хоккеем</Text>
                 <View style={styles.infoGrid}>

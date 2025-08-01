@@ -101,6 +101,7 @@ export default function AdminScreen() {
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState<Partial<Player>>({});
   const [refreshKey, setRefreshKey] = useState(0); // Для принудительного обновления FlatList
+  const [editPlayerId, setEditPlayerId] = useState<string | null>(null); // ID игрока для редактирования
   
   // Состояния для календарей
   const [showBirthDatePicker, setShowBirthDatePicker] = useState(false);
@@ -111,6 +112,24 @@ export default function AdminScreen() {
     loadData();
     console.log('🔧 Экран администратора загружен');
   }, []);
+
+  // Обработка параметров для редактирования конкретного игрока
+  useEffect(() => {
+    const params = router.params as any;
+    if (params?.editPlayer) {
+      console.log('🔧 Получен параметр editPlayer:', params.editPlayer);
+      setEditPlayerId(params.editPlayer);
+      // Найдем игрока и откроем модальное окно редактирования
+      const playerToEdit = players.find(p => p.id === params.editPlayer);
+      if (playerToEdit) {
+        console.log('🔧 Найден игрок для редактирования:', playerToEdit.name);
+        setSelectedPlayer(playerToEdit);
+        setEditData(playerToEdit);
+        setIsEditing(true);
+        setShowPlayerModal(true);
+      }
+    }
+  }, [router.params, players]);
 
   const loadData = async () => {
     try {
@@ -722,23 +741,61 @@ export default function AdminScreen() {
 
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>Позиция</Text>
-                <TextInput
-                  style={[styles.input, !isEditing && styles.inputDisabled]}
-                  value={editData.position}
-                  onChangeText={(text) => setEditData({...editData, position: text})}
-                  editable={isEditing}
-                  placeholder="Позиция"
-                />
+                <View style={styles.selectorContainer}>
+                  {['Нападающий', 'Защитник', 'Вратарь', 'Тренер', 'Скаут', 'Администратор'].map((pos) => (
+                    <TouchableOpacity
+                      key={pos}
+                      style={[
+                        styles.selectorOption,
+                        editData.position === pos && styles.selectorOptionSelected
+                      ]}
+                      onPress={() => isEditing && setEditData({...editData, position: pos})}
+                      disabled={!isEditing}
+                    >
+                      <Text style={[
+                        styles.selectorOptionText,
+                        editData.position === pos && styles.selectorOptionTextSelected
+                      ]}>
+                        {pos}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
               </View>
 
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>Команда</Text>
+                <View style={styles.selectorContainer}>
+                  {['Динамо Минск', 'Динамо Могилев', 'Неман', 'Юность', 'Шахтер', 'Брест', 'Витебск', 'Гомель', 'Гродно', 'Могилев', 'Бобруйск', 'Барановичи', 'Орша', 'Полоцк', 'Солигорск', 'Жлобин', 'Слуцк', 'Молодечно', 'Лида', 'Борисов', 'Слоним', 'Кобрин', 'Пинск', 'Лунинец', 'Калинковичи', 'Речица', 'Жодино', 'Смолевичи', 'Дзержинск', 'Фаниполь', 'Узда', 'Клецк', 'Несвиж', 'Столбцы', 'Копыль', 'Любань', 'Старые Дороги', 'Марьина Горка', 'Червень', 'Березино', 'Смолевичи', 'Дзержинск', 'Фаниполь', 'Узда', 'Клецк', 'Несвиж', 'Столбцы', 'Копыль', 'Любань', 'Старые Дороги', 'Марьина Горка', 'Червень', 'Березино'].map((team) => (
+                    <TouchableOpacity
+                      key={team}
+                      style={[
+                        styles.selectorOption,
+                        editData.team === team && styles.selectorOptionSelected
+                      ]}
+                      onPress={() => isEditing && setEditData({...editData, team: team})}
+                      disabled={!isEditing}
+                    >
+                      <Text style={[
+                        styles.selectorOptionText,
+                        editData.team === team && styles.selectorOptionTextSelected
+                      ]}>
+                        {team}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Хоккейный номер</Text>
                 <TextInput
                   style={[styles.input, !isEditing && styles.inputDisabled]}
-                  value={editData.team}
-                  onChangeText={(text) => setEditData({...editData, team: text})}
+                  value={editData.number}
+                  onChangeText={(text) => setEditData({...editData, number: text})}
                   editable={isEditing}
-                  placeholder="Команда"
+                  placeholder="Номер"
+                  keyboardType="numeric"
                 />
               </View>
 
@@ -815,6 +872,18 @@ export default function AdminScreen() {
                       onChangeText={(text) => setEditData({...editData, achievements: text})}
                       editable={isEditing}
                       placeholder="Достижения"
+                      multiline
+                    />
+                  </View>
+
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.inputLabel}>Любимые голы</Text>
+                    <TextInput
+                      style={[styles.input, !isEditing && styles.inputDisabled]}
+                      value={editData.favoriteGoals}
+                      onChangeText={(text) => setEditData({...editData, favoriteGoals: text})}
+                      editable={isEditing}
+                      placeholder="Ссылки на YouTube видео любимых голов"
                       multiline
                     />
                   </View>
@@ -953,6 +1022,27 @@ export default function AdminScreen() {
                       keyboardType="numeric"
                       placeholder="Длина прыжка"
                     />
+                  </View>
+                </>
+              )}
+
+              {/* Фотографии - только для не-звезд */}
+              {editData.status !== 'star' && (
+                <>
+                  <Text style={styles.sectionTitle}>Фотографии</Text>
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.inputLabel}>Фотогалерея</Text>
+                    <TextInput
+                      style={[styles.input, !isEditing && styles.inputDisabled]}
+                      value={editData.photos}
+                      onChangeText={(text) => setEditData({...editData, photos: text})}
+                      editable={isEditing}
+                      placeholder="JSON массив ссылок на фотографии"
+                      multiline
+                    />
+                    <Text style={styles.inputHint}>
+                      Формат: ["url1", "url2", "url3"]
+                    </Text>
                   </View>
                 </>
               )}
@@ -1452,6 +1542,39 @@ const styles = StyleSheet.create({
   },
   placeholderText: {
     color: '#666',
+  },
+  selectorContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 8,
+  },
+  selectorOption: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#444',
+    backgroundColor: '#333',
+    marginBottom: 8,
+  },
+  selectorOptionSelected: {
+    backgroundColor: '#FF4444',
+    borderColor: '#FF4444',
+  },
+  selectorOptionText: {
+    fontSize: 14,
+    color: '#ccc',
+  },
+  selectorOptionTextSelected: {
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+  inputHint: {
+    fontSize: 12,
+    color: '#888',
+    marginTop: 4,
+    fontStyle: 'italic',
   },
   datePickerOverlay: {
     position: 'absolute',

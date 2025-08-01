@@ -4,16 +4,16 @@ import { BlurView } from 'expo-blur';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  Dimensions,
-  ImageBackground,
-  Modal,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
+    Dimensions,
+    ImageBackground,
+    Modal,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import Animated, {
-  useAnimatedStyle
+    useAnimatedStyle
 } from 'react-native-reanimated';
 import Puck from '../components/Puck';
 import { Player, fixCorruptedData, initializeStorage, loadCurrentUser, loadPlayers } from '../utils/playerStorage';
@@ -240,6 +240,12 @@ export default function HomeScreen() {
       console.log('🔄 Загрузка игроков...');
       const loadedPlayers = await loadPlayers();
       console.log(`✅ Загружено игроков: ${loadedPlayers.length}`);
+      
+      // Добавляем отладочную информацию для каждого игрока
+      loadedPlayers.forEach(player => {
+        console.log(`👤 Игрок: ${player.name}, Голы: ${player.goals}, Передачи: ${player.assists}, Команда: ${player.team}`);
+      });
+      
       setPlayers(loadedPlayers);
     } catch (error) {
       console.error('❌ Ошибка обновления игроков:', error);
@@ -303,6 +309,16 @@ export default function HomeScreen() {
       }, 1000);
     }
   }, [params.refresh, refreshPlayers, checkForNewUser, router]);
+
+  // Добавляем более частую проверку обновлений данных
+  useEffect(() => {
+    const interval = setInterval(() => {
+      refreshPlayers();
+      checkForNewUser();
+    }, 5000); // Проверяем каждые 5 секунд
+
+    return () => clearInterval(interval);
+  }, [refreshPlayers, checkForNewUser]);
 
   useEffect(() => {
     const interval = setInterval(() => {

@@ -102,7 +102,20 @@ export interface Notification {
 
 // Функции преобразования данных
 const convertSupabaseToPlayer = (supabasePlayer: SupabasePlayer): Player => {
-  return {
+  console.log('🔄 Преобразование данных из Supabase в Player:');
+  console.log('   Имя:', supabasePlayer.name);
+  console.log('   Нормативы в БД:');
+  console.log('     pull_ups:', supabasePlayer.pull_ups, '(тип:', typeof supabasePlayer.pull_ups, ')');
+  console.log('     push_ups:', supabasePlayer.push_ups, '(тип:', typeof supabasePlayer.push_ups, ')');
+  console.log('     plank_time:', supabasePlayer.plank_time, '(тип:', typeof supabasePlayer.plank_time, ')');
+  console.log('     sprint_100m:', supabasePlayer.sprint_100m, '(тип:', typeof supabasePlayer.sprint_100m, ')');
+  console.log('     long_jump:', supabasePlayer.long_jump, '(тип:', typeof supabasePlayer.long_jump, ')');
+  console.log('   Видео в БД:');
+  console.log('     favorite_goals:', supabasePlayer.favorite_goals, '(тип:', typeof supabasePlayer.favorite_goals, ')');
+  console.log('   Хоккей в БД:');
+  console.log('     hockey_start_date:', supabasePlayer.hockey_start_date, '(тип:', typeof supabasePlayer.hockey_start_date, ')');
+  
+  const result = {
     id: supabasePlayer.id,
     name: supabasePlayer.name,
     position: supabasePlayer.position,
@@ -115,7 +128,19 @@ const convertSupabaseToPlayer = (supabasePlayer: SupabasePlayer): Player => {
     password: supabasePlayer.password,
     status: supabasePlayer.status,
     birthDate: supabasePlayer.birth_date,
-    hockeyStartDate: supabasePlayer.hockey_start_date,
+    hockeyStartDate: (() => {
+      if (!supabasePlayer.hockey_start_date || supabasePlayer.hockey_start_date === '' || supabasePlayer.hockey_start_date === 'null') {
+        return '';
+      }
+      
+      // Конвертируем из YYYY-MM-DD в MM.YYYY
+      if (/^\d{4}-\d{2}-\d{2}$/.test(supabasePlayer.hockey_start_date)) {
+        const [year, month] = supabasePlayer.hockey_start_date.split('-');
+        return `${parseInt(month)}.${year}`;
+      }
+      
+      return supabasePlayer.hockey_start_date; // Возвращаем как есть, если формат не распознан
+    })(),
     experience: supabasePlayer.experience ? supabasePlayer.experience.toString() : '',
     achievements: supabasePlayer.achievements,
     phone: supabasePlayer.phone,
@@ -125,12 +150,12 @@ const convertSupabaseToPlayer = (supabasePlayer: SupabasePlayer): Player => {
     country: supabasePlayer.country,
     grip: supabasePlayer.grip,
     games: supabasePlayer.games ? supabasePlayer.games.toString() : '0',
-    pullUps: supabasePlayer.pull_ups ? supabasePlayer.pull_ups.toString() : '0',
-    pushUps: supabasePlayer.push_ups ? supabasePlayer.push_ups.toString() : '0',
-    plankTime: supabasePlayer.plank_time ? supabasePlayer.plank_time.toString() : '0',
-    sprint100m: supabasePlayer.sprint_100m ? supabasePlayer.sprint_100m.toString() : '0',
-    longJump: supabasePlayer.long_jump ? supabasePlayer.long_jump.toString() : '0',
-    favoriteGoals: supabasePlayer.favorite_goals || '',
+    pullUps: supabasePlayer.pull_ups && String(supabasePlayer.pull_ups) !== '0' && String(supabasePlayer.pull_ups) !== 'null' ? supabasePlayer.pull_ups.toString() : '',
+    pushUps: supabasePlayer.push_ups && String(supabasePlayer.push_ups) !== '0' && String(supabasePlayer.push_ups) !== 'null' ? supabasePlayer.push_ups.toString() : '',
+    plankTime: supabasePlayer.plank_time && String(supabasePlayer.plank_time) !== '0' && String(supabasePlayer.plank_time) !== 'null' ? supabasePlayer.plank_time.toString() : '',
+    sprint100m: supabasePlayer.sprint_100m && String(supabasePlayer.sprint_100m) !== '0' && String(supabasePlayer.sprint_100m) !== 'null' ? supabasePlayer.sprint_100m.toString() : '',
+    longJump: supabasePlayer.long_jump && String(supabasePlayer.long_jump) !== '0' && String(supabasePlayer.long_jump) !== 'null' ? supabasePlayer.long_jump.toString() : '',
+    favoriteGoals: supabasePlayer.favorite_goals && supabasePlayer.favorite_goals.trim() !== '' ? supabasePlayer.favorite_goals : '',
     photos: supabasePlayer.photos && supabasePlayer.photos !== '[]' ? 
       (() => {
         try {
@@ -144,9 +169,39 @@ const convertSupabaseToPlayer = (supabasePlayer: SupabasePlayer): Player => {
     unreadNotificationsCount: 0,
     unreadMessagesCount: 0
   };
+  
+  console.log('   Результат преобразования:');
+  console.log('     pullUps:', result.pullUps);
+  console.log('     pushUps:', result.pushUps);
+  console.log('     plankTime:', result.plankTime);
+  console.log('     sprint100m:', result.sprint100m);
+  console.log('     longJump:', result.longJump);
+  console.log('     favoriteGoals:', result.favoriteGoals);
+  console.log('     hockeyStartDate:', result.hockeyStartDate);
+  
+  return result;
 };
 
 const convertPlayerToSupabase = (player: Omit<Player, 'id' | 'unreadNotificationsCount' | 'unreadMessagesCount'>): Omit<SupabasePlayer, 'id' | 'created_at' | 'updated_at'> => {
+  // Функция для конвертации даты из DD.MM.YYYY в YYYY-MM-DD
+  const convertDate = (dateString?: string): string | undefined => {
+    if (!dateString) return undefined;
+    
+    // Проверяем, если дата уже в формате YYYY-MM-DD
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+      return dateString;
+    }
+    
+    // Конвертируем из DD.MM.YYYY в YYYY-MM-DD
+    const parts = dateString.split('.');
+    if (parts.length === 3) {
+      const [day, month, year] = parts;
+      return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+    }
+    
+    return dateString; // Возвращаем как есть, если формат не распознан
+  };
+
   return {
     name: player.name,
     position: player.position,
@@ -158,8 +213,8 @@ const convertPlayerToSupabase = (player: Omit<Player, 'id' | 'unreadNotification
     email: player.email,
     password: player.password,
     status: player.status,
-    birth_date: player.birthDate,
-    hockey_start_date: player.hockeyStartDate,
+    birth_date: convertDate(player.birthDate),
+    hockey_start_date: convertDate(player.hockeyStartDate),
     experience: player.experience ? parseInt(player.experience) : 0,
     achievements: player.achievements,
     phone: player.phone,
@@ -277,22 +332,50 @@ export const addPlayer = async (player: Omit<Player, 'id' | 'unreadNotifications
 // Обновление игрока
 export const updatePlayer = async (id: string, updates: Partial<Player>): Promise<Player | null> => {
   try {
+    console.log('🔄 Обновление игрока в Supabase:');
+    console.log('   ID игрока:', id);
+    console.log('   Обновления:', JSON.stringify(updates, null, 2));
+    // Функция для конвертации даты из MM.YYYY в YYYY-MM-DD
+    const convertDate = (dateString?: string): string | undefined => {
+      if (!dateString) return undefined;
+      
+      // Проверяем, если дата уже в формате YYYY-MM-DD
+      if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+        return dateString;
+      }
+      
+      // Конвертируем из MM.YYYY в YYYY-MM-DD
+      const parts = dateString.split('.');
+      if (parts.length === 2) {
+        const [month, year] = parts;
+        return `${year}-${month.padStart(2, '0')}-01`; // Добавляем день 01
+      }
+      
+      // Конвертируем из DD.MM.YYYY в YYYY-MM-DD (для обратной совместимости)
+      if (parts.length === 3) {
+        const [day, month, year] = parts;
+        return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+      }
+      
+      return dateString; // Возвращаем как есть, если формат не распознан
+    };
+
     // Преобразуем обновления в формат Supabase
     const supabaseUpdates: Partial<SupabasePlayer> = {};
     
     if (updates.height) supabaseUpdates.height = parseInt(updates.height) || 0;
     if (updates.weight) supabaseUpdates.weight = parseInt(updates.weight) || 0;
-    if (updates.birthDate) supabaseUpdates.birth_date = updates.birthDate;
-    if (updates.hockeyStartDate) supabaseUpdates.hockey_start_date = updates.hockeyStartDate;
+    if (updates.birthDate) supabaseUpdates.birth_date = convertDate(updates.birthDate);
+    if (updates.hockeyStartDate !== undefined) supabaseUpdates.hockey_start_date = convertDate(updates.hockeyStartDate);
     if (updates.experience) supabaseUpdates.experience = parseInt(updates.experience) || 0;
     if (updates.goals) supabaseUpdates.goals = parseInt(updates.goals) || 0;
     if (updates.assists) supabaseUpdates.assists = parseInt(updates.assists) || 0;
     if (updates.games) supabaseUpdates.games = parseInt(updates.games) || 0;
-    if (updates.pullUps) supabaseUpdates.pull_ups = parseInt(updates.pullUps) || 0;
-    if (updates.pushUps) supabaseUpdates.push_ups = parseInt(updates.pushUps) || 0;
-    if (updates.plankTime) supabaseUpdates.plank_time = parseInt(updates.plankTime) || 0;
-    if (updates.sprint100m) supabaseUpdates.sprint_100m = parseFloat(updates.sprint100m) || 0;
-    if (updates.longJump) supabaseUpdates.long_jump = parseInt(updates.longJump) || 0;
+    if (updates.pullUps !== undefined) supabaseUpdates.pull_ups = parseInt(updates.pullUps) || 0;
+    if (updates.pushUps !== undefined) supabaseUpdates.push_ups = parseInt(updates.pushUps) || 0;
+    if (updates.plankTime !== undefined) supabaseUpdates.plank_time = parseInt(updates.plankTime) || 0;
+    if (updates.sprint100m !== undefined) supabaseUpdates.sprint_100m = parseFloat(updates.sprint100m) || 0;
+    if (updates.longJump !== undefined) supabaseUpdates.long_jump = parseInt(updates.longJump) || 0;
     if (updates.favoriteGoals !== undefined) supabaseUpdates.favorite_goals = updates.favoriteGoals;
     if (updates.photos !== undefined) supabaseUpdates.photos = updates.photos && updates.photos.length > 0 ? JSON.stringify(updates.photos) : '[]';
     if (updates.number !== undefined) supabaseUpdates.number = updates.number;
@@ -314,6 +397,8 @@ export const updatePlayer = async (id: string, updates: Partial<Player>): Promis
       grip: updates.grip
     });
     
+    console.log('📤 Данные для обновления в Supabase:', JSON.stringify(supabaseUpdates, null, 2));
+    
     const { data, error } = await supabase
       .from('players')
       .update(supabaseUpdates)
@@ -326,6 +411,7 @@ export const updatePlayer = async (id: string, updates: Partial<Player>): Promis
       return null;
     }
     
+    console.log('✅ Игрок успешно обновлен в Supabase:', data.name);
     return convertSupabaseToPlayer(data);
   } catch (error) {
     console.error('❌ Ошибка обновления игрока:', error);
@@ -369,9 +455,38 @@ export const saveCurrentUser = async (user: Player): Promise<void> => {
 // Загрузка текущего пользователя
 export const loadCurrentUser = async (): Promise<Player | null> => {
   try {
+    console.log('🔄 Загрузка текущего пользователя...');
     const AsyncStorage = require('@react-native-async-storage/async-storage').default;
     const userData = await AsyncStorage.getItem('hockeystars_current_user');
-    return userData ? JSON.parse(userData) : null;
+    
+    if (!userData) {
+      return null;
+    }
+    
+    const user = JSON.parse(userData);
+    
+    // Загружаем актуальные данные из Supabase
+    if (user && user.id) {
+      console.log('📡 Загружаем актуальные данные из Supabase для пользователя:', user.id);
+      const updatedUser = await getPlayerById(user.id);
+      if (updatedUser) {
+        console.log('✅ Получены актуальные данные из Supabase');
+        console.log('📊 Нормативы в актуальных данных:');
+        console.log('   pullUps:', updatedUser.pullUps);
+        console.log('   pushUps:', updatedUser.pushUps);
+        console.log('   plankTime:', updatedUser.plankTime);
+        console.log('   sprint100m:', updatedUser.sprint100m);
+        console.log('   longJump:', updatedUser.longJump);
+        // Обновляем данные в AsyncStorage
+        await saveCurrentUser(updatedUser);
+        return updatedUser;
+      } else {
+        console.log('❌ Не удалось получить актуальные данные из Supabase');
+      }
+    }
+    
+    console.log('📱 Возвращаем данные из AsyncStorage');
+    return user;
   } catch (error) {
     console.error('❌ Ошибка загрузки текущего пользователя:', error);
     return null;
@@ -834,5 +949,51 @@ export const getUnreadMessageCount = async (userId: string): Promise<number> => 
     return data?.length || 0;
   } catch (error) {
     return 0;
+  }
+};
+
+// Функция для расчета стажа в хоккее
+export const calculateHockeyExperience = (startDate?: string): string => {
+  console.log('🏒 Расчет опыта хоккея для даты:', startDate);
+  if (!startDate || startDate === '' || startDate === 'null') {
+    console.log('🏒 Дата пустая, возвращаем пустую строку');
+    return '';
+  }
+  
+  try {
+    const [month, year] = startDate.split('.');
+    console.log('🏒 Разбор даты - месяц:', month, 'год:', year);
+    
+    if (!month || !year) {
+      console.log('🏒 Неверный формат даты, возвращаем пустую строку');
+      return '';
+    }
+    
+    const start = new Date(parseInt(year), parseInt(month) - 1);
+    const now = new Date();
+    console.log('🏒 Дата начала:', start.toDateString(), 'Текущая дата:', now.toDateString());
+    
+    let years = now.getFullYear() - start.getFullYear();
+    let months = now.getMonth() - start.getMonth();
+    if (months < 0) {
+      years--;
+      months += 12;
+    }
+    
+    console.log('🏒 Рассчитано - лет:', years, 'месяцев:', months);
+    
+    // Правильное склонение для русского языка
+    const getYearWord = (num: number): string => {
+      if (num === 1) return 'год';
+      if (num >= 2 && num <= 4) return 'года';
+      return 'лет';
+    };
+    
+    const result = years > 0 ? `${years} ${getYearWord(years)}` : `${months} мес.`;
+    console.log('🏒 Результат расчета:', result);
+    return result;
+  } catch (error) {
+    console.error('❌ Ошибка расчета опыта хоккея:', error);
+    return '';
   }
 }; 

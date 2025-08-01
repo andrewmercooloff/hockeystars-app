@@ -44,10 +44,12 @@ export default function VideoCarousel({ videos, onVideoPress }: VideoCarouselPro
         if (cleanUrl.toLowerCase().includes('/live/')) {
           return `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
         }
+        // Пробуем разные форматы превью, начиная с самого качественного
         return `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
       }
     }
     
+    console.log('❌ Не удалось извлечь video ID из URL:', cleanUrl);
     return 'https://via.placeholder.com/300x200/333/666?text=Video';
   };
 
@@ -97,6 +99,9 @@ export default function VideoCarousel({ videos, onVideoPress }: VideoCarouselPro
               source={{ uri: getYouTubeThumbnail(video.url) }}
               style={styles.thumbnail}
               resizeMode="cover"
+              onError={() => {
+                console.log('❌ Ошибка загрузки превью для видео:', video.url);
+              }}
             />
             <View style={styles.playButton}>
               <Ionicons name="play-circle" size={40} color="#FF4444" />
