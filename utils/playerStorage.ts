@@ -452,7 +452,7 @@ export const getMessages = async (userId1: string, userId2: string): Promise<Mes
 };
 
 // Отправка запроса дружбы
-export const sendFriendRequest = async (fromId: string, toId: string): Promise<FriendRequest> => {
+export const sendFriendRequest = async (fromId: string, toId: string): Promise<boolean> => {
   try {
     const { data, error } = await supabase
       .from('friend_requests')
@@ -466,19 +466,13 @@ export const sendFriendRequest = async (fromId: string, toId: string): Promise<F
     
     if (error) {
       console.error('❌ Ошибка отправки запроса дружбы:', error);
-      throw error;
+      return false;
     }
     
-    return {
-      id: data.id,
-      fromId: data.from_id,
-      toId: data.to_id,
-      status: data.status,
-      timestamp: new Date(data.created_at)
-    };
+    return true;
   } catch (error) {
     console.error('❌ Ошибка отправки запроса дружбы:', error);
-    throw error;
+    return false;
   }
 };
 
@@ -510,12 +504,13 @@ export const getFriendRequests = async (userId: string): Promise<FriendRequest[]
 };
 
 // Принятие запроса дружбы
-export const acceptFriendRequest = async (requestId: string): Promise<boolean> => {
+export const acceptFriendRequest = async (userId1: string, userId2: string): Promise<boolean> => {
   try {
     const { error } = await supabase
       .from('friend_requests')
       .update({ status: 'accepted' })
-      .eq('id', requestId);
+      .or(`and(from_id.eq.${userId1},to_id.eq.${userId2}),and(from_id.eq.${userId2},to_id.eq.${userId1})`)
+      .eq('status', 'pending');
     
     if (error) {
       console.error('❌ Ошибка принятия запроса дружбы:', error);
@@ -530,12 +525,13 @@ export const acceptFriendRequest = async (requestId: string): Promise<boolean> =
 };
 
 // Отклонение запроса дружбы
-export const declineFriendRequest = async (requestId: string): Promise<boolean> => {
+export const declineFriendRequest = async (userId1: string, userId2: string): Promise<boolean> => {
   try {
     const { error } = await supabase
       .from('friend_requests')
       .update({ status: 'rejected' })
-      .eq('id', requestId);
+      .or(`and(from_id.eq.${userId1},to_id.eq.${userId2}),and(from_id.eq.${userId2},to_id.eq.${userId1})`)
+      .eq('status', 'pending');
     
     if (error) {
       console.error('❌ Ошибка отклонения запроса дружбы:', error);
@@ -545,6 +541,48 @@ export const declineFriendRequest = async (requestId: string): Promise<boolean> 
     return true;
   } catch (error) {
     console.error('❌ Ошибка отклонения запроса дружбы:', error);
+    return false;
+  }
+};
+
+// Отмена запроса дружбы (удаление записи)
+export const cancelFriendRequest = async (fromId: string, toId: string): Promise<boolean> => {
+  try {
+    const { error } = await supabase
+      .from('friend_requests')
+      .delete()
+      .or(`and(from_id.eq.${fromId},to_id.eq.${toId}),and(from_id.eq.${toId},to_id.eq.${fromId})`)
+      .eq('status', 'pending');
+    
+    if (error) {
+      console.error('❌ Ошибка отмены запроса дружбы:', error);
+      return false;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('❌ Ошибка отмены запроса дружбы:', error);
+    return false;
+  }
+};
+
+// Удаление из друзей
+export const removeFriend = async (userId1: string, userId2: string): Promise<boolean> => {
+  try {
+    const { error } = await supabase
+      .from('friend_requests')
+      .delete()
+      .or(`and(from_id.eq.${userId1},to_id.eq.${userId2}),and(from_id.eq.${userId2},to_id.eq.${userId1})`)
+      .eq('status', 'accepted');
+    
+    if (error) {
+      console.error('❌ Ошибка удаления из друзей:', error);
+      return false;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('❌ Ошибка удаления из друзей:', error);
     return false;
   }
 };
