@@ -247,7 +247,9 @@ export default function PersonalCabinetScreen() {
   const loadPlayerTeams = async () => {
     if (!currentUser) return;
     try {
+      console.log('🔄 loadPlayerTeams: загружаем команды для игрока:', currentUser.id);
       const teams = await getPlayerTeams(currentUser.id);
+      console.log('📋 Полученные команды:', teams);
       setPlayerTeams(teams);
       
       // Конвертируем PlayerTeam в Team для TeamSelector
@@ -258,9 +260,10 @@ export default function PersonalCabinetScreen() {
         country: team.teamCountry,
         city: team.teamCity
       }));
+      console.log('🎯 Команды для селектора:', teamsForSelector);
       setSelectedTeams(teamsForSelector);
     } catch (error) {
-      console.error('Ошибка загрузки команд игрока:', error);
+      console.error('❌ Ошибка загрузки команд игрока:', error);
     }
   };
 
@@ -298,25 +301,33 @@ export default function PersonalCabinetScreen() {
   const handleTeamsChange = async (teams: Team[]) => {
     if (!currentUser) return;
     
+    console.log('🔄 handleTeamsChange вызвана с командами:', teams);
+    
     try {
       // Удаляем все текущие команды
-      for (const team of playerTeams) {
-        await removePlayerTeam(currentUser.id, team.teamId);
+      console.log('🗑️ Удаляем текущие команды...');
+      for (const playerTeam of playerTeams) {
+        console.log('Удаляем команду:', playerTeam.teamName);
+        await removePlayerTeam(currentUser.id, playerTeam.teamId);
       }
       
       // Добавляем новые команды
+      console.log('➕ Добавляем новые команды...');
       for (let i = 0; i < teams.length; i++) {
         const team = teams[i];
         const isPrimary = i === 0; // Первая команда становится основной
+        console.log(`Добавляем команду: ${team.name} (основная: ${isPrimary})`);
         await addPlayerTeam(currentUser.id, team.id, isPrimary);
       }
       
       // Обновляем список команд
+      console.log('🔄 Обновляем список команд...');
       await loadPlayerTeams();
       
+      console.log('✅ Команды успешно обновлены');
       showAlert('Успешно', 'Команды обновлены', 'success');
     } catch (error) {
-      console.error('Ошибка обновления команд:', error);
+      console.error('❌ Ошибка обновления команд:', error);
       showAlert('Ошибка', 'Не удалось обновить команды', 'error');
     }
   };

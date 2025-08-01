@@ -262,6 +262,8 @@ export const createTeam = async (teamData: Omit<Team, 'id'>): Promise<Team | nul
 // Получение команд игрока
 export const getPlayerTeams = async (playerId: string): Promise<PlayerTeam[]> => {
   try {
+    console.log('🔍 getPlayerTeams: получаем команды для игрока', playerId);
+    
     const { data, error } = await supabase
       .rpc('get_player_teams', { player_uuid: playerId });
     
@@ -270,7 +272,9 @@ export const getPlayerTeams = async (playerId: string): Promise<PlayerTeam[]> =>
       return [];
     }
     
-    return (data || []).map((team: any) => ({
+    console.log('📋 Сырые данные команд:', data);
+    
+    const teams = (data || []).map((team: any) => ({
       teamId: team.team_id,
       teamName: team.team_name,
       teamType: team.team_type,
@@ -279,6 +283,9 @@ export const getPlayerTeams = async (playerId: string): Promise<PlayerTeam[]> =>
       isPrimary: team.is_primary,
       joinedDate: team.joined_date
     }));
+    
+    console.log('🎯 Преобразованные команды:', teams);
+    return teams;
   } catch (error) {
     console.error('❌ Ошибка получения команд игрока:', error);
     return [];
@@ -288,6 +295,8 @@ export const getPlayerTeams = async (playerId: string): Promise<PlayerTeam[]> =>
 // Добавление команды игроку
 export const addPlayerTeam = async (playerId: string, teamId: string, isPrimary: boolean = false): Promise<boolean> => {
   try {
+    console.log('➕ addPlayerTeam: добавляем команду', teamId, 'игроку', playerId, '(основная:', isPrimary, ')');
+    
     const { error } = await supabase
       .from('player_teams')
       .insert({
@@ -302,6 +311,7 @@ export const addPlayerTeam = async (playerId: string, teamId: string, isPrimary:
       return false;
     }
     
+    console.log('✅ Команда успешно добавлена игроку');
     return true;
   } catch (error) {
     console.error('❌ Ошибка добавления команды игроку:', error);
@@ -312,6 +322,8 @@ export const addPlayerTeam = async (playerId: string, teamId: string, isPrimary:
 // Удаление команды у игрока
 export const removePlayerTeam = async (playerId: string, teamId: string): Promise<boolean> => {
   try {
+    console.log('🗑️ removePlayerTeam: удаляем команду', teamId, 'у игрока', playerId);
+    
     const { error } = await supabase
       .from('player_teams')
       .delete()
@@ -323,6 +335,7 @@ export const removePlayerTeam = async (playerId: string, teamId: string): Promis
       return false;
     }
     
+    console.log('✅ Команда успешно удалена у игрока');
     return true;
   } catch (error) {
     console.error('❌ Ошибка удаления команды у игрока:', error);

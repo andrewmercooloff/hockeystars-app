@@ -50,9 +50,16 @@ export default function TeamSelector({ selectedTeams, onTeamsChange, placeholder
 
   // Добавление команды
   const addTeam = (team: Team) => {
+    console.log('➕ addTeam вызвана с командой:', team);
     const isAlreadySelected = selectedTeams.some(t => t.id === team.id);
+    console.log('Уже выбрана:', isAlreadySelected);
+    
     if (!isAlreadySelected) {
-      onTeamsChange([...selectedTeams, team]);
+      const newTeams = [...selectedTeams, team];
+      console.log('Новый список команд:', newTeams);
+      onTeamsChange(newTeams);
+    } else {
+      console.log('Команда уже выбрана, пропускаем');
     }
     setSearchTerm('');
     setSearchResults([]);
@@ -60,7 +67,10 @@ export default function TeamSelector({ selectedTeams, onTeamsChange, placeholder
 
   // Удаление команды
   const removeTeam = (teamId: string) => {
-    onTeamsChange(selectedTeams.filter(t => t.id !== teamId));
+    console.log('🗑️ removeTeam вызвана с teamId:', teamId);
+    const newTeams = selectedTeams.filter(t => t.id !== teamId);
+    console.log('Новый список команд после удаления:', newTeams);
+    onTeamsChange(newTeams);
   };
 
   // Создание новой команды
