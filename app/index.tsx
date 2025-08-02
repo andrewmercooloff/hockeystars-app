@@ -1,6 +1,6 @@
 
 import { Ionicons } from '@expo/vector-icons';
-import { BlurView } from 'expo-blur';
+
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
@@ -387,7 +387,7 @@ export default function HomeScreen() {
           onRequestClose={() => setShowAuthModal(false)}
         >
           <View style={styles.modalOverlay}>
-            <BlurView intensity={20} style={styles.modalContent}>
+            <View style={styles.modalContent}>
               <Text style={styles.modalTitle}>Требуется авторизация</Text>
               <Text style={styles.modalMessage}>
                 Для просмотра профиля игрока необходимо войти в систему
@@ -410,7 +410,7 @@ export default function HomeScreen() {
                   <Text style={styles.modalButtonTextSecondary}>Отмена</Text>
                 </TouchableOpacity>
               </View>
-            </BlurView>
+            </View>
           </View>
         </Modal>
       </ImageBackground>

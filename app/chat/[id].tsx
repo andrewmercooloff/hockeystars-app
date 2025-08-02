@@ -136,8 +136,8 @@ export default function ChatScreen() {
     }
   };
 
-  const formatTime = (timestamp: number) => {
-    const date = new Date(timestamp);
+  const formatTime = (timestamp: Date | number) => {
+    const date = timestamp instanceof Date ? timestamp : new Date(timestamp);
     return date.toLocaleTimeString('ru-RU', { 
       hour: '2-digit', 
       minute: '2-digit' 
@@ -212,7 +212,7 @@ export default function ChatScreen() {
             >
               {!loading && messages.length === 0 ? (
                 <View style={styles.emptyContainer}>
-                  <Ionicons name="chatbubble-outline" size={48} color="#666" />
+                  <Ionicons name="chatbubble-outline" size={48} color="#fff" />
                   <Text style={styles.emptyText}>Начните разговор с {otherPlayer.name}</Text>
                 </View>
               ) : !loading ? (
@@ -367,13 +367,27 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   emptyContainer: {
-    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 60,
+    paddingVertical: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    borderRadius: 15,
+    marginHorizontal: 60,
+    marginVertical: 10,
+    padding: 15,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 68, 68, 0.3)',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   emptyText: {
-    color: '#666',
+    color: '#fff',
     fontSize: 16,
     fontFamily: 'Gilroy-Regular',
     marginTop: 12,

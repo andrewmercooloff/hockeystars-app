@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { BlurView } from 'expo-blur';
+
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
@@ -90,7 +90,7 @@ export default function LoginScreen() {
           {/* Внутренняя граница хоккейной коробки */}
           <View style={styles.innerBorder} />
           
-          <BlurView intensity={20} style={styles.modalOverlay}>
+          <View style={styles.modalOverlay}>
             <View style={styles.modalContainer}>
 
               
@@ -161,7 +161,7 @@ export default function LoginScreen() {
                 <Text style={styles.modalCancelText}>Отмена</Text>
               </TouchableOpacity>
             </View>
-          </BlurView>
+          </View>
         </ImageBackground>
       </View>
 

@@ -2,7 +2,6 @@ import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import {
     Alert,
-    Modal,
     ScrollView,
     StyleSheet,
     Text,
@@ -18,21 +17,23 @@ interface TeamSelectorProps {
   placeholder?: string;
 }
 
-export default function TeamSelector({ selectedTeams, onTeamsChange, placeholder = "Выберите команды" }: TeamSelectorProps) {
+const TeamSelector = React.memo(({ selectedTeams, onTeamsChange, placeholder = "Выберите команды" }: TeamSelectorProps) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState<Team[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  const [showModal, setShowModal] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
 
   // Поиск команд при изменении поискового запроса
   useEffect(() => {
     const searchTeamsAsync = async () => {
       if (searchTerm.trim().length < 2) {
         setSearchResults([]);
+        setShowSuggestions(false);
         return;
       }
 
       setIsSearching(true);
+      setShowSuggestions(true);
       try {
         const results = await searchTeams(searchTerm.trim());
         setSearchResults(results);
@@ -63,6 +64,7 @@ export default function TeamSelector({ selectedTeams, onTeamsChange, placeholder
     }
     setSearchTerm('');
     setSearchResults([]);
+    setShowSuggestions(false);
   };
 
   // Удаление команды
@@ -89,7 +91,6 @@ export default function TeamSelector({ selectedTeams, onTeamsChange, placeholder
 
       if (newTeam) {
         addTeam(newTeam);
-        setShowModal(false);
       } else {
         Alert.alert('Ошибка', 'Не удалось создать команду');
       }
@@ -130,97 +131,70 @@ export default function TeamSelector({ selectedTeams, onTeamsChange, placeholder
         ))}
       </View>
 
-      {/* Кнопка добавления команды */}
-      <TouchableOpacity
-        style={styles.addButton}
-        onPress={() => setShowModal(true)}
-      >
-        <Ionicons name="add-circle" size={24} color="#FF4444" />
-        <Text style={styles.addButtonText}>Добавить команду</Text>
-      </TouchableOpacity>
-
-      {/* Модальное окно выбора команды */}
-      <Modal
-        visible={showModal}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setShowModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Выберите команду</Text>
-              <TouchableOpacity
-                style={styles.closeButton}
-                onPress={() => setShowModal(false)}
-              >
-                <Ionicons name="close" size={24} color="#fff" />
-              </TouchableOpacity>
-            </View>
-
-            {/* Поиск */}
-            <TextInput
-              style={styles.searchInput}
-              value={searchTerm}
-              onChangeText={setSearchTerm}
-              placeholder="Начните вводить название команды..."
-              placeholderTextColor="#888"
-            />
-
-            {/* Результаты поиска */}
-            <ScrollView style={styles.searchResults}>
-              {isSearching ? (
-                <Text style={styles.loadingText}>Поиск...</Text>
-              ) : searchResults.length > 0 ? (
-                searchResults.map((team) => (
-                  <TouchableOpacity
-                    key={team.id}
-                    style={styles.searchResult}
-                    onPress={() => addTeam(team)}
-                  >
-                    <View style={styles.resultInfo}>
-                      <Text style={styles.resultName}>{team.name}</Text>
-                      <Text style={styles.resultType}>{getTeamTypeLabel(team.type)}</Text>
-                      {team.city && (
-                        <Text style={styles.resultCity}>{team.city}</Text>
-                      )}
-                    </View>
-                    <Ionicons name="add" size={20} color="#FF4444" />
-                  </TouchableOpacity>
-                ))
-              ) : searchTerm.length >= 2 ? (
-                <View style={styles.noResults}>
-                  <Text style={styles.noResultsText}>Команда не найдена</Text>
-                  <TouchableOpacity
-                    style={styles.createButton}
-                    onPress={createNewTeam}
-                  >
-                    <Ionicons name="add-circle" size={20} color="#FF4444" />
-                    <Text style={styles.createButtonText}>
-                      Создать "{searchTerm}"
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              ) : searchTerm.length > 0 ? (
-                <Text style={styles.hintText}>
-                  Введите минимум 2 символа для поиска
-                </Text>
-              ) : (
-                <Text style={styles.hintText}>
-                  Начните вводить название команды
-                </Text>
-              )}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
+      {/* Поле ввода для поиска команд */}
+      <View style={styles.searchContainer}>
+        <TextInput
+          style={styles.searchInput}
+          value={searchTerm}
+          onChangeText={setSearchTerm}
+          placeholder="Введите название команды..."
+          placeholderTextColor="#888"
+        />
+        
+                 {/* Подсказки */}
+         {showSuggestions && (
+           <View style={styles.suggestionsContainer}>
+             <ScrollView style={styles.suggestionsList} nestedScrollEnabled={true}>
+               {isSearching ? (
+                 <Text style={styles.loadingText}>Поиск...</Text>
+               ) : searchResults.length > 0 ? (
+                 searchResults.map((team) => (
+                   <TouchableOpacity
+                     key={team.id}
+                     style={styles.suggestionItem}
+                     onPress={() => addTeam(team)}
+                   >
+                     <View style={styles.suggestionInfo}>
+                       <Text style={styles.suggestionName}>{team.name}</Text>
+                       <Text style={styles.suggestionType}>{getTeamTypeLabel(team.type)}</Text>
+                       {team.city && (
+                         <Text style={styles.suggestionCity}>{team.city}</Text>
+                       )}
+                     </View>
+                     <Ionicons name="add" size={20} color="#FF4444" />
+                   </TouchableOpacity>
+                 ))
+               ) : searchTerm.length >= 2 ? (
+                 <TouchableOpacity
+                   style={styles.createButton}
+                   onPress={createNewTeam}
+                 >
+                   <Ionicons name="add-circle" size={20} color="#FF4444" />
+                   <Text style={styles.createButtonText}>
+                     Создать "{searchTerm}"
+                   </Text>
+                 </TouchableOpacity>
+               ) : searchTerm.length > 0 ? (
+                 <Text style={styles.hintText}>
+                   Введите минимум 2 символа для поиска
+                 </Text>
+               ) : null}
+             </ScrollView>
+           </View>
+         )}
+      </View>
     </View>
   );
-}
+});
+
+export default TeamSelector;
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    position: 'relative',
+    zIndex: 999999,
+    elevation: 100,
   },
   selectedTeamsContainer: {
     marginBottom: 15,
@@ -252,48 +226,10 @@ const styles = StyleSheet.create({
   removeButton: {
     padding: 4,
   },
-  addButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 68, 68, 0.1)',
-    borderRadius: 8,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 68, 68, 0.3)',
-    borderStyle: 'dashed',
-  },
-  addButtonText: {
-    fontSize: 16,
-    fontFamily: 'Gilroy-Regular',
-    color: '#FF4444',
-    marginLeft: 8,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContent: {
-    width: '90%',
-    height: '80%',
-    backgroundColor: '#1a1a1a',
-    borderRadius: 15,
-    padding: 20,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontFamily: 'Gilroy-Bold',
-    color: '#fff',
-  },
-  closeButton: {
-    padding: 4,
+  searchContainer: {
+    position: 'relative',
+    zIndex: 999999,
+    elevation: 1000,
   },
   searchInput: {
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
@@ -302,75 +238,87 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: 'Gilroy-Regular',
     color: '#fff',
-    marginBottom: 15,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 68, 68, 0.3)',
   },
-  searchResults: {
-    flex: 1,
+  suggestionsContainer: {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    right: 0,
+    backgroundColor: '#1a1a1a',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 68, 68, 0.3)',
+    maxHeight: 200,
+    zIndex: 999999,
+    marginTop: 4,
+    elevation: 1000,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.8,
+    shadowRadius: 8,
   },
-  searchResult: {
+  suggestionsList: {
+    padding: 8,
+  },
+  suggestionItem: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 8,
+    borderRadius: 6,
+    padding: 10,
+    marginBottom: 4,
   },
-  resultInfo: {
+  suggestionInfo: {
     flex: 1,
   },
-  resultName: {
-    fontSize: 16,
+  suggestionName: {
+    fontSize: 14,
     fontFamily: 'Gilroy-Bold',
     color: '#fff',
     marginBottom: 2,
   },
-  resultType: {
-    fontSize: 12,
+  suggestionType: {
+    fontSize: 11,
     fontFamily: 'Gilroy-Regular',
     color: '#ccc',
   },
-  resultCity: {
-    fontSize: 12,
+  suggestionCity: {
+    fontSize: 11,
     fontFamily: 'Gilroy-Regular',
     color: '#888',
   },
   loadingText: {
-    fontSize: 16,
+    fontSize: 14,
     fontFamily: 'Gilroy-Regular',
     color: '#ccc',
     textAlign: 'center',
-    padding: 20,
-  },
-  noResults: {
-    alignItems: 'center',
-    padding: 20,
-  },
-  noResultsText: {
-    fontSize: 16,
-    fontFamily: 'Gilroy-Regular',
-    color: '#ccc',
-    marginBottom: 15,
+    padding: 10,
   },
   createButton: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(255, 68, 68, 0.1)',
-    borderRadius: 8,
-    padding: 12,
+    borderRadius: 6,
+    padding: 10,
     borderWidth: 1,
     borderColor: 'rgba(255, 68, 68, 0.3)',
   },
   createButtonText: {
-    fontSize: 16,
+    fontSize: 14,
     fontFamily: 'Gilroy-Regular',
     color: '#FF4444',
     marginLeft: 8,
   },
   hintText: {
-    fontSize: 14,
+    fontSize: 12,
     fontFamily: 'Gilroy-Regular',
     color: '#888',
     textAlign: 'center',
-    padding: 20,
+    padding: 10,
   },
 }); 

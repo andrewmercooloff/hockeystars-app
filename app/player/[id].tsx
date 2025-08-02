@@ -18,7 +18,6 @@ import {
 import CustomAlert from '../../components/CustomAlert';
 import NormativesSection from '../../components/NormativesSection';
 import PhotosSection from '../../components/PhotosSection';
-import TeamsDisplay from '../../components/TeamsDisplay';
 import VideoCarousel from '../../components/VideoCarousel';
 import YouTubeVideo from '../../components/YouTubeVideo';
 import { acceptFriendRequest, calculateHockeyExperience, cancelFriendRequest, clearAllFriendRequests, createFriendRequestNotification, debugFriendRequests, declineFriendRequest, getFriends, getFriendshipStatus, getPlayerById, getPlayerTeams, loadCurrentUser, Player, PlayerTeam, removeFriend, sendFriendRequest, updatePlayer } from '../../utils/playerStorage';
@@ -587,7 +586,25 @@ export default function PlayerProfile() {
         <View style={styles.overlay}>
           <ScrollView contentContainerStyle={styles.scrollContainer}>
             
-
+            {/* Кнопка редактирования для администратора в самом верху */}
+            {currentUser?.status === 'admin' && (
+              <View style={styles.editButtonContainer}>
+                <TouchableOpacity 
+                  style={styles.editButton} 
+                  onPress={() => {
+                    console.log('🔧 Админ редактирует игрока:', player.name);
+                    if (isEditing) {
+                      handleSave();
+                    } else {
+                      setEditData(player);
+                      setIsEditing(true);
+                    }
+                  }}
+                >
+                  <Ionicons name={isEditing ? "checkmark" : "create"} size={20} color="#8A2BE2" />
+                </TouchableOpacity>
+              </View>
+            )}
 
             {/* Фото и основная информация */}
             <View style={styles.profileSection}>
@@ -632,23 +649,6 @@ export default function PlayerProfile() {
                     <Text style={styles.numberText}>#{player.number}</Text>
                   </View>
                 ) : null}
-                {/* Кнопка редактирования для администратора */}
-                {currentUser?.status === 'admin' && (
-                  <TouchableOpacity 
-                    style={styles.editButton} 
-                    onPress={() => {
-                      console.log('🔧 Админ редактирует игрока:', player.name);
-                      if (isEditing) {
-                        handleSave();
-                      } else {
-                        setEditData(player);
-                        setIsEditing(true);
-                      }
-                    }}
-                  >
-                    <Ionicons name={isEditing ? "checkmark" : "create"} size={20} color="#8A2BE2" />
-                  </TouchableOpacity>
-                )}
               </View>
               <View style={styles.statusContainer}>
                 <Text style={styles.playerStatus}>
@@ -658,22 +658,22 @@ export default function PlayerProfile() {
                    player.status === 'admin' ? 'Техподдержка' : 'Звезда'}
                 </Text>
               </View>
-              {player.team && <Text style={styles.playerTeam}>{player.team}</Text>}
+              {playerTeams.length > 0 && (
+                <View style={styles.playerTeamsContainer}>
+                  {playerTeams.map((team, index) => (
+                    <Text key={team.teamId} style={styles.playerTeam}>
+                      {team.teamName}{index < playerTeams.length - 1 ? ', ' : ''}
+                    </Text>
+                  ))}
+                </View>
+              )}
               {player.hockeyStartDate && player.hockeyStartDate !== '' && player.hockeyStartDate !== 'null' && (
                 <Text style={styles.hockeyExperience}>
                   В хоккее {calculateHockeyExperience(player.hockeyStartDate)}
                 </Text>
               )}
               
-              {/* Отображение команд */}
-              {playerTeams.length > 0 && (
-                <View style={styles.teamsSection}>
-                  <TeamsDisplay
-                    teams={playerTeams}
-                    compact={true}
-                  />
-                    </View>
-              )}
+
               
 
             </View>
@@ -1263,8 +1263,6 @@ export default function PlayerProfile() {
             {player && player.status && player.status.trim() !== 'star' && player.status.trim() !== 'admin' ? (
               (currentUser && currentUser.id === player.id) || 
               friendshipStatus === 'friends' || 
-              friendshipStatus === 'sent_request' || 
-              friendshipStatus === 'pending' || 
               currentUser?.status === 'coach' || 
               currentUser?.status === 'scout' ||
               currentUser?.status === 'admin' ? (
@@ -1631,6 +1629,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 20,
   },
+  editButtonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: 10,
+  },
+  editButton: {
+    padding: 10,
+    backgroundColor: '#8A2BE2',
+    borderRadius: 25,
+    width: 50,
+    height: 50,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -1707,6 +1721,12 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontFamily: 'Gilroy-Regular',
     color: '#fff',
+  },
+  playerTeamsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   hockeyExperience: {
     fontSize: 16,

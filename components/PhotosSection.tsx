@@ -1,14 +1,14 @@
+import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  Image,
-  ScrollView,
-  TouchableOpacity,
-  Dimensions,
+    Dimensions,
+    Image,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import PhotoViewer from './PhotoViewer';
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -96,7 +96,7 @@ const styles = StyleSheet.create({
     paddingVertical: 30,
   },
   emptyText: {
-    color: '#666',
+    color: '#fff',
     fontSize: 16,
     fontFamily: 'Gilroy-Regular',
     marginTop: 10,

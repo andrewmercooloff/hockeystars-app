@@ -1,10 +1,10 @@
+import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
+    StyleSheet,
+    Text,
+    View,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 
 interface NormativesSectionProps {
   pullUps?: string;
@@ -124,7 +124,7 @@ const styles = StyleSheet.create({
     paddingVertical: 30,
   },
   emptyText: {
-    color: '#666',
+    color: '#fff',
     fontSize: 16,
     fontFamily: 'Gilroy-Regular',
     marginTop: 10,

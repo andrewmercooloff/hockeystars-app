@@ -439,7 +439,7 @@ export const createAdmin = async (): Promise<Player | null> => {
       age: 30,
       height: 180,
       weight: 80,
-      email: 'admin@hockeystars.com',
+      email: 'admin',
       password: 'admin123',
       status: 'admin',
       city: 'Минск',

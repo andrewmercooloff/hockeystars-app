@@ -732,6 +732,95 @@ export const getMessages = async (userId1: string, userId2: string): Promise<Mes
   }
 };
 
+// Получение диалога между двумя пользователями
+export const getConversation = async (userId1: string, userId2: string): Promise<Message[]> => {
+  try {
+    const messages = await getMessages(userId1, userId2);
+    return messages.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+  } catch (error) {
+    console.error('❌ Ошибка загрузки диалога:', error);
+    return [];
+  }
+};
+
+// Упрощенная отправка сообщения
+export const sendMessageSimple = async (senderId: string, receiverId: string, text: string): Promise<boolean> => {
+  try {
+    const message = {
+      senderId,
+      receiverId,
+      text,
+      read: false
+    };
+    
+    await sendMessage(message);
+    return true;
+  } catch (error) {
+    console.error('❌ Ошибка отправки сообщения:', error);
+    return false;
+  }
+};
+
+// Отметка сообщений как прочитанные
+export const markMessagesAsRead = async (userId: string, otherUserId: string): Promise<void> => {
+  try {
+    const { error } = await supabase
+      .from('messages')
+      .update({ read: true })
+      .eq('sender_id', otherUserId)
+      .eq('receiver_id', userId)
+      .eq('read', false);
+    
+    if (error) {
+      console.error('❌ Ошибка отметки сообщений как прочитанные:', error);
+    }
+  } catch (error) {
+    console.error('❌ Ошибка отметки сообщений как прочитанные:', error);
+  }
+};
+
+// Получение всех диалогов пользователя
+export const getUserConversations = async (userId: string): Promise<Record<string, Message[]>> => {
+  try {
+    // Получаем все сообщения пользователя
+    const { data, error } = await supabase
+      .from('messages')
+      .select('*')
+      .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
+      .order('created_at', { ascending: true });
+    
+    if (error) {
+      console.error('❌ Ошибка получения диалогов:', error);
+      return {};
+    }
+    
+    // Группируем сообщения по собеседникам
+    const conversations: Record<string, Message[]> = {};
+    
+    (data || []).forEach(msg => {
+      const otherUserId = msg.sender_id === userId ? msg.receiver_id : msg.sender_id;
+      
+      if (!conversations[otherUserId]) {
+        conversations[otherUserId] = [];
+      }
+      
+      conversations[otherUserId].push({
+        id: msg.id,
+        senderId: msg.sender_id,
+        receiverId: msg.receiver_id,
+        text: msg.text,
+        timestamp: new Date(msg.created_at),
+        read: msg.read
+      });
+    });
+    
+    return conversations;
+  } catch (error) {
+    console.error('❌ Ошибка получения диалогов пользователя:', error);
+    return {};
+  }
+};
+
 // Отправка запроса дружбы
 export const sendFriendRequest = async (fromId: string, toId: string): Promise<boolean> => {
   try {
@@ -1016,7 +1105,7 @@ export const createAdmin = async (): Promise<Player | null> => {
       age: 30,
       height: 180,
       weight: 80,
-      email: 'admin@hockeystars.com',
+      email: 'admin',
       password: 'admin123',
       status: 'admin',
       city: 'Минск',
@@ -1090,12 +1179,69 @@ export const fixAdminData = async (): Promise<void> => {
     
     if (admins && admins.length > 0) {
       console.log(`✅ Найдено администраторов: ${admins.length}`);
+      
+      // Исправляем аватар для каждого администратора
+      for (const admin of admins) {
+        console.log(`🔧 Проверяем администратора: ${admin.name} (ID: ${admin.id})`);
+        console.log(`📸 Текущий аватар: ${admin.avatar}`);
+        
+        // Если аватар пустой или содержит некорректные данные, очищаем его
+        if (!admin.avatar || admin.avatar === '' || admin.avatar === 'admin' || admin.avatar.includes('admin')) {
+          console.log('⚠️ Аватар администратора некорректный, очищаем...');
+          
+          const { error: updateError } = await supabase
+            .from('players')
+            .update({ avatar: null })
+            .eq('id', admin.id);
+          
+          if (updateError) {
+            console.error('❌ Ошибка очистки аватара:', updateError);
+          } else {
+            console.log('✅ Аватар администратора очищен');
+          }
+        }
+      }
     } else {
       console.log('⚠️ Администраторы не найдены, создаем нового...');
       await createAdmin();
     }
   } catch (error) {
     console.error('❌ Ошибка исправления данных администратора:', error);
+  }
+};
+
+// Функция для принудительного исправления аватара администратора
+export const fixAdminAvatar = async (): Promise<void> => {
+  try {
+    console.log('🔧 Принудительное исправление аватара администратора...');
+    
+    // Находим текущего пользователя
+    const currentUser = await loadCurrentUser();
+    if (!currentUser || currentUser.status !== 'admin') {
+      console.log('❌ Текущий пользователь не является администратором');
+      return;
+    }
+    
+    console.log(`👑 Исправляем аватар для администратора: ${currentUser.name}`);
+    console.log(`📸 Текущий аватар: ${currentUser.avatar}`);
+    
+    // Очищаем аватар администратора
+    const { error } = await supabase
+      .from('players')
+      .update({ avatar: null })
+      .eq('id', currentUser.id);
+    
+    if (error) {
+      console.error('❌ Ошибка очистки аватара:', error);
+    } else {
+      console.log('✅ Аватар администратора очищен, теперь можно загрузить новый');
+      
+      // Обновляем текущего пользователя
+      const updatedUser = { ...currentUser, avatar: undefined };
+      await saveCurrentUser(updatedUser);
+    }
+  } catch (error) {
+    console.error('❌ Ошибка исправления аватара администратора:', error);
   }
 };
 

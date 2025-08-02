@@ -59,7 +59,7 @@ export default function MessagesScreen() {
       // Загружаем чаты для пользователя
       setCurrentUser(user);
       const conversations = await getUserConversations(user.id);
-              // Получены беседы
+      console.log('📨 Получены беседы:', Object.keys(conversations).length);
       
       const chatPreviews: ChatPreview[] = [];
       
@@ -71,10 +71,10 @@ export default function MessagesScreen() {
             
             // Подсчитываем непрочитанные сообщения только для этой беседы
             const unreadCount = messages.filter(m => 
-              m.receiverId === user.id && !m.isRead
+              m.receiverId === user.id && !m.read
             ).length;
             
-            // Обрабатываем беседу
+            console.log(`💬 Беседа с ${otherPlayer.name}: ${messages.length} сообщений, ${unreadCount} непрочитанных`);
             
             chatPreviews.push({
               player: otherPlayer,
@@ -114,8 +114,8 @@ export default function MessagesScreen() {
     router.push({ pathname: '/chat/[id]', params: { id: playerId } });
   };
 
-  const formatTime = (timestamp: number) => {
-    const date = new Date(timestamp);
+  const formatTime = (timestamp: Date | number) => {
+    const date = timestamp instanceof Date ? timestamp : new Date(timestamp);
     const now = new Date();
     const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
     
@@ -322,7 +322,7 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   emptyTitle: {
-    color: '#fff',
+    color: '#FF4444',
     fontSize: 20,
     fontFamily: 'Gilroy-Bold',
     marginTop: 16,

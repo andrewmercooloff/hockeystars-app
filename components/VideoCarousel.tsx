@@ -104,7 +104,7 @@ export default function VideoCarousel({ videos, onVideoPress }: VideoCarouselPro
   if (!videos || videos.length === 0) {
     return (
       <View style={styles.emptyContainer}>
-        <Ionicons name="videocam-outline" size={48} color="#666" />
+        <Ionicons name="videocam-outline" size={48} color="#FF4444" />
         <Text style={styles.emptyText}>Нет добавленных видео</Text>
       </View>
     );
@@ -250,7 +250,7 @@ const styles = StyleSheet.create({
     paddingVertical: 30,
   },
   emptyText: {
-    color: '#666',
+    color: '#fff',
     fontSize: 16,
     fontFamily: 'Gilroy-Regular',
     marginTop: 10,

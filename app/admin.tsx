@@ -17,6 +17,7 @@ import {
     View
 } from 'react-native';
 import { Player, loadCurrentUser, loadPlayers, updatePlayer } from '../utils/playerStorage';
+import { uploadImageToStorage } from '../utils/uploadImage';
 
 const logo = require('../assets/images/logo.png');
 
@@ -76,11 +77,23 @@ const AdminHeader = () => {
                   currentUser.avatar.startsWith('file://') || 
                   currentUser.avatar.startsWith('content://')
                 ))
-                  ? { uri: currentUser.avatar }
+                  ? { 
+                      uri: currentUser.avatar,
+                      cache: 'reload',
+                      headers: {
+                        'Cache-Control': 'no-cache'
+                      }
+                    }
                   : require('../assets/images/me.jpg')
               }
               style={styles.profileImage}
-              onError={() => console.log('Profile image failed to load')}
+              onError={(error) => {
+                console.log('❌ Ошибка загрузки аватара в AdminHeader:', error);
+                console.log('   URL аватара:', currentUser.avatar);
+              }}
+              onLoad={() => {
+                console.log('✅ Аватар в AdminHeader успешно загружен:', currentUser.avatar);
+              }}
             />
           ) : (
             <Ionicons name="person" size={25} color="#fff" />
@@ -140,6 +153,8 @@ export default function AdminScreen() {
       ]);
       console.log('🔧 Загружено игроков:', loadedPlayers.length);
       console.log('🔧 Текущий пользователь:', user?.name, 'статус:', user?.status);
+      console.log('📸 Аватар текущего пользователя:', user?.avatar);
+      console.log('📸 Тип аватара текущего пользователя:', typeof user?.avatar);
       
       setPlayers(loadedPlayers);
       setCurrentUser(user);
@@ -151,7 +166,32 @@ export default function AdminScreen() {
         router.back();
       } else {
         console.log('✅ Пользователь является администратором');
+        
+        // Дополнительная отладочная информация для admin
+        if (user.avatar && typeof user.avatar === 'string') {
+          if (user.avatar.startsWith('http')) {
+            console.log('✅ Аватар admin - это HTTP URL');
+          } else if (user.avatar.startsWith('data:')) {
+            console.log('✅ Аватар admin - это base64 строка');
+          } else if (user.avatar.startsWith('file://') || user.avatar.startsWith('content://')) {
+            console.log('✅ Аватар admin - это локальный файл');
+          } else {
+            console.log('⚠️ Аватар admin - неизвестный формат:', user.avatar);
+          }
+        } else {
+          console.log('⚠️ Аватар admin отсутствует или имеет неверный тип');
+        }
       }
+      
+      // Находим всех admin пользователей и выводим информацию о их аватарах
+      const adminUsers = loadedPlayers.filter(p => p.status === 'admin');
+      console.log('👑 Найдено admin пользователей:', adminUsers.length);
+      adminUsers.forEach((adminUser, index) => {
+        console.log(`👑 Admin ${index + 1}:`, adminUser.name);
+        console.log(`📸 Аватар admin ${index + 1}:`, adminUser.avatar);
+        console.log(`📸 Тип аватара admin ${index + 1}:`, typeof adminUser.avatar);
+      });
+      
     } catch (error) {
       console.error('❌ Ошибка загрузки данных:', error);
     }
@@ -294,40 +334,85 @@ export default function AdminScreen() {
                 const base64String = e.target?.result as string;
                 console.log('📸 Веб: конвертировано в base64, длина:', base64String.length);
                 
-                const newEditData = {
-                  ...editData,
-                  photo: base64String,
-                  avatar: base64String
-                };
-                
-                console.log('📸 Веб: обновляем editData с base64');
-                setEditData(newEditData);
-                
-                // Автоматически сохраняем фото сразу после загрузки
-                if (selectedPlayer) {
-                  try {
-                    console.log('🔄 Автоматическое сохранение фото для:', selectedPlayer.name);
-                    await updatePlayer(selectedPlayer.id, newEditData);
-                    console.log('✅ Фото автоматически сохранено');
-                    
-                    // Обновляем список игроков
-                    const updatedPlayers = await loadPlayers();
-                    setPlayers(updatedPlayers);
-                    
-                    // Обновляем selectedPlayer с новыми данными
-                    const updatedPlayer = updatedPlayers.find(p => p.id === selectedPlayer.id);
-                    if (updatedPlayer) {
-                      setSelectedPlayer(updatedPlayer);
-                      setEditData(updatedPlayer);
+                // Загружаем изображение в Supabase Storage
+                const uploadedUrl = await uploadImageToStorage(base64String);
+                if (uploadedUrl) {
+                  console.log('✅ Веб: изображение загружено в Storage:', uploadedUrl);
+                  
+                  const newEditData = {
+                    ...editData,
+                    photo: uploadedUrl,
+                    avatar: uploadedUrl
+                  };
+                  
+                  console.log('📸 Веб: обновляем editData с URL из Storage');
+                  setEditData(newEditData);
+                  
+                  // Автоматически сохраняем фото сразу после загрузки
+                  if (selectedPlayer) {
+                    try {
+                      console.log('🔄 Автоматическое сохранение фото для:', selectedPlayer.name);
+                      await updatePlayer(selectedPlayer.id, newEditData);
+                      console.log('✅ Фото автоматически сохранено');
+                      
+                      // Обновляем список игроков
+                      const updatedPlayers = await loadPlayers();
+                      setPlayers(updatedPlayers);
+                      
+                      // Обновляем selectedPlayer с новыми данными
+                      const updatedPlayer = updatedPlayers.find(p => p.id === selectedPlayer.id);
+                      if (updatedPlayer) {
+                        setSelectedPlayer(updatedPlayer);
+                        setEditData(updatedPlayer);
+                      }
+                      
+                      // Принудительно обновляем FlatList
+                      setRefreshKey(prev => prev + 1);
+                      
+                      Alert.alert('Успешно', 'Фото загружено и сохранено');
+                    } catch (error) {
+                      console.error('❌ Ошибка автоматического сохранения:', error);
+                      Alert.alert('Ошибка', 'Фото загружено, но не удалось сохранить');
                     }
-                    
-                    // Принудительно обновляем FlatList
-                    setRefreshKey(prev => prev + 1);
-                    
-                    Alert.alert('Успешно', 'Фото загружено и сохранено');
-                  } catch (error) {
-                    console.error('❌ Ошибка автоматического сохранения:', error);
-                    Alert.alert('Ошибка', 'Фото загружено, но не удалось сохранить');
+                  }
+                } else {
+                  console.log('⚠️ Веб: не удалось загрузить в Storage, используем base64');
+                  
+                  const newEditData = {
+                    ...editData,
+                    photo: base64String,
+                    avatar: base64String
+                  };
+                  
+                  console.log('📸 Веб: обновляем editData с base64');
+                  setEditData(newEditData);
+                  
+                  // Автоматически сохраняем фото сразу после загрузки
+                  if (selectedPlayer) {
+                    try {
+                      console.log('🔄 Автоматическое сохранение фото для:', selectedPlayer.name);
+                      await updatePlayer(selectedPlayer.id, newEditData);
+                      console.log('✅ Фото автоматически сохранено');
+                      
+                      // Обновляем список игроков
+                      const updatedPlayers = await loadPlayers();
+                      setPlayers(updatedPlayers);
+                      
+                      // Обновляем selectedPlayer с новыми данными
+                      const updatedPlayer = updatedPlayers.find(p => p.id === selectedPlayer.id);
+                      if (updatedPlayer) {
+                        setSelectedPlayer(updatedPlayer);
+                        setEditData(updatedPlayer);
+                      }
+                      
+                      // Принудительно обновляем FlatList
+                      setRefreshKey(prev => prev + 1);
+                      
+                      Alert.alert('Успешно', 'Фото загружено и сохранено');
+                    } catch (error) {
+                      console.error('❌ Ошибка автоматического сохранения:', error);
+                      Alert.alert('Ошибка', 'Фото загружено, но не удалось сохранить');
+                    }
                   }
                 }
               };
@@ -371,30 +456,65 @@ export default function AdminScreen() {
       console.log('📸 Админ загрузил фото из галереи:', photoUri);
       console.log('📸 Текущий editData до обновления:', editData);
 
-      const newEditData = {
-        ...editData,
-        photo: photoUri,
-        avatar: photoUri
-      };
+      // Загружаем изображение в Supabase Storage
+      const uploadedUrl = await uploadImageToStorage(photoUri);
+      if (uploadedUrl) {
+        console.log('✅ Изображение загружено в Storage:', uploadedUrl);
+        
+        const newEditData = {
+          ...editData,
+          photo: uploadedUrl,
+          avatar: uploadedUrl
+        };
 
-      setEditData(newEditData);
+        setEditData(newEditData);
 
-      // Автоматически сохраняем фото сразу после загрузки
-      if (selectedPlayer) {
-        try {
-          await updatePlayer(selectedPlayer.id, newEditData);
-          const updatedPlayers = await loadPlayers();
-          setPlayers(updatedPlayers);
-          const updatedPlayer = updatedPlayers.find(p => p.id === selectedPlayer.id);
-          if (updatedPlayer) {
-            setSelectedPlayer(updatedPlayer);
-            setEditData(updatedPlayer);
+        // Автоматически сохраняем фото сразу после загрузки
+        if (selectedPlayer) {
+          try {
+            await updatePlayer(selectedPlayer.id, newEditData);
+            const updatedPlayers = await loadPlayers();
+            setPlayers(updatedPlayers);
+            const updatedPlayer = updatedPlayers.find(p => p.id === selectedPlayer.id);
+            if (updatedPlayer) {
+              setSelectedPlayer(updatedPlayer);
+              setEditData(updatedPlayer);
+            }
+            setRefreshKey(prev => prev + 1);
+            Alert.alert('Успешно', 'Фото загружено и сохранено');
+          } catch (error) {
+            console.error('❌ Ошибка автоматического сохранения:', error);
+            Alert.alert('Ошибка', 'Фото загружено, но не удалось сохранить');
           }
-          setRefreshKey(prev => prev + 1);
-          Alert.alert('Успешно', 'Фото загружено и сохранено');
-        } catch (error) {
-          console.error('❌ Ошибка автоматического сохранения:', error);
-          Alert.alert('Ошибка', 'Фото загружено, но не удалось сохранить');
+        }
+      } else {
+        console.log('⚠️ Не удалось загрузить в Storage, используем локальный путь');
+        
+        const newEditData = {
+          ...editData,
+          photo: photoUri,
+          avatar: photoUri
+        };
+
+        setEditData(newEditData);
+
+        // Автоматически сохраняем фото сразу после загрузки
+        if (selectedPlayer) {
+          try {
+            await updatePlayer(selectedPlayer.id, newEditData);
+            const updatedPlayers = await loadPlayers();
+            setPlayers(updatedPlayers);
+            const updatedPlayer = updatedPlayers.find(p => p.id === selectedPlayer.id);
+            if (updatedPlayer) {
+              setSelectedPlayer(updatedPlayer);
+              setEditData(updatedPlayer);
+            }
+            setRefreshKey(prev => prev + 1);
+            Alert.alert('Успешно', 'Фото загружено и сохранено');
+          } catch (error) {
+            console.error('❌ Ошибка автоматического сохранения:', error);
+            Alert.alert('Ошибка', 'Фото загружено, но не удалось сохранить');
+          }
         }
       }
     } catch (error) {
@@ -430,40 +550,85 @@ export default function AdminScreen() {
         console.log('📸 Админ загрузил фото с камеры:', photoUri);
         console.log('📸 Текущий editData до обновления:', editData);
         
-        const newEditData = {
-          ...editData,
-          photo: photoUri,
-          avatar: photoUri
-        };
-        
-        console.log('📸 Новый editData после обновления:', newEditData);
-        setEditData(newEditData);
-        
-        // Автоматически сохраняем фото сразу после загрузки
-        if (selectedPlayer) {
-          try {
-            console.log('🔄 Автоматическое сохранение фото для:', selectedPlayer.name);
-            await updatePlayer(selectedPlayer.id, newEditData);
-            console.log('✅ Фото автоматически сохранено');
-            
-            // Обновляем список игроков
-            const updatedPlayers = await loadPlayers();
-            setPlayers(updatedPlayers);
-            
-            // Обновляем selectedPlayer с новыми данными
-            const updatedPlayer = updatedPlayers.find(p => p.id === selectedPlayer.id);
-            if (updatedPlayer) {
-              setSelectedPlayer(updatedPlayer);
-              setEditData(updatedPlayer);
+        // Загружаем изображение в Supabase Storage
+        const uploadedUrl = await uploadImageToStorage(photoUri);
+        if (uploadedUrl) {
+          console.log('✅ Изображение загружено в Storage:', uploadedUrl);
+          
+          const newEditData = {
+            ...editData,
+            photo: uploadedUrl,
+            avatar: uploadedUrl
+          };
+          
+          console.log('📸 Новый editData после обновления:', newEditData);
+          setEditData(newEditData);
+          
+          // Автоматически сохраняем фото сразу после загрузки
+          if (selectedPlayer) {
+            try {
+              console.log('🔄 Автоматическое сохранение фото для:', selectedPlayer.name);
+              await updatePlayer(selectedPlayer.id, newEditData);
+              console.log('✅ Фото автоматически сохранено');
+              
+              // Обновляем список игроков
+              const updatedPlayers = await loadPlayers();
+              setPlayers(updatedPlayers);
+              
+              // Обновляем selectedPlayer с новыми данными
+              const updatedPlayer = updatedPlayers.find(p => p.id === selectedPlayer.id);
+              if (updatedPlayer) {
+                setSelectedPlayer(updatedPlayer);
+                setEditData(updatedPlayer);
+              }
+              
+              // Принудительно обновляем FlatList
+              setRefreshKey(prev => prev + 1);
+              
+              Alert.alert('Успешно', 'Фото загружено и сохранено');
+            } catch (error) {
+              console.error('❌ Ошибка автоматического сохранения:', error);
+              Alert.alert('Ошибка', 'Фото загружено, но не удалось сохранить');
             }
-            
-            // Принудительно обновляем FlatList
-            setRefreshKey(prev => prev + 1);
-            
-            Alert.alert('Успешно', 'Фото загружено и сохранено');
-          } catch (error) {
-            console.error('❌ Ошибка автоматического сохранения:', error);
-            Alert.alert('Ошибка', 'Фото загружено, но не удалось сохранить');
+          }
+        } else {
+          console.log('⚠️ Не удалось загрузить в Storage, используем локальный путь');
+          
+          const newEditData = {
+            ...editData,
+            photo: photoUri,
+            avatar: photoUri
+          };
+          
+          console.log('📸 Новый editData после обновления:', newEditData);
+          setEditData(newEditData);
+          
+          // Автоматически сохраняем фото сразу после загрузки
+          if (selectedPlayer) {
+            try {
+              console.log('🔄 Автоматическое сохранение фото для:', selectedPlayer.name);
+              await updatePlayer(selectedPlayer.id, newEditData);
+              console.log('✅ Фото автоматически сохранено');
+              
+              // Обновляем список игроков
+              const updatedPlayers = await loadPlayers();
+              setPlayers(updatedPlayers);
+              
+              // Обновляем selectedPlayer с новыми данными
+              const updatedPlayer = updatedPlayers.find(p => p.id === selectedPlayer.id);
+              if (updatedPlayer) {
+                setSelectedPlayer(updatedPlayer);
+                setEditData(updatedPlayer);
+              }
+              
+              // Принудительно обновляем FlatList
+              setRefreshKey(prev => prev + 1);
+              
+              Alert.alert('Успешно', 'Фото загружено и сохранено');
+            } catch (error) {
+              console.error('❌ Ошибка автоматического сохранения:', error);
+              Alert.alert('Ошибка', 'Фото загружено, но не удалось сохранить');
+            }
           }
         }
         
@@ -492,6 +657,14 @@ export default function AdminScreen() {
       
       if (Platform.OS === 'web') {
         console.log('🌐 Веб-версия: сохраняем данные');
+      }
+      
+      // Если это admin пользователь, обновляем также currentUser
+      if (selectedPlayer.status === 'admin' && currentUser && selectedPlayer.id === currentUser.id) {
+        console.log('👑 Обновляем currentUser для admin');
+        const updatedCurrentUser = { ...currentUser, ...editData };
+        setCurrentUser(updatedCurrentUser);
+        // Здесь можно также сохранить обновленного пользователя в AsyncStorage
       }
       
       await updatePlayer(selectedPlayer.id, editData);
@@ -566,12 +739,24 @@ export default function AdminScreen() {
       if (typeof item.avatar === 'string') {
         // Проверяем, это ли base64 строка (загруженное фото)
         if (item.avatar.startsWith('data:image/')) {
-          return { uri: item.avatar };
+          return { 
+            uri: item.avatar,
+            cache: 'reload',
+            headers: {
+              'Cache-Control': 'no-cache'
+            }
+          };
         }
         
         // Проверяем, это ли URI (фото загруженное пользователем)
         if (item.avatar.startsWith('http') || item.avatar.startsWith('file://') || item.avatar.startsWith('content://')) {
-          return { uri: item.avatar };
+          return { 
+            uri: item.avatar,
+            cache: 'reload',
+            headers: {
+              'Cache-Control': 'no-cache'
+            }
+          };
         }
         
         // Проверяем идентификаторы тестовых игроков
@@ -604,6 +789,14 @@ export default function AdminScreen() {
             styles.playerAvatar,
             { borderColor: getStatusColor(item.status) }
           ]}
+          onError={(error) => {
+            console.log('❌ Ошибка загрузки аватара в списке игроков:', error);
+            console.log('   Игрок:', item.name);
+            console.log('   URL аватара:', item.avatar);
+          }}
+          onLoad={() => {
+            console.log('✅ Аватар в списке игроков успешно загружен:', item.name, item.avatar);
+          }}
         />
         <View style={styles.playerInfo}>
           <Text style={styles.playerName}>{item.name || 'Без имени'}</Text>
@@ -709,13 +902,26 @@ export default function AdminScreen() {
                       editData.avatar.startsWith('file://') || 
                       editData.avatar.startsWith('content://')
                     )
-                      ? { uri: editData.avatar }
+                      ? { 
+                          uri: editData.avatar,
+                          cache: 'reload',
+                          headers: {
+                            'Cache-Control': 'no-cache'
+                          }
+                        }
                       : require('../assets/images/me.jpg')
                   }
                   style={[
                     styles.editPhoto,
                     { borderColor: getStatusColor(editData.status) }
                   ]}
+                  onError={(error) => {
+                    console.log('❌ Ошибка загрузки аватара в модальном окне:', error);
+                    console.log('   URL аватара:', editData.avatar);
+                  }}
+                  onLoad={() => {
+                    console.log('✅ Аватар в модальном окне успешно загружен:', editData.avatar);
+                  }}
                 />
                 {isEditing && (
                   <View style={styles.editOverlay}>
