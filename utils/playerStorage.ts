@@ -824,6 +824,15 @@ export const getUserConversations = async (userId: string): Promise<Record<strin
 // Отправка запроса дружбы
 export const sendFriendRequest = async (fromId: string, toId: string): Promise<boolean> => {
   try {
+    console.log('🔔 Отправка запроса дружбы от', fromId, 'к', toId);
+    
+    // Получаем данные отправителя для уведомления
+    const { data: senderData } = await supabase
+      .from('players')
+      .select('name')
+      .eq('id', fromId)
+      .single();
+    
     const { data, error } = await supabase
       .from('friend_requests')
       .insert([{
@@ -839,6 +848,31 @@ export const sendFriendRequest = async (fromId: string, toId: string): Promise<b
       return false;
     }
     
+    // Создаем уведомление для получателя
+    if (senderData) {
+      try {
+        const { error: notificationError } = await supabase
+          .from('notifications')
+          .insert([{
+            user_id: toId,
+            type: 'friend_request',
+            title: 'Новый запрос дружбы',
+            message: `${senderData.name} хочет добавить вас в друзья`,
+            is_read: false,
+            data: { from_id: fromId, request_id: data.id }
+          }]);
+        
+        if (notificationError) {
+          console.error('❌ Ошибка создания уведомления:', notificationError);
+        } else {
+          console.log('✅ Уведомление о запросе дружбы создано');
+        }
+      } catch (notificationError) {
+        console.error('❌ Ошибка создания уведомления:', notificationError);
+      }
+    }
+    
+    console.log('✅ Запрос дружбы отправлен успешно');
     return true;
   } catch (error) {
     console.error('❌ Ошибка отправки запроса дружбы:', error);
@@ -1002,18 +1036,52 @@ export const getFriends = async (userId: string): Promise<Player[]> => {
 // Проверка статуса дружбы
 export const getFriendshipStatus = async (userId1: string, userId2: string): Promise<string> => {
   try {
-    const { data, error } = await supabase
+    console.log('🔍 getFriendshipStatus вызвана для:', userId1, 'и', userId2);
+    
+    // Сначала проверяем, есть ли принятый запрос дружбы (друзья)
+    const { data: friendsData, error: friendsError } = await supabase
       .from('friend_requests')
       .select('*')
-      .or(`and(from_id.eq.${userId1},to_id.eq.${userId2}),and(from_id.eq.${userId2},to_id.eq.${userId1})`)
-      .single();
+      .or(`and(from_id.eq.${userId1},to_id.eq.${userId2},status.eq.accepted),and(from_id.eq.${userId2},to_id.eq.${userId1},status.eq.accepted)`)
+      .maybeSingle();
     
-    if (error) {
-      return 'none';
+    if (friendsData) {
+      console.log('🔍 Найдены друзья:', friendsData);
+      return 'friends';
     }
     
-    return data.status;
+    // Проверяем, отправил ли userId1 запрос userId2
+    const { data: sentData, error: sentError } = await supabase
+      .from('friend_requests')
+      .select('*')
+      .eq('from_id', userId1)
+      .eq('to_id', userId2)
+      .eq('status', 'pending')
+      .maybeSingle();
+    
+    if (sentData) {
+      console.log('🔍 userId1 отправил запрос userId2:', sentData);
+      return 'sent_request';
+    }
+    
+    // Проверяем, получил ли userId1 запрос от userId2
+    const { data: receivedData, error: receivedError } = await supabase
+      .from('friend_requests')
+      .select('*')
+      .eq('from_id', userId2)
+      .eq('to_id', userId1)
+      .eq('status', 'pending')
+      .maybeSingle();
+    
+    if (receivedData) {
+      console.log('🔍 userId1 получил запрос от userId2:', receivedData);
+      return 'received_request';
+    }
+    
+    console.log('🔍 Нет запросов дружбы между пользователями');
+    return 'none';
   } catch (error) {
+    console.error('❌ Ошибка в getFriendshipStatus:', error);
     return 'none';
   }
 };
@@ -1048,34 +1116,73 @@ export const fixCorruptedData = async (): Promise<void> => {
   }
 };
 
-// Загрузка уведомлений (заглушка для совместимости)
+// Загрузка уведомлений
 export const loadNotifications = async (userId?: string): Promise<any[]> => {
   try {
-    // В локальной версии уведомления не реализованы
-    return [];
+    if (!userId) {
+      const currentUser = await loadCurrentUser();
+      if (!currentUser) return [];
+      userId = currentUser.id;
+    }
+    
+    const { data, error } = await supabase
+      .from('notifications')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      console.error('❌ Ошибка загрузки уведомлений:', error);
+      return [];
+    }
+    
+    return data || [];
   } catch (error) {
     console.error('❌ Ошибка загрузки уведомлений:', error);
     return [];
   }
 };
 
-// Создание уведомления (заглушка для совместимости)
+// Создание уведомления
 export const createNotification = async (notification: any): Promise<any> => {
   try {
-    console.log('🔔 Создание уведомления (заглушка)...');
-    // В локальной версии уведомления не реализованы
-    return notification;
+    console.log('🔔 Создание уведомления:', notification);
+    
+    const { data, error } = await supabase
+      .from('notifications')
+      .insert([notification])
+      .select()
+      .single();
+    
+    if (error) {
+      console.error('❌ Ошибка создания уведомления:', error);
+      return null;
+    }
+    
+    console.log('✅ Уведомление создано:', data);
+    return data;
   } catch (error) {
     console.error('❌ Ошибка создания уведомления:', error);
-    return notification;
+    return null;
   }
 };
 
-// Отметка уведомления как прочитанного (заглушка для совместимости)
+// Отметка уведомления как прочитанного
 export const markNotificationAsRead = async (notificationId: string): Promise<boolean> => {
   try {
-    console.log('🔔 Отметка уведомления как прочитанного (заглушка)...');
-    // В локальной версии уведомления не реализованы
+    console.log('🔔 Отметка уведомления как прочитанного:', notificationId);
+    
+    const { error } = await supabase
+      .from('notifications')
+      .update({ is_read: true })
+      .eq('id', notificationId);
+    
+    if (error) {
+      console.error('❌ Ошибка отметки уведомления:', error);
+      return false;
+    }
+    
+    console.log('✅ Уведомление отмечено как прочитанное');
     return true;
   } catch (error) {
     console.error('❌ Ошибка отметки уведомления:', error);
