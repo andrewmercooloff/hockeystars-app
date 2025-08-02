@@ -155,7 +155,7 @@ export default function PersonalCabinetScreen() {
   // Автоматически включаем режим редактирования если передан параметр edit
   useEffect(() => {
     if (params.edit === 'true' && !isEditing) {
-      console.log('Автоматически включаем режим редактирования');
+              // Автоматически включаем режим редактирования
       setIsEditing(true);
     }
   }, [params.edit, isEditing]);
@@ -353,14 +353,11 @@ export default function PersonalCabinetScreen() {
   };
 
   const handleSave = async () => {
-    console.log('handleSave() вызвана');
-    if (!currentUser) {
-      console.log('currentUser отсутствует');
-      return;
-    }
+          if (!currentUser) {
+        return;
+      }
 
-    try {
-      console.log('Начинаем сохранение...');
+      try {
       // Объединяем поля видео в одну строку
       const goalsText = videoFields
         .filter(video => video.url.trim())
@@ -369,28 +366,15 @@ export default function PersonalCabinetScreen() {
           return video.url + timeCodePart;
         })
         .join('\n');
-      console.log('Объединенные видео:', goalsText);
+              // Объединяем поля видео в одну строку
       const updatedUser = { ...currentUser, ...editData, favoriteGoals: goalsText };
-      console.log('Обновленный пользователь:', updatedUser);
-      console.log('📸 Аватар в обновленном пользователе:', updatedUser.avatar);
-      console.log('📊 Нормативы в обновленном пользователе:');
-      console.log('   pullUps:', updatedUser.pullUps);
-      console.log('   pushUps:', updatedUser.pushUps);
-      console.log('   plankTime:', updatedUser.plankTime);
-      console.log('   sprint100m:', updatedUser.sprint100m);
-      console.log('   longJump:', updatedUser.longJump);
-      console.log('🎥 Видео в обновленном пользователе:', updatedUser.favoriteGoals);
-      console.log('🏒 Дата начала хоккея:', updatedUser.hockeyStartDate);
-      await updatePlayer(currentUser.id, updatedUser);
-      console.log('Пользователь обновлен в хранилище');
-      
-      // Обновляем текущего пользователя в хранилище
-      await saveCurrentUser(updatedUser);
-      console.log('Текущий пользователь обновлен в хранилище');
-      
-      setCurrentUser(updatedUser);
-      setIsEditing(false);
-      console.log('Режим редактирования выключен');
+              await updatePlayer(currentUser.id, updatedUser);
+        
+        // Обновляем текущего пользователя в хранилище
+        await saveCurrentUser(updatedUser);
+        
+        setCurrentUser(updatedUser);
+        setIsEditing(false);
       
       // Обновляем локальное состояние для отображения новых видео
       if (updatedUser.favoriteGoals) {
@@ -402,9 +386,8 @@ export default function PersonalCabinetScreen() {
         setVideoFields(videoData.length > 0 ? videoData : [{ url: '', timeCode: '' }]);
       }
       
-      // Принудительно обновляем данные
-      setTimeout(async () => {
-        console.log('🔄 Принудительное обновление данных...');
+              // Принудительно обновляем данные
+        setTimeout(async () => {
         
         // Обновляем данные в личном кабинете
         await loadUserData();
@@ -467,7 +450,7 @@ export default function PersonalCabinetScreen() {
     });
 
     if (!result.canceled && result.assets[0]) {
-      console.log('📸 Загружено фото из галереи:', result.assets[0].uri);
+              // Фото загружено из галереи
       
       // Загружаем изображение в Supabase Storage
       const uploadedUrl = await uploadImageToStorage(result.assets[0].uri);
@@ -500,7 +483,7 @@ export default function PersonalCabinetScreen() {
     });
 
     if (!result.canceled && result.assets[0]) {
-      console.log('📸 Загружено фото с камеры:', result.assets[0].uri);
+              // Фото загружено с камеры
       
       // Загружаем изображение в Supabase Storage
       const uploadedUrl = await uploadImageToStorage(result.assets[0].uri);
@@ -789,14 +772,11 @@ export default function PersonalCabinetScreen() {
                 <TouchableOpacity 
                   style={styles.editButton} 
                   onPress={() => {
-                    console.log('Кнопка редактирования нажата, isEditing:', isEditing);
                     if (isEditing) {
                       // Если в режиме редактирования, сохраняем изменения
-                      console.log('Вызываем handleSave()');
                       handleSave();
                     } else {
                       // Если не в режиме редактирования, входим в него
-                      console.log('Входим в режим редактирования');
                       setIsEditing(true);
                     }
                   }}

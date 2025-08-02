@@ -443,7 +443,7 @@ export const initializeStorage = async (): Promise<void> => {
       throw error;
     }
     
-    console.log('✅ Supabase хранилище инициализировано');
+    // Supabase хранилище инициализировано
   } catch (error) {
     console.error('❌ Ошибка инициализации:', error);
     throw error;
@@ -515,7 +515,7 @@ export const addPlayer = async (player: Omit<Player, 'id' | 'unreadNotifications
       throw error;
     }
     
-    console.log('✅ Игрок добавлен:', data.name);
+    // Игрок добавлен
     return convertSupabaseToPlayer(data);
   } catch (error) {
     console.error('❌ Ошибка добавления игрока:', error);
@@ -605,7 +605,7 @@ export const updatePlayer = async (id: string, updates: Partial<Player>): Promis
       return null;
     }
     
-    console.log('✅ Игрок успешно обновлен в Supabase:', data.name);
+    // Игрок успешно обновлен в Supabase
     return convertSupabaseToPlayer(data);
   } catch (error) {
     console.error('❌ Ошибка обновления игрока:', error);
@@ -664,7 +664,7 @@ export const loadCurrentUser = async (): Promise<Player | null> => {
       console.log('📡 Загружаем актуальные данные из Supabase для пользователя:', user.id);
       const updatedUser = await getPlayerById(user.id);
       if (updatedUser) {
-        console.log('✅ Получены актуальные данные из Supabase');
+        // Получены актуальные данные из Supabase
         console.log('📊 Нормативы в актуальных данных:');
         console.log('   pullUps:', updatedUser.pullUps);
         console.log('   pushUps:', updatedUser.pushUps);
@@ -675,7 +675,7 @@ export const loadCurrentUser = async (): Promise<Player | null> => {
         await saveCurrentUser(updatedUser);
         return updatedUser;
       } else {
-        console.log('❌ Не удалось получить актуальные данные из Supabase');
+        // Не удалось получить актуальные данные из Supabase
       }
     }
     
