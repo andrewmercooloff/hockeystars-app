@@ -245,8 +245,6 @@ export const createTeam = async (teamData: Omit<Team, 'id'>): Promise<Team | nul
 // Получение команд игрока
 export const getPlayerTeams = async (playerId: string): Promise<PlayerTeam[]> => {
   try {
-    console.log('🔍 getPlayerTeams: получаем команды для игрока', playerId);
-    
     const { data, error } = await supabase
       .rpc('get_player_teams', { player_uuid: playerId });
     
@@ -254,8 +252,6 @@ export const getPlayerTeams = async (playerId: string): Promise<PlayerTeam[]> =>
       console.error('❌ Ошибка получения команд игрока:', error);
       return [];
     }
-    
-    console.log('📋 Сырые данные команд:', data);
     
     const teams = (data || []).map((team: any) => ({
       teamId: team.team_id,
@@ -267,7 +263,6 @@ export const getPlayerTeams = async (playerId: string): Promise<PlayerTeam[]> =>
       joinedDate: team.joined_date
     }));
     
-    console.log('🎯 Преобразованные команды:', teams);
     return teams;
   } catch (error) {
     console.error('❌ Ошибка получения команд игрока:', error);

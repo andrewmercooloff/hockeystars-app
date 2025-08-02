@@ -77,7 +77,7 @@ export default function PlayerProfile() {
       console.log('🔄 Экран профиля игрока получил фокус, обновляем данные...');
       // Добавляем небольшую задержку для обновления данных из базы
       setTimeout(() => {
-        loadPlayerData();
+      loadPlayerData();
       }, 100);
     }, [id])
   );
@@ -672,7 +672,7 @@ export default function PlayerProfile() {
                     teams={playerTeams}
                     compact={true}
                   />
-                </View>
+                    </View>
               )}
               
 
@@ -1180,10 +1180,10 @@ export default function PlayerProfile() {
                     console.log('   Исходные строки:', videoUrls);
                     console.log('   Обработанные видео:', parsedVideos);
                     return (
-                      <VideoCarousel
+                  <VideoCarousel
                         videos={parsedVideos}
-                        onVideoPress={(video) => setSelectedVideo(video)}
-                      />
+                    onVideoPress={(video) => setSelectedVideo(video)}
+                  />
                     );
                   })()
                 ) : null}

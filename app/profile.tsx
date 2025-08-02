@@ -247,9 +247,7 @@ export default function PersonalCabinetScreen() {
   const loadPlayerTeams = async () => {
     if (!currentUser) return;
     try {
-      console.log('🔄 loadPlayerTeams: загружаем команды для игрока:', currentUser.id);
       const teams = await getPlayerTeams(currentUser.id);
-      console.log('📋 Полученные команды:', teams);
       setPlayerTeams(teams);
       
       // Конвертируем PlayerTeam в Team для TeamSelector
@@ -260,7 +258,6 @@ export default function PersonalCabinetScreen() {
         country: team.teamCountry,
         city: team.teamCity
       }));
-      console.log('🎯 Команды для селектора:', teamsForSelector);
       setSelectedTeams(teamsForSelector);
     } catch (error) {
       console.error('❌ Ошибка загрузки команд игрока:', error);
@@ -320,9 +317,10 @@ export default function PersonalCabinetScreen() {
         await addPlayerTeam(currentUser.id, team.id, isPrimary);
       }
       
-      // Обновляем список команд
-      console.log('🔄 Обновляем список команд...');
-      await loadPlayerTeams();
+      // Обновляем только playerTeams, не вызывая loadPlayerTeams
+      console.log('🔄 Обновляем playerTeams...');
+      const updatedPlayerTeams = await getPlayerTeams(currentUser.id);
+      setPlayerTeams(updatedPlayerTeams);
       
       console.log('✅ Команды успешно обновлены');
       showAlert('Успешно', 'Команды обновлены', 'success');
