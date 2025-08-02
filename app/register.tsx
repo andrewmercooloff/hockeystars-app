@@ -16,7 +16,8 @@ import {
     View
 } from 'react-native';
 import CustomAlert from '../components/CustomAlert';
-import { addPlayer, saveCurrentUser } from '../utils/playerStorage';
+import TeamSelector from '../components/TeamSelector';
+import { addPlayer, saveCurrentUser, Team, addPlayerTeam } from '../utils/playerStorage';
 
 const iceBg = require('../assets/images/led.jpg');
 
@@ -29,7 +30,7 @@ export default function RegisterScreen() {
     status: '' as 'player' | 'coach' | 'scout' | '',
     birthDate: '',
     country: 'Беларусь', // По умолчанию
-    team: '',
+    team: '', // основная команда (для обратной совместимости)
     position: '',
     number: '',
     grip: '', // хват
@@ -37,6 +38,7 @@ export default function RegisterScreen() {
     weight: '', // вес
     avatar: null as string | null
   });
+  const [selectedTeams, setSelectedTeams] = useState<Team[]>([]);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date(2008, 0, 1)); // 1 января 2008
   const [alert, setAlert] = useState({
@@ -198,12 +200,12 @@ export default function RegisterScreen() {
     }
 
     // Дополнительные проверки в зависимости от статуса
-    if (formData.status === 'player' && (!formData.birthDate || !formData.team || !formData.position)) {
-      showAlert('Ошибка', 'Для игрока заполните дату рождения, команду и позицию', 'error');
+    if (formData.status === 'player' && (!formData.birthDate || selectedTeams.length === 0 || !formData.position)) {
+      showAlert('Ошибка', 'Для игрока заполните дату рождения, выберите хотя бы одну команду и позицию', 'error');
       return;
     }
-    if (formData.status === 'coach' && !formData.team) {
-      showAlert('Ошибка', 'Для тренера заполните команду', 'error');
+    if (formData.status === 'coach' && selectedTeams.length === 0) {
+      showAlert('Ошибка', 'Для тренера выберите хотя бы одну команду', 'error');
       return;
     }
 
@@ -218,7 +220,7 @@ export default function RegisterScreen() {
         status: formData.status,
         birthDate: formData.birthDate,
         country: formData.country,
-        team: formData.team,
+        team: selectedTeams.length > 0 ? selectedTeams[0].name : '', // Используем первую команду как основную
         position: formData.position,
         grip: formData.grip,
         height: formData.height,
@@ -233,6 +235,19 @@ export default function RegisterScreen() {
       const newPlayer = await addPlayer(playerData);
       
       console.log('Регистрация игрока:', newPlayer);
+      
+      // Добавляем все выбранные команды для игрока
+      if (selectedTeams.length > 0) {
+        console.log('➕ Добавляем команды для игрока:', selectedTeams);
+        for (const team of selectedTeams) {
+          try {
+            await addPlayerTeam(newPlayer.id, team.id);
+            console.log(`✅ Команда "${team.name}" добавлена для игрока`);
+          } catch (error) {
+            console.error(`❌ Ошибка добавления команды "${team.name}":`, error);
+          }
+        }
+      }
       
       // Автоматически входим в систему
       await saveCurrentUser(newPlayer);
@@ -258,19 +273,6 @@ export default function RegisterScreen() {
 
   const positions = ['Нападающий', 'Защитник', 'Вратарь'];
   const countries = ['Беларусь', 'Россия', 'Канада', 'США', 'Финляндия', 'Швеция', 'Литва', 'Латвия', 'Польша'];
-  
-  // Команды по странам
-  const teamsByCountry = {
-    'Беларусь': ['Пираньи', 'Юность', 'Динамо', 'ШРС', 'Динамо-Молодечно'],
-    'Россия': ['ЦСКА', 'Динамо Москва', 'Спартак', 'Локомотив'],
-    'Канада': ['Toronto Maple Leafs', 'Montreal Canadiens', 'Vancouver Canucks'],
-    'США': ['New York Rangers', 'Boston Bruins', 'Chicago Blackhawks'],
-    'Финляндия': ['HIFK', 'Tappara', 'Kärpät'],
-    'Швеция': ['Färjestad BK', 'HV71', 'Frölunda HC'],
-    'Литва': ['Kaunas', 'Vilnius', 'Klaipeda'],
-    'Латвия': ['Riga', 'Daugavpils', 'Liepaja'],
-    'Польша': ['Cracovia', 'GKS Tychy', 'Podhale'],
-  };
 
   return (
     <ImageBackground source={iceBg} style={styles.container} resizeMode="cover">
@@ -401,9 +403,10 @@ export default function RegisterScreen() {
                     styles.pickerOption,
                     formData.country === country && styles.pickerOptionSelected
                   ]}
-                  onPress={() => {
-                    setFormData({...formData, country: country, team: ''}); // Сбрасываем команду при смене страны
-                  }}
+                                      onPress={() => {
+                      setFormData({...formData, country: country, team: ''}); // Сбрасываем команду при смене страны
+                      setSelectedTeams([]); // Сбрасываем выбранные команды при смене страны
+                    }}
                 >
                   <Text style={[
                     styles.pickerOptionText,
@@ -416,29 +419,15 @@ export default function RegisterScreen() {
             </View>
           </View>
 
-          {/* Команда - только для игроков и тренеров */}
+          {/* Команды - только для игроков и тренеров */}
           {(formData.status === 'player' || formData.status === 'coach') && (
             <View style={styles.inputContainer}>
-              <Text style={styles.label}>Команда</Text>
-              <View style={styles.pickerContainer}>
-                {teamsByCountry[formData.country as keyof typeof teamsByCountry]?.map((team) => (
-                  <TouchableOpacity
-                    key={team}
-                    style={[
-                      styles.pickerOption,
-                      formData.team === team && styles.pickerOptionSelected
-                    ]}
-                    onPress={() => setFormData({...formData, team: team})}
-                  >
-                    <Text style={[
-                      styles.pickerOptionText,
-                      formData.team === team && styles.pickerOptionTextSelected
-                    ]}>
-                      {team}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
+              <Text style={styles.label}>Команды</Text>
+              <TeamSelector
+                selectedTeams={selectedTeams}
+                onTeamsChange={setSelectedTeams}
+                placeholder="Выберите команды"
+              />
             </View>
           )}
 
