@@ -1,7 +1,7 @@
 import * as ImageManipulator from 'expo-image-manipulator';
 import { supabase } from './supabase';
 
-// Функция для проверки и создания bucket avatars
+// Функция для проверки bucket avatars
 const ensureAvatarsBucket = async () => {
   try {
     // Проверяем, существует ли bucket
@@ -15,22 +15,12 @@ const ensureAvatarsBucket = async () => {
     const avatarsBucket = buckets.find(bucket => bucket.name === 'avatars');
     
     if (!avatarsBucket) {
-      console.log('📦 Bucket avatars не найден, создаем...');
-      
-      const { data, error: createError } = await supabase.storage.createBucket('avatars', {
-        public: true,
-        allowedMimeTypes: ['image/jpeg', 'image/png', 'image/webp'],
-        fileSizeLimit: 5242880 // 5MB
-      });
-      
-      if (createError) {
-        console.error('❌ Ошибка создания bucket avatars:', createError);
-        return false;
-      }
-      
-      console.log('✅ Bucket avatars создан');
+      console.log('📦 Bucket avatars не найден!');
+      console.log('⚠️ Создайте bucket avatars через SQL Editor в Supabase Dashboard');
+      console.log('📋 Выполните SQL скрипт: database/simple_avatars_bucket.sql');
+      return false;
     } else {
-      console.log('✅ Bucket avatars уже существует');
+      console.log('✅ Bucket avatars найден');
     }
     
     return true;
