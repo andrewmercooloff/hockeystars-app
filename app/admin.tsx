@@ -835,6 +835,121 @@ export default function AdminScreen() {
         />
       </View>
 
+      {/* Кнопки диагностики, очистки и миграции */}
+      <View style={styles.imageButtonsContainer}>
+        <TouchableOpacity 
+          style={[styles.imageButton, styles.fixAllButton]}
+          onPress={async () => {
+            try {
+              Alert.alert(
+                'Полное исправление',
+                'Выполнить полное исправление всех проблем с изображениями?',
+                [
+                  { text: 'Отмена', style: 'cancel' },
+                  { 
+                    text: 'Исправить', 
+                    onPress: async () => {
+                      const { fixAllImageIssues } = await import('../utils/playerStorage');
+                      await fixAllImageIssues();
+                      Alert.alert('Готово', 'Полное исправление завершено');
+                      // Обновляем список игроков
+                      loadData();
+                    }
+                  }
+                ]
+              );
+            } catch (error) {
+              console.error('Ошибка исправления:', error);
+              Alert.alert('Ошибка', 'Не удалось выполнить исправление');
+            }
+          }}
+        >
+          <Ionicons name="build" size={16} color="#fff" />
+          <Text style={styles.imageButtonText}>Исправить все</Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.imageButtonsContainer}>
+        <TouchableOpacity 
+          style={[styles.imageButton, styles.diagnoseButton]}
+          onPress={async () => {
+            try {
+              const { diagnoseImages } = await import('../utils/playerStorage');
+              await diagnoseImages();
+              Alert.alert('Диагностика', 'Проверьте консоль для результатов диагностики');
+            } catch (error) {
+              console.error('Ошибка диагностики:', error);
+              Alert.alert('Ошибка', 'Не удалось выполнить диагностику');
+            }
+          }}
+        >
+          <Ionicons name="search" size={16} color="#fff" />
+          <Text style={styles.imageButtonText}>Диагностика</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={[styles.imageButton, styles.cleanupButton]}
+          onPress={async () => {
+            try {
+              Alert.alert(
+                'Очистка данных',
+                'Очистить некорректные данные в базе?',
+                [
+                  { text: 'Отмена', style: 'cancel' },
+                  { 
+                    text: 'Очистить', 
+                    onPress: async () => {
+                      const { cleanupDatabaseData } = await import('../utils/playerStorage');
+                      await cleanupDatabaseData();
+                      Alert.alert('Готово', 'Очистка данных завершена');
+                      // Обновляем список игроков
+                      loadData();
+                    }
+                  }
+                ]
+              );
+            } catch (error) {
+              console.error('Ошибка очистки:', error);
+              Alert.alert('Ошибка', 'Не удалось выполнить очистку');
+            }
+          }}
+        >
+          <Ionicons name="trash" size={16} color="#fff" />
+          <Text style={styles.imageButtonText}>Очистка</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={[styles.imageButton, styles.migrateButton]}
+          onPress={async () => {
+            try {
+              Alert.alert(
+                'Миграция изображений',
+                'Начать миграцию всех локальных изображений в Storage?',
+                [
+                  { text: 'Отмена', style: 'cancel' },
+                  { 
+                    text: 'Начать', 
+                    onPress: async () => {
+                      const { migrateAllImagesToStorage } = await import('../utils/playerStorage');
+                      await migrateAllImagesToStorage();
+                      Alert.alert('Готово', 'Миграция изображений завершена');
+                      // Обновляем список игроков
+                      loadData();
+                    }
+                  }
+                ]
+              );
+            } catch (error) {
+              console.error('Ошибка миграции:', error);
+              Alert.alert('Ошибка', 'Не удалось выполнить миграцию');
+            }
+          }}
+        >
+          <Ionicons name="cloud-upload" size={16} color="#fff" />
+          <Text style={styles.imageButtonText}>Миграция</Text>
+        </TouchableOpacity>
+      </View>
+
       <FlatList
         data={filteredPlayers}
         renderItem={renderPlayerItem}
@@ -1824,5 +1939,38 @@ const styles = StyleSheet.create({
   confirmButton: {
     backgroundColor: '#FFD700',
     borderColor: '#FFD700',
+  },
+  imageButtonsContainer: {
+    flexDirection: 'row',
+    marginHorizontal: 20,
+    marginBottom: 20,
+    gap: 8,
+  },
+  imageButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    gap: 6,
+  },
+  diagnoseButton: {
+    backgroundColor: '#4CAF50',
+  },
+  cleanupButton: {
+    backgroundColor: '#FF9800',
+  },
+  migrateButton: {
+    backgroundColor: '#FF4444',
+  },
+  fixAllButton: {
+    backgroundColor: '#9C27B0',
+  },
+  imageButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: 'bold',
   },
 }); 

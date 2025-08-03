@@ -1,44 +1,48 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  Alert,
-  Image,
-  ImageBackground,
-  Linking,
-  Modal,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View
+    Alert,
+    Image,
+    ImageBackground,
+    Linking,
+    Modal,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
 } from 'react-native';
 
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import AchievementsSection from '../components/AchievementsSection';
 import CustomAlert from '../components/CustomAlert';
+import PastTeamsSection from '../components/PastTeamsSection';
 import TeamSelector from '../components/TeamSelector';
 import TeamsDisplay from '../components/TeamsDisplay';
 import VideoCarousel from '../components/VideoCarousel';
 import YouTubeVideo from '../components/YouTubeVideo';
 import {
-  Player,
-  PlayerTeam,
-  Team,
-  acceptFriendRequest,
-  addPlayerTeam,
-  declineFriendRequest,
-  fixAdminAvatar,
-  getFriends,
-  getPlayerTeams,
-  getReceivedFriendRequests,
-  loadCurrentUser,
-  logoutUser,
-  removePlayerTeam,
-  saveCurrentUser,
-  updatePlayer
+    Achievement,
+    PastTeam,
+    Player,
+    PlayerTeam,
+    Team,
+    acceptFriendRequest,
+    addPlayerTeam,
+    declineFriendRequest,
+    fixAdminAvatar,
+    getFriends,
+    getPlayerTeams,
+    getReceivedFriendRequests,
+    loadCurrentUser,
+    logoutUser,
+    removePlayerTeam,
+    saveCurrentUser,
+    updatePlayer
 } from '../utils/playerStorage';
-import { uploadImageToStorage } from '../utils/uploadImage';
+import { deleteImageFromStorage, uploadImageToStorage } from '../utils/uploadImage';
 
 const iceBg = require('../assets/images/led.jpg');
 
@@ -69,6 +73,8 @@ export default function PersonalCabinetScreen() {
   const [receivedFriendRequests, setReceivedFriendRequests] = useState<Player[]>([]);
   const [playerTeams, setPlayerTeams] = useState<PlayerTeam[]>([]);
   const [selectedTeams, setSelectedTeams] = useState<Team[]>([]);
+  const [achievements, setAchievements] = useState<Achievement[]>([]);
+  const [pastTeams, setPastTeams] = useState<PastTeam[]>([]);
   const [alert, setAlert] = useState({
     visible: false,
     title: '',
@@ -191,8 +197,21 @@ export default function PersonalCabinetScreen() {
         console.log('     longJump:', user.longJump);
         console.log('   Видео:', user.favoriteGoals);
         
-        setCurrentUser(user);
-        setEditData(user);
+        // Мигрируем аватар в Storage, если он локальный
+        let updatedUser = user;
+        if (user.avatar && (user.avatar.startsWith('file://') || user.avatar.startsWith('content://') || user.avatar.startsWith('data:'))) {
+          console.log('🔄 Мигрируем локальный аватар в Storage:', user.avatar);
+          const migratedAvatarUrl = await uploadImageToStorage(user.avatar);
+          if (migratedAvatarUrl) {
+            updatedUser = { ...user, avatar: migratedAvatarUrl };
+            await updatePlayer(user.id, updatedUser);
+            await saveCurrentUser(updatedUser);
+            console.log('✅ Аватар мигрирован в Storage:', migratedAvatarUrl);
+          }
+        }
+        
+        setCurrentUser(updatedUser);
+        setEditData(updatedUser);
         // Инициализируем поля видео
         if (user.favoriteGoals) {
           const goals = user.favoriteGoals.split('\n').filter(goal => goal.trim());
@@ -205,8 +224,42 @@ export default function PersonalCabinetScreen() {
           setVideoFields([{ url: '', timeCode: '' }]);
         }
         
-        // Инициализируем фотографии
-        setGalleryPhotos(user.photos || []);
+        // Инициализируем фотографии и мигрируем локальные в Storage
+        if (user.photos && user.photos.length > 0) {
+          const migratedPhotos = [];
+          for (const photo of user.photos) {
+            // Проверяем, является ли фото локальным
+            if (photo.startsWith('file://') || photo.startsWith('content://') || photo.startsWith('data:')) {
+              console.log('🔄 Мигрируем локальное фото в Storage:', photo);
+              const migratedUrl = await uploadImageToStorage(photo);
+              if (migratedUrl) {
+                migratedPhotos.push(migratedUrl);
+              }
+            } else {
+              migratedPhotos.push(photo);
+            }
+          }
+          setGalleryPhotos(migratedPhotos);
+          
+          // Если были мигрированы фото, обновляем пользователя
+          if (migratedPhotos.length !== user.photos.length) {
+            const updatedUser = { ...user, photos: migratedPhotos };
+            await updatePlayer(user.id, updatedUser);
+            await saveCurrentUser(updatedUser);
+          }
+        } else {
+          setGalleryPhotos([]);
+        }
+
+        // Инициализируем достижения
+        if (user.achievements && Array.isArray(user.achievements)) {
+          setAchievements(user.achievements);
+        }
+
+        // Инициализируем прошлые команды
+        if (user.pastTeams && Array.isArray(user.pastTeams)) {
+          setPastTeams(user.pastTeams);
+        }
         
         // Загружаем команды игрока
         console.log('🔄 loadUserData: вызываем loadPlayerTeams для пользователя:', user.id);
@@ -395,7 +448,14 @@ export default function PersonalCabinetScreen() {
           .join('\n');
         
         // Объединяем поля видео в одну строку
-        const updatedUser = { ...currentUser, ...editData, favoriteGoals: goalsText };
+        const updatedUser = { 
+          ...currentUser, 
+          ...editData, 
+          favoriteGoals: goalsText,
+          photos: galleryPhotos,
+          achievements: achievements,
+          pastTeams: pastTeams
+        };
         
         // Специальная обработка для admin
         if (currentUser.status === 'admin') {
@@ -581,10 +641,10 @@ export default function PersonalCabinetScreen() {
     }
     Alert.alert(
       'Добавить фотографию',
-      'Откуда хотите добавить фото?',
+      'Откуда хотите добавить фото? (В галерее можно выбрать несколько фото)',
       [
         {
-          text: 'Галерея',
+          text: 'Галерея (до 10 фото)',
           onPress: () => pickPhotoFromGallery()
         },
         {
@@ -613,15 +673,43 @@ export default function PersonalCabinetScreen() {
 
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [4, 3],
+      allowsEditing: false,
       quality: 0.8,
+      allowsMultipleSelection: true, // Включаем множественный выбор
+      selectionLimit: 10, // Ограничиваем до 10 фото за раз
     });
 
-    if (!result.canceled && result.assets[0]) {
-      const newPhotos = [...galleryPhotos, result.assets[0].uri];
-      setGalleryPhotos(newPhotos);
-      setEditData({...editData, photos: newPhotos});
+    if (!result.canceled && result.assets.length > 0) {
+      try {
+        showAlert('Загрузка', `Загружаем ${result.assets.length} фото...`, 'info');
+        
+        // Загружаем каждое фото в Supabase Storage
+        const uploadedUrls = [];
+        for (const asset of result.assets) {
+          const uploadedUrl = await uploadImageToStorage(asset.uri);
+          if (uploadedUrl) {
+            uploadedUrls.push(uploadedUrl);
+          }
+        }
+        
+        if (uploadedUrls.length > 0) {
+          const newPhotos = [...galleryPhotos, ...uploadedUrls];
+          setGalleryPhotos(newPhotos);
+          setEditData({...editData, photos: newPhotos});
+          
+          // Показываем уведомление о количестве добавленных фото
+          if (uploadedUrls.length === 1) {
+            showAlert('Фото добавлено', '1 фото добавлено в галерею', 'success');
+          } else {
+            showAlert('Фото добавлены', `${uploadedUrls.length} фото добавлено в галерею`, 'success');
+          }
+        } else {
+          showAlert('Ошибка', 'Не удалось загрузить фото', 'error');
+        }
+      } catch (error) {
+        console.error('Ошибка загрузки фото:', error);
+        showAlert('Ошибка', 'Не удалось загрузить фото', 'error');
+      }
     }
   };
 
@@ -638,22 +726,47 @@ export default function PersonalCabinetScreen() {
     }
 
     const result = await ImagePicker.launchCameraAsync({
-      allowsEditing: true,
-      aspect: [4, 3],
+      allowsEditing: false,
       quality: 0.8,
     });
 
     if (!result.canceled && result.assets[0]) {
-      const newPhotos = [...galleryPhotos, result.assets[0].uri];
-      setGalleryPhotos(newPhotos);
-      setEditData({...editData, photos: newPhotos});
+      try {
+        showAlert('Загрузка', 'Загружаем фото...', 'info');
+        
+        // Загружаем фото в Supabase Storage
+        const uploadedUrl = await uploadImageToStorage(result.assets[0].uri);
+        
+        if (uploadedUrl) {
+          const newPhotos = [...galleryPhotos, uploadedUrl];
+          setGalleryPhotos(newPhotos);
+          setEditData({...editData, photos: newPhotos});
+          showAlert('Фото добавлено', 'Фото добавлено в галерею', 'success');
+        } else {
+          showAlert('Ошибка', 'Не удалось загрузить фото', 'error');
+        }
+      } catch (error) {
+        console.error('Ошибка загрузки фото:', error);
+        showAlert('Ошибка', 'Не удалось загрузить фото', 'error');
+      }
     }
   };
 
-  const removePhotoFromGallery = (index: number) => {
+  const removePhotoFromGallery = async (index: number) => {
+    const photoToRemove = galleryPhotos[index];
     const newPhotos = galleryPhotos.filter((_, i) => i !== index);
     setGalleryPhotos(newPhotos);
     setEditData({...editData, photos: newPhotos});
+    
+    // Удаляем фото из Storage, если оно там находится
+    if (photoToRemove && photoToRemove.includes('avatars/')) {
+      try {
+        await deleteImageFromStorage(photoToRemove);
+        console.log('🗑️ Фото удалено из Storage:', photoToRemove);
+      } catch (error) {
+        console.error('❌ Ошибка удаления фото из Storage:', error);
+      }
+    }
   };
 
   // Функция для парсинга URL и таймкода
@@ -690,6 +803,51 @@ export default function PersonalCabinetScreen() {
       Linking.openURL(url).catch(() => {
         Alert.alert('Ошибка', 'Не удалось открыть ссылку');
       });
+    }
+  };
+
+  const handleCurrentTeamChange = async (teamName: string, isCurrent: boolean) => {
+    try {
+      console.log('🔄 handleCurrentTeamChange вызван:', { teamName, isCurrent });
+      console.log('📋 Доступные команды:', selectedTeams.map(t => t.name));
+      
+      // Находим команду по названию
+      const team = selectedTeams.find(t => t.name === teamName);
+      if (!team) {
+        console.log('❌ Команда не найдена в списке доступных команд:', teamName);
+        // Попробуем найти команду в базе данных
+        const { searchTeams } = await import('../utils/playerStorage');
+        const searchResults = await searchTeams(teamName);
+        console.log('🔍 Результаты поиска команды:', searchResults);
+        
+        if (searchResults.length > 0) {
+          const foundTeam = searchResults[0];
+          console.log('✅ Команда найдена в базе:', foundTeam);
+          
+          if (isCurrent) {
+            const success = await addPlayerTeam(currentUser!.id, foundTeam.id, true);
+            console.log('💾 Результат добавления команды:', success);
+            if (success) {
+              await loadPlayerTeams(currentUser!.id);
+            }
+          }
+        }
+        return;
+      }
+
+      console.log('✅ Команда найдена в selectedTeams:', team);
+
+      if (isCurrent) {
+        // Добавляем команду в текущие команды
+        const success = await addPlayerTeam(currentUser!.id, team.id, true);
+        console.log('💾 Результат добавления команды:', success);
+        if (success) {
+          // Обновляем локальное состояние
+          await loadPlayerTeams(currentUser!.id);
+        }
+      }
+    } catch (error) {
+      console.error('❌ Ошибка при изменении текущей команды:', error);
     }
   };
 
@@ -943,7 +1101,7 @@ export default function PersonalCabinetScreen() {
             </View>
 
     
-                            {currentUser?.status !== 'star' && currentUser?.status !== 'admin' && (
+                            {currentUser?.status === 'player' && (
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Статистика</Text>
                 {isEditing ? (
@@ -1119,13 +1277,6 @@ export default function PersonalCabinetScreen() {
                         <Text style={styles.infoValue}>{currentUser.position || 'Не указана'}</Text>
                       )}
                     </View>
-
-                    {currentUser?.birthDate && (
-                      <View style={styles.infoItem}>
-                        <Text style={styles.infoLabel}>Дата рождения</Text>
-                        <Text style={styles.infoValue}>{currentUser?.birthDate || 'Не указана'}</Text>
-                      </View>
-                    )}
                     {currentUser?.grip && (
                       <View style={styles.infoItem}>
                         <Text style={styles.infoLabel}>Хват</Text>
@@ -1134,11 +1285,26 @@ export default function PersonalCabinetScreen() {
                     )}
                   </>
                 )}
+
+                <View style={styles.infoItem}>
+                  <Text style={styles.infoLabel}>Дата рождения</Text>
+                  {isEditing ? (
+                    <TextInput
+                      style={styles.editInput}
+                      value={editData.birthDate || currentUser?.birthDate || ''}
+                      onChangeText={(text) => setEditData({...editData, birthDate: text})}
+                      placeholder="ДД.ММ.ГГГГ"
+                      placeholderTextColor="#888"
+                    />
+                  ) : (
+                    <Text style={styles.infoValue}>{currentUser?.birthDate || 'Не указана'}</Text>
+                  )}
+                </View>
               </View>
             </View>
             )}
 
-            {currentUser?.status !== 'admin' && (currentUser?.height || currentUser?.weight) && (
+            {currentUser?.status === 'player' && (currentUser?.height || currentUser?.weight) && (
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Физические данные</Text>
                 <View style={styles.infoGrid}>
@@ -1181,9 +1347,9 @@ export default function PersonalCabinetScreen() {
             )}
 
             {/* Секция команд */}
-            {currentUser?.status === 'player' && (
+            {(currentUser?.status === 'player' || currentUser?.status === 'coach') && (
               <View style={[styles.section, styles.teamsSection]}>
-                <Text style={styles.sectionTitle}>Команды</Text>
+                <Text style={styles.sectionTitle}>Текущие команды</Text>
                 {isEditing ? (
                   <TeamSelector
                     selectedTeams={selectedTeams}
@@ -1199,7 +1365,7 @@ export default function PersonalCabinetScreen() {
             )}
 
     
-            {currentUser?.status !== 'admin' && (
+            {currentUser?.status === 'player' && (
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Дата начала занятий хоккеем</Text>
                 <View style={styles.infoGrid}>
@@ -1263,7 +1429,7 @@ export default function PersonalCabinetScreen() {
 
 
             {/* Видео моих моментов */}
-            {currentUser?.status !== 'admin' && (
+            {currentUser?.status === 'player' && (
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Видео моих моментов</Text>
               {isEditing && (
@@ -1460,8 +1626,8 @@ export default function PersonalCabinetScreen() {
 
 
 
-            {/* Фотографии - только для игроков (не звезд) */}
-            {currentUser?.status === 'player' && (
+            {/* Фотографии - для всех кроме звезд */}
+            {currentUser?.status !== 'star' && (
                               (currentUser?.photos && currentUser.photos.length > 0) || isEditing ? (
                 <View style={styles.section}>
                   <Text style={styles.sectionTitle}>Фотографии</Text>
@@ -1520,6 +1686,23 @@ export default function PersonalCabinetScreen() {
               </View>
               ) : null
             )}
+
+
+
+            {/* Прошлые команды */}
+            <PastTeamsSection 
+              pastTeams={pastTeams}
+              isEditing={isEditing}
+              onPastTeamsChange={setPastTeams}
+              onCurrentTeamChange={handleCurrentTeamChange}
+            />
+
+            {/* Достижения */}
+            <AchievementsSection 
+              achievements={achievements}
+              isEditing={isEditing}
+              onAchievementsChange={setAchievements}
+            />
 
             {/* Друзья - показываем только когда НЕ в режиме редактирования */}
             {!isEditing && (

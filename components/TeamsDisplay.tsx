@@ -14,7 +14,7 @@ export default function TeamsDisplay({ teams, onTeamPress, compact = false }: Te
     return (
       <View style={styles.emptyContainer}>
         <Ionicons name="people-outline" size={24} color="#FF4444" />
-        <Text style={styles.emptyText}>Команды не указаны</Text>
+        <Text style={styles.emptyText}>Текущие команды не указаны</Text>
       </View>
     );
   }
@@ -44,14 +44,21 @@ export default function TeamsDisplay({ teams, onTeamPress, compact = false }: Te
             disabled={!onTeamPress}
           >
                          <View style={styles.teamInfo}>
-               <Text style={styles.teamName}>
-                 {team.teamName}
-               </Text>
-               
-               {team.teamCity && (
-                 <Text style={styles.teamCity}>{team.teamCity}</Text>
-               )}
-             </View>
+              <View style={styles.teamHeader}>
+                <Ionicons 
+                  name="star" 
+                  size={16} 
+                  color="#FF4444" 
+                />
+                <Text style={styles.teamName}>
+                  {team.teamName}
+                </Text>
+              </View>
+              
+              {team.teamCity && (
+                <Text style={styles.teamCity}>{team.teamCity}</Text>
+              )}
+            </View>
             
             {onTeamPress && (
               <Ionicons name="chevron-forward" size={20} color="#FF4444" />
@@ -92,11 +99,16 @@ const styles = StyleSheet.create({
   teamInfo: {
     flex: 1,
   },
+  teamHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
   teamName: {
     fontSize: 16,
     fontFamily: 'Gilroy-Bold',
     color: '#fff',
-    marginBottom: 4,
+    marginLeft: 8,
   },
   teamCity: {
     fontSize: 12,

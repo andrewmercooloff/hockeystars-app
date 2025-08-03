@@ -49,7 +49,7 @@ export default function PhotosSection({ photos = [] }: PhotosSectionProps) {
             <Image
               source={{ uri: photo }}
               style={styles.photo}
-              resizeMode="cover"
+              resizeMode="contain"
             />
             <View style={styles.photoOverlay}>
               <Ionicons name="expand-outline" size={20} color="#fff" />
@@ -115,6 +115,7 @@ const styles = StyleSheet.create({
   photo: {
     width: '100%',
     height: '100%',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
   },
   photoOverlay: {
     position: 'absolute',

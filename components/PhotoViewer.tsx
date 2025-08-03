@@ -1,16 +1,16 @@
+import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  Image,
-  ScrollView,
-  TouchableOpacity,
-  Modal,
-  Dimensions,
-  ImageBackground,
+    Dimensions,
+    Image,
+    ImageBackground,
+    Modal,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -105,7 +105,7 @@ export default function PhotoViewer({ photos, visible, onClose, initialIndex = 0
                       <Image
                         source={{ uri: photo }}
                         style={styles.thumbnailImage}
-                        resizeMode="cover"
+                        resizeMode="contain"
                       />
                     </TouchableOpacity>
                   ))}
@@ -201,5 +201,6 @@ const styles = StyleSheet.create({
   thumbnailImage: {
     width: '100%',
     height: '100%',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
   },
 }); 

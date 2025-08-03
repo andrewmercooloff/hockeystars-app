@@ -15,12 +15,15 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
+import AchievementsSection from '../../components/AchievementsSection';
 import CustomAlert from '../../components/CustomAlert';
 import NormativesSection from '../../components/NormativesSection';
+import PastTeamsSection from '../../components/PastTeamsSection';
 import PhotosSection from '../../components/PhotosSection';
+import TeamsDisplay from '../../components/TeamsDisplay';
 import VideoCarousel from '../../components/VideoCarousel';
 import YouTubeVideo from '../../components/YouTubeVideo';
-import { acceptFriendRequest, calculateHockeyExperience, cancelFriendRequest, clearAllFriendRequests, createFriendRequestNotification, debugFriendRequests, declineFriendRequest, getFriends, getFriendshipStatus, getPlayerById, getPlayerTeams, loadCurrentUser, Player, PlayerTeam, removeFriend, sendFriendRequest, updatePlayer } from '../../utils/playerStorage';
+import { acceptFriendRequest, Achievement, calculateHockeyExperience, cancelFriendRequest, clearAllFriendRequests, createFriendRequestNotification, debugFriendRequests, declineFriendRequest, getFriends, getFriendshipStatus, getPlayerById, getPlayerTeams, loadCurrentUser, PastTeam, Player, PlayerTeam, removeFriend, sendFriendRequest, updatePlayer } from '../../utils/playerStorage';
 import { supabase } from '../../utils/supabase';
 
 const iceBg = require('../../assets/images/led.jpg');
@@ -59,6 +62,8 @@ export default function PlayerProfile() {
   const [videoFields, setVideoFields] = useState<Array<{url: string, timeCode: string}>>([{ url: '', timeCode: '' }]);
   const [galleryPhotos, setGalleryPhotos] = useState<string[]>([]);
   const [playerTeams, setPlayerTeams] = useState<PlayerTeam[]>([]);
+  const [achievements, setAchievements] = useState<Achievement[]>([]);
+  const [pastTeams, setPastTeams] = useState<PastTeam[]>([]);
   
   // Массивы для селекторов
   const countries = ['Беларусь', 'Россия', 'Канада', 'США', 'Финляндия', 'Швеция', 'Литва', 'Латвия', 'Польша'];
@@ -161,7 +166,20 @@ export default function PlayerProfile() {
           console.log('   Показывать видео для собственного профиля:', true); // Всегда true для собственного профиля
         }
         
-        setPlayer(playerData);
+        // Мигрируем аватар в Storage, если он локальный
+        let updatedPlayerData = playerData;
+        if (playerData?.avatar && (playerData.avatar.startsWith('file://') || playerData.avatar.startsWith('content://') || playerData.avatar.startsWith('data:'))) {
+          console.log('🔄 Мигрируем локальный аватар игрока в Storage:', playerData.avatar);
+          const { uploadImageToStorage } = await import('../../utils/uploadImage');
+          const migratedAvatarUrl = await uploadImageToStorage(playerData.avatar);
+          if (migratedAvatarUrl) {
+            updatedPlayerData = { ...playerData, avatar: migratedAvatarUrl };
+            await updatePlayer(playerData.id, updatedPlayerData);
+            console.log('✅ Аватар игрока мигрирован в Storage:', migratedAvatarUrl);
+          }
+        }
+        
+        setPlayer(updatedPlayerData);
         setCurrentUser(userData);
         
         // Инициализируем видео поля
@@ -174,9 +192,42 @@ export default function PlayerProfile() {
           setVideoFields(videoData.length > 0 ? videoData : [{ url: '', timeCode: '' }]);
         }
         
-        // Инициализируем фотографии
-        if (playerData?.photos && playerData.photos.length > 0) {
-          setGalleryPhotos(playerData.photos);
+        // Инициализируем фотографии и мигрируем локальные в Storage
+        if (updatedPlayerData?.photos && updatedPlayerData.photos.length > 0) {
+          const migratedPhotos = [];
+          for (const photo of updatedPlayerData.photos) {
+            // Проверяем, является ли фото локальным
+            if (photo.startsWith('file://') || photo.startsWith('content://') || photo.startsWith('data:')) {
+              console.log('🔄 Мигрируем локальное фото игрока в Storage:', photo);
+              const { uploadImageToStorage } = await import('../../utils/uploadImage');
+              const migratedUrl = await uploadImageToStorage(photo);
+              if (migratedUrl) {
+                migratedPhotos.push(migratedUrl);
+              }
+            } else {
+              migratedPhotos.push(photo);
+            }
+          }
+          setGalleryPhotos(migratedPhotos);
+          
+          // Если были мигрированы фото, обновляем игрока
+          if (migratedPhotos.length !== updatedPlayerData.photos.length) {
+            const finalUpdatedPlayer = { ...updatedPlayerData, photos: migratedPhotos };
+            await updatePlayer(updatedPlayerData.id, finalUpdatedPlayer);
+            setPlayer(finalUpdatedPlayer);
+          }
+        } else {
+          setGalleryPhotos([]);
+        }
+
+        // Инициализируем достижения
+        if (playerData?.achievements && Array.isArray(playerData.achievements)) {
+          setAchievements(playerData.achievements);
+        }
+
+        // Инициализируем прошлые команды
+        if (playerData?.pastTeams && Array.isArray(playerData.pastTeams)) {
+          setPastTeams(playerData.pastTeams);
         }
         
         // Проверяем статус дружбы, если пользователь авторизован
@@ -461,6 +512,28 @@ export default function PlayerProfile() {
     }
   };
 
+  const handleCurrentTeamChange = async (teamName: string, isCurrent: boolean) => {
+    try {
+      // Находим команду по названию
+      const team = selectedTeams.find(t => t.name === teamName);
+      if (!team) {
+        console.log('Команда не найдена в списке доступных команд:', teamName);
+        return;
+      }
+
+      if (isCurrent) {
+        // Добавляем команду в текущие команды
+        const success = await addPlayerTeam(player.id, team.id, true);
+        if (success) {
+          // Обновляем локальное состояние
+          await loadPlayerTeams(player.id);
+        }
+      }
+    } catch (error) {
+      console.error('Ошибка при изменении текущей команды:', error);
+    }
+  };
+
   const handleSave = async () => {
     if (!player || !currentUser) {
       showCustomAlert('Ошибка', 'Данные не найдены', 'error');
@@ -485,7 +558,9 @@ export default function PlayerProfile() {
         ...player, 
         ...editData, 
         favoriteGoals: goalsText,
-        photos: galleryPhotos
+        photos: galleryPhotos,
+        achievements: achievements,
+        pastTeams: pastTeams
       };
       console.log('📝 Полные данные для сохранения:', updatedPlayer);
       
@@ -620,9 +695,22 @@ export default function PlayerProfile() {
                 if (hasValidImage) {
                   return (
                     <Image 
-                      source={{ uri: imageSource }}
+                      source={{ 
+                        uri: imageSource,
+                        cache: 'reload', // Принудительно перезагружаем кэш
+                        headers: {
+                          'Cache-Control': 'no-cache'
+                        }
+                      }}
                       style={styles.profileImage}
-                      onError={() => console.log('Ошибка загрузки изображения')}
+                      onError={(error) => {
+                        console.log('❌ Ошибка загрузки аватара в профиле игрока:', error);
+                        console.log('   URL аватара:', imageSource);
+                        console.log('   Нативная ошибка:', error.nativeEvent?.error);
+                      }}
+                      onLoad={() => {
+                        console.log('✅ Аватар в профиле игрока успешно загружен:', imageSource);
+                      }}
                     />
                   );
                 } else {
@@ -997,25 +1085,27 @@ export default function PlayerProfile() {
                     <Text style={styles.infoValue}>{player.team || 'Не указана'}</Text>
                   )}
                 </View>
-                <View style={styles.infoItem}>
-                  <Text style={styles.infoLabel}>Позиция</Text>
-                  {isEditing && currentUser?.status === 'admin' ? (
-                    <TouchableOpacity
-                      style={styles.pickerButton}
-                      onPress={() => setShowPositionPicker(true)}
-                    >
-                      <Text style={styles.pickerButtonText}>
-                        {editData.position || player.position || 'Выберите позицию'}
-                      </Text>
-                      <Ionicons name="chevron-down" size={16} color="#fff" />
-                    </TouchableOpacity>
-                  ) : (
-                    <Text style={styles.infoValue}>{player.position || 'Не указана'}</Text>
-                  )}
-                </View>
+                {player.status === 'player' && (
+                  <View style={styles.infoItem}>
+                    <Text style={styles.infoLabel}>Позиция</Text>
+                    {isEditing && currentUser?.status === 'admin' ? (
+                      <TouchableOpacity
+                        style={styles.pickerButton}
+                        onPress={() => setShowPositionPicker(true)}
+                      >
+                        <Text style={styles.pickerButtonText}>
+                          {editData.position || player.position || 'Выберите позицию'}
+                        </Text>
+                        <Ionicons name="chevron-down" size={16} color="#fff" />
+                      </TouchableOpacity>
+                    ) : (
+                      <Text style={styles.infoValue}>{player.position || 'Не указана'}</Text>
+                    )}
+                  </View>
+                )}
                 <View style={styles.infoItem}>
                   <Text style={styles.infoLabel}>Дата рождения</Text>
-                  {isEditing && currentUser?.status === 'admin' ? (
+                  {isEditing ? (
                     <TextInput
                       style={styles.editInput}
                       value={editData.birthDate || player.birthDate || ''}
@@ -1026,23 +1116,25 @@ export default function PlayerProfile() {
                     <Text style={styles.infoValue}>{player.birthDate || 'Не указана'}</Text>
                   )}
                 </View>
-                <View style={styles.infoItem}>
-                  <Text style={styles.infoLabel}>Хват</Text>
-                  {isEditing && currentUser?.status === 'admin' ? (
-                    <TextInput
-                      style={styles.editInput}
-                      value={editData.grip || player.grip || ''}
-                      onChangeText={(text) => setEditData({...editData, grip: text})}
-                      placeholder="Хват"
-                    />
-                  ) : (
-                    <Text style={styles.infoValue}>{player.grip || 'Не указан'}</Text>
-                  )}
-                </View>
+                {player.status === 'player' && (
+                  <View style={styles.infoItem}>
+                    <Text style={styles.infoLabel}>Хват</Text>
+                    {isEditing && currentUser?.status === 'admin' ? (
+                      <TextInput
+                        style={styles.editInput}
+                        value={editData.grip || player.grip || ''}
+                        onChangeText={(text) => setEditData({...editData, grip: text})}
+                        placeholder="Хват"
+                      />
+                    ) : (
+                      <Text style={styles.infoValue}>{player.grip || 'Не указан'}</Text>
+                    )}
+                  </View>
+                )}
               </View>
             </View>
 
-            {/* Физические данные - только для игроков */}
+            {/* Физические данные - только для игроков (не тренеры) */}
             {player.status === 'player' && (
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Физические данные</Text>
@@ -1081,7 +1173,7 @@ export default function PlayerProfile() {
               </View>
             )}
 
-            {/* Видео моментов */}
+            {/* Видео моментов - только для игроков (не тренеры) */}
             {player.status === 'player' && ((currentUser && currentUser.id === player.id) || (player.favoriteGoals && player.favoriteGoals.trim() !== '') || (isEditing && currentUser?.status === 'admin')) && (
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Видео моментов</Text>
@@ -1190,12 +1282,10 @@ export default function PlayerProfile() {
               </View>
             )}
 
-            {/* Фотографии - показываем только НЕ звездам и НЕ администраторам */}
+            {/* Фотографии - показываем всем кроме звезд и администраторов */}
             {player && player.status && player.status.trim() !== 'star' && player.status.trim() !== 'admin' ? (
               (currentUser && currentUser.id === player.id) || 
               friendshipStatus === 'friends' || 
-              friendshipStatus === 'sent_request' || 
-              friendshipStatus === 'pending' || 
               currentUser?.status === 'coach' || 
               currentUser?.status === 'scout' ||
               currentUser?.status === 'admin' ? (
@@ -1259,8 +1349,8 @@ export default function PlayerProfile() {
               )
             ) : null}
 
-            {/* Нормативы - показываем только если есть данные и НЕ звездам и НЕ администраторам */}
-            {player && player.status && player.status.trim() !== 'star' && player.status.trim() !== 'admin' ? (
+            {/* Нормативы - показываем только игрокам (не тренерам) */}
+            {player && player.status === 'player' ? (
               (currentUser && currentUser.id === player.id) || 
               friendshipStatus === 'friends' || 
               currentUser?.status === 'coach' || 
@@ -1355,9 +1445,28 @@ export default function PlayerProfile() {
               )
             ) : null}
 
+            {/* Текущие команды */}
+            {playerTeams.length > 0 && (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Текущие команды</Text>
+                <TeamsDisplay teams={playerTeams} />
+              </View>
+            )}
 
+            {/* Прошлые команды */}
+            <PastTeamsSection 
+              pastTeams={pastTeams}
+              isEditing={isEditing && currentUser?.status === 'admin'}
+              onPastTeamsChange={setPastTeams}
+              onCurrentTeamChange={handleCurrentTeamChange}
+            />
 
-
+            {/* Достижения */}
+            <AchievementsSection 
+              achievements={achievements}
+              isEditing={isEditing && currentUser?.status === 'admin'}
+              onAchievementsChange={setAchievements}
+            />
 
             {/* Друзья */}
             <View style={styles.section}>

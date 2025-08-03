@@ -17,6 +17,7 @@ export interface SupabasePlayer {
   hockey_start_date?: string;
   experience?: number;
   achievements?: string;
+  past_teams?: string;
   phone?: string;
   city?: string;
   goals?: number;
@@ -55,12 +56,33 @@ export interface PlayerTeam {
   joinedDate?: string;
 }
 
+// Интерфейс для достижения
+export interface Achievement {
+  id: string;
+  competition: string;
+  year: number;
+  place: 1 | 2 | 3;
+  description?: string;
+}
+
+// Интерфейс для прошлой команды
+export interface PastTeam {
+  id: string;
+  teamName: string;
+  teamCountry?: string;
+  teamCity?: string;
+  startYear: number;
+  endYear?: number;
+  isCurrent: boolean;
+}
+
 export interface Player {
   id: string;
   name: string;
   position: string;
   team: string; // основная команда (для обратной совместимости)
-  teams?: PlayerTeam[]; // все команды игрока
+  teams?: PlayerTeam[]; // текущие команды игрока
+  pastTeams?: PastTeam[]; // прошлые команды игрока
   age: number;
   height: string;
   weight: string;
@@ -71,7 +93,8 @@ export interface Player {
   birthDate?: string;
   hockeyStartDate?: string;
   experience?: string;
-  achievements?: string;
+  achievements?: Achievement[]; // новые достижения
+  oldAchievements?: string; // старые достижения (для обратной совместимости)
   phone?: string;
   city?: string;
   goals?: string;
@@ -122,7 +145,9 @@ export interface Notification {
 // Функции преобразования данных
 const convertSupabaseToPlayer = (supabasePlayer: SupabasePlayer): Player => {
   // Преобразование данных из Supabase в Player
-      // Логи нормативов, видео и хоккея убраны для чистоты консоли
+  console.log(`🔄 Конвертируем игрока: ${supabasePlayer.name}`);
+  console.log(`   Аватар из базы: ${supabasePlayer.avatar || 'null'}`);
+  console.log(`   Фотографии из базы: ${supabasePlayer.photos || 'null'}`);
   
   const result = {
     id: supabasePlayer.id,
@@ -151,7 +176,29 @@ const convertSupabaseToPlayer = (supabasePlayer: SupabasePlayer): Player => {
       return supabasePlayer.hockey_start_date; // Возвращаем как есть, если формат не распознан
     })(),
     experience: supabasePlayer.experience ? supabasePlayer.experience.toString() : '',
-    achievements: supabasePlayer.achievements,
+    achievements: (() => {
+      if (supabasePlayer.achievements && supabasePlayer.achievements !== '[]' && supabasePlayer.achievements !== 'null') {
+        try {
+          return JSON.parse(supabasePlayer.achievements);
+        } catch (error) {
+          console.error('Ошибка парсинга achievements:', error);
+          return [];
+        }
+      }
+      return [];
+    })(),
+    oldAchievements: supabasePlayer.achievements, // старые достижения для обратной совместимости
+    pastTeams: (() => {
+      if (supabasePlayer.past_teams && supabasePlayer.past_teams !== '[]' && supabasePlayer.past_teams !== 'null') {
+        try {
+          return JSON.parse(supabasePlayer.past_teams);
+        } catch (error) {
+          console.error('Ошибка парсинга past_teams:', error);
+          return [];
+        }
+      }
+      return [];
+    })(),
     phone: supabasePlayer.phone,
     city: supabasePlayer.city,
     goals: supabasePlayer.goals ? supabasePlayer.goals.toString() : '0',
@@ -165,7 +212,7 @@ const convertSupabaseToPlayer = (supabasePlayer: SupabasePlayer): Player => {
     sprint100m: supabasePlayer.sprint_100m && String(supabasePlayer.sprint_100m) !== '0' && String(supabasePlayer.sprint_100m) !== 'null' ? supabasePlayer.sprint_100m.toString() : '',
     longJump: supabasePlayer.long_jump && String(supabasePlayer.long_jump) !== '0' && String(supabasePlayer.long_jump) !== 'null' ? supabasePlayer.long_jump.toString() : '',
     favoriteGoals: supabasePlayer.favorite_goals && supabasePlayer.favorite_goals.trim() !== '' ? supabasePlayer.favorite_goals : '',
-    photos: supabasePlayer.photos && supabasePlayer.photos !== '[]' ? 
+    photos: supabasePlayer.photos && supabasePlayer.photos !== '[]' && supabasePlayer.photos !== 'null' ? 
       (() => {
         try {
           return JSON.parse(supabasePlayer.photos);
@@ -179,7 +226,9 @@ const convertSupabaseToPlayer = (supabasePlayer: SupabasePlayer): Player => {
     unreadMessagesCount: 0
   };
   
-      // Логи результата преобразования убраны для чистоты консоли
+  console.log(`   Результат конвертации:`);
+  console.log(`     Аватар: ${result.avatar || 'null'}`);
+  console.log(`     Фотографии: ${result.photos ? result.photos.length : 0} шт.`);
   
   return result;
 };
@@ -263,6 +312,13 @@ export const getPlayerTeams = async (playerId: string): Promise<PlayerTeam[]> =>
       joinedDate: team.joined_date
     }));
     
+    // Сортируем команды по дате добавления (сначала новые)
+    teams.sort((a: PlayerTeam, b: PlayerTeam) => {
+      const dateA = new Date(a.joinedDate || '1970-01-01');
+      const dateB = new Date(b.joinedDate || '1970-01-01');
+      return dateB.getTime() - dateA.getTime();
+    });
+    
     return teams;
   } catch (error) {
     console.error('❌ Ошибка получения команд игрока:', error);
@@ -275,22 +331,57 @@ export const addPlayerTeam = async (playerId: string, teamId: string, isPrimary:
   try {
     console.log('➕ addPlayerTeam: добавляем команду', teamId, 'игроку', playerId, '(основная:', isPrimary, ')');
     
-    const { error } = await supabase
+    // Сначала проверяем, существует ли уже такая запись
+    const { data: existingTeam, error: checkError } = await supabase
       .from('player_teams')
-      .insert({
-        player_id: playerId,
-        team_id: teamId,
-        is_primary: isPrimary,
-        joined_date: new Date().toISOString().split('T')[0]
-      });
+      .select('*')
+      .eq('player_id', playerId)
+      .eq('team_id', teamId)
+      .single();
     
-    if (error) {
-      console.error('❌ Ошибка добавления команды игроку:', error);
+    if (checkError && checkError.code !== 'PGRST116') { // PGRST116 = no rows returned
+      console.error('❌ Ошибка проверки существующей команды:', checkError);
       return false;
     }
     
-    console.log('✅ Команда успешно добавлена игроку');
-    return true;
+    if (existingTeam) {
+      console.log('🔄 Команда уже существует, обновляем статус');
+      // Обновляем существующую запись
+      const { error: updateError } = await supabase
+        .from('player_teams')
+        .update({
+          is_primary: isPrimary,
+          joined_date: new Date().toISOString().split('T')[0]
+        })
+        .eq('player_id', playerId)
+        .eq('team_id', teamId);
+      
+      if (updateError) {
+        console.error('❌ Ошибка обновления команды игроку:', updateError);
+        return false;
+      }
+      
+      console.log('✅ Команда успешно обновлена у игрока');
+      return true;
+    } else {
+      // Создаем новую запись
+      const { error: insertError } = await supabase
+        .from('player_teams')
+        .insert({
+          player_id: playerId,
+          team_id: teamId,
+          is_primary: isPrimary,
+          joined_date: new Date().toISOString().split('T')[0]
+        });
+      
+      if (insertError) {
+        console.error('❌ Ошибка добавления команды игроку:', insertError);
+        return false;
+      }
+      
+      console.log('✅ Команда успешно добавлена игроку');
+      return true;
+    }
   } catch (error) {
     console.error('❌ Ошибка добавления команды игроку:', error);
     return false;
@@ -388,7 +479,8 @@ const convertPlayerToSupabase = (player: Omit<Player, 'id' | 'unreadNotification
     birth_date: convertDate(player.birthDate),
     hockey_start_date: convertDate(player.hockeyStartDate),
     experience: player.experience ? parseInt(player.experience) : 0,
-    achievements: player.achievements,
+    achievements: player.achievements ? JSON.stringify(player.achievements) : '[]',
+    past_teams: player.pastTeams ? JSON.stringify(player.pastTeams) : '[]',
     phone: player.phone,
     city: player.city,
     goals: player.goals ? parseInt(player.goals) : 0,
@@ -441,8 +533,30 @@ export const loadPlayers = async (): Promise<Player[]> => {
       return [];
     }
     
+    console.log('📊 Загружено игроков из базы:', data?.length || 0);
+    
     // Преобразуем данные из Supabase в формат приложения
-    return (data || []).map(convertSupabaseToPlayer);
+    const players = (data || []).map(convertSupabaseToPlayer);
+    
+    // Логируем информацию об аватарах и фотографиях
+    players.forEach(player => {
+      console.log(`👤 ${player.name}:`);
+      console.log(`   ID: ${player.id}`);
+      console.log(`   Аватар: ${player.avatar ? 'есть' : 'нет'} (${player.avatar || 'null'})`);
+      
+      // Проверяем фотографии
+      if (player.photos && player.photos.length > 0) {
+        console.log(`   Фотографии: ${player.photos.length} шт.`);
+        player.photos.forEach((photo, index) => {
+          console.log(`     Фото ${index + 1}: ${photo}`);
+        });
+      } else {
+        console.log(`   Фотографии: нет`);
+      }
+      console.log('');
+    });
+    
+    return players;
   } catch (error) {
     console.error('❌ Ошибка загрузки игроков:', error);
     return [];
@@ -551,6 +665,16 @@ export const updatePlayer = async (id: string, updates: Partial<Player>): Promis
     if (updates.photos !== undefined) supabaseUpdates.photos = updates.photos && updates.photos.length > 0 ? JSON.stringify(updates.photos) : '[]';
     if (updates.number !== undefined) supabaseUpdates.number = updates.number;
     
+    // Обрабатываем достижения (конвертируем массив в JSON строку)
+    if (updates.achievements !== undefined) {
+      supabaseUpdates.achievements = JSON.stringify(updates.achievements);
+    }
+    
+    // Обрабатываем прошлые команды (конвертируем массив в JSON строку)
+    if (updates.pastTeams !== undefined) {
+      supabaseUpdates.past_teams = JSON.stringify(updates.pastTeams);
+    }
+    
     // Добавляем остальные поля напрямую
     Object.assign(supabaseUpdates, {
       name: updates.name,
@@ -561,7 +685,6 @@ export const updatePlayer = async (id: string, updates: Partial<Player>): Promis
       email: updates.email,
       password: updates.password,
       status: updates.status,
-      achievements: updates.achievements,
       phone: updates.phone,
       city: updates.city,
       country: updates.country,
@@ -1407,5 +1530,235 @@ export const calculateHockeyExperience = (startDate?: string): string => {
   } catch (error) {
     console.error('❌ Ошибка расчета опыта хоккея:', error);
     return '';
+  }
+}; 
+
+// Функция для принудительной миграции всех изображений в Storage
+export const migrateAllImagesToStorage = async (): Promise<void> => {
+  try {
+    console.log('🔄 Начинаем принудительную миграцию всех изображений...');
+    
+    // Загружаем всех игроков
+    const players = await loadPlayers();
+    console.log(`📊 Найдено игроков для миграции: ${players.length}`);
+    
+    let migratedCount = 0;
+    
+    for (const player of players) {
+      let hasChanges = false;
+      const updates: Partial<Player> = {};
+      
+      // Мигрируем аватар
+      if (player.avatar && (player.avatar.startsWith('file://') || player.avatar.startsWith('content://') || player.avatar.startsWith('data:'))) {
+        console.log(`🔄 Мигрируем аватар игрока ${player.name}: ${player.avatar}`);
+        const { uploadImageToStorage } = await import('./uploadImage');
+        const migratedAvatarUrl = await uploadImageToStorage(player.avatar);
+        if (migratedAvatarUrl) {
+          updates.avatar = migratedAvatarUrl;
+          hasChanges = true;
+          console.log(`✅ Аватар игрока ${player.name} мигрирован: ${migratedAvatarUrl}`);
+        }
+      }
+      
+      // Мигрируем фотографии
+      if (player.photos && player.photos.length > 0) {
+        const migratedPhotos = [];
+        let photosChanged = false;
+        
+        for (const photo of player.photos) {
+          if (photo.startsWith('file://') || photo.startsWith('content://') || photo.startsWith('data:')) {
+            console.log(`🔄 Мигрируем фото игрока ${player.name}: ${photo}`);
+            const { uploadImageToStorage } = await import('./uploadImage');
+            const migratedUrl = await uploadImageToStorage(photo);
+            if (migratedUrl) {
+              migratedPhotos.push(migratedUrl);
+              photosChanged = true;
+              console.log(`✅ Фото игрока ${player.name} мигрировано: ${migratedUrl}`);
+            }
+          } else {
+            migratedPhotos.push(photo);
+          }
+        }
+        
+        if (photosChanged) {
+          updates.photos = migratedPhotos;
+          hasChanges = true;
+        }
+      }
+      
+      // Обновляем игрока, если были изменения
+      if (hasChanges) {
+        const updatedPlayer = await updatePlayer(player.id, updates);
+        if (updatedPlayer) {
+          migratedCount++;
+          console.log(`✅ Игрок ${player.name} обновлен`);
+        }
+      }
+    }
+    
+    console.log(`🎉 Миграция завершена! Обновлено игроков: ${migratedCount}`);
+  } catch (error) {
+    console.error('❌ Ошибка миграции изображений:', error);
+  }
+}; 
+
+// Функция для диагностики состояния изображений
+export const diagnoseImages = async (): Promise<void> => {
+  try {
+    console.log('🔍 Диагностика состояния изображений...');
+    
+    // Загружаем всех игроков
+    const players = await loadPlayers();
+    console.log(`📊 Всего игроков: ${players.length}`);
+    
+    let totalAvatars = 0;
+    let localAvatars = 0;
+    let storageAvatars = 0;
+    let nullAvatars = 0;
+    
+    let totalPhotos = 0;
+    let localPhotos = 0;
+    let storagePhotos = 0;
+    
+    for (const player of players) {
+      // Анализируем аватары
+      if (player.avatar) {
+        totalAvatars++;
+        if (player.avatar.startsWith('file://') || player.avatar.startsWith('content://') || player.avatar.startsWith('data:')) {
+          localAvatars++;
+          console.log(`⚠️ Локальный аватар: ${player.name} - ${player.avatar}`);
+        } else if (player.avatar.startsWith('http')) {
+          storageAvatars++;
+          console.log(`✅ Storage аватар: ${player.name} - ${player.avatar}`);
+        }
+      } else {
+        nullAvatars++;
+        console.log(`❌ Нет аватара: ${player.name}`);
+      }
+      
+      // Анализируем фотографии
+      if (player.photos && player.photos.length > 0) {
+        totalPhotos += player.photos.length;
+        for (const photo of player.photos) {
+          if (photo.startsWith('file://') || photo.startsWith('content://') || photo.startsWith('data:')) {
+            localPhotos++;
+            console.log(`⚠️ Локальное фото: ${player.name} - ${photo}`);
+          } else if (photo.startsWith('http')) {
+            storagePhotos++;
+          }
+        }
+      }
+    }
+    
+    console.log('\n📊 Статистика изображений:');
+    console.log(`   Аватары:`);
+    console.log(`     Всего: ${totalAvatars}`);
+    console.log(`     В Storage: ${storageAvatars}`);
+    console.log(`     Локальные: ${localAvatars}`);
+    console.log(`     Отсутствуют: ${nullAvatars}`);
+    console.log(`   Фотографии:`);
+    console.log(`     Всего: ${totalPhotos}`);
+    console.log(`     В Storage: ${storagePhotos}`);
+    console.log(`     Локальные: ${localPhotos}`);
+    
+    if (localAvatars > 0 || localPhotos > 0) {
+      console.log('\n⚠️ Обнаружены локальные изображения, требующие миграции!');
+    } else {
+      console.log('\n✅ Все изображения находятся в Storage');
+    }
+    
+  } catch (error) {
+    console.error('❌ Ошибка диагностики:', error);
+  }
+}; 
+
+// Функция для очистки некорректных данных в базе
+export const cleanupDatabaseData = async (): Promise<void> => {
+  try {
+    console.log('🧹 Начинаем очистку некорректных данных...');
+    
+    // Получаем всех игроков напрямую из Supabase
+    const { data, error } = await supabase
+      .from('players')
+      .select('*');
+    
+    if (error) {
+      console.error('❌ Ошибка получения данных:', error);
+      return;
+    }
+    
+    console.log(`📊 Найдено записей для проверки: ${data?.length || 0}`);
+    
+    let updatedCount = 0;
+    
+    for (const player of data || []) {
+      const updates: any = {};
+      let hasUpdates = false;
+      
+      // Исправляем пустые JSON поля
+      if (player.achievements === 'null' || player.achievements === null) {
+        updates.achievements = '[]';
+        hasUpdates = true;
+        console.log(`🔄 Исправляем achievements для ${player.name}`);
+      }
+      
+      if (player.past_teams === 'null' || player.past_teams === null) {
+        updates.past_teams = '[]';
+        hasUpdates = true;
+        console.log(`🔄 Исправляем past_teams для ${player.name}`);
+      }
+      
+      if (player.photos === 'null' || player.photos === null) {
+        updates.photos = '[]';
+        hasUpdates = true;
+        console.log(`🔄 Исправляем photos для ${player.name}`);
+      }
+      
+      // Обновляем запись, если есть изменения
+      if (hasUpdates) {
+        const { error: updateError } = await supabase
+          .from('players')
+          .update(updates)
+          .eq('id', player.id);
+        
+        if (updateError) {
+          console.error(`❌ Ошибка обновления ${player.name}:`, updateError);
+        } else {
+          updatedCount++;
+          console.log(`✅ ${player.name} обновлен`);
+        }
+      }
+    }
+    
+    console.log(`🎉 Очистка завершена! Обновлено записей: ${updatedCount}`);
+  } catch (error) {
+    console.error('❌ Ошибка очистки данных:', error);
+  }
+}; 
+
+// Комбинированная функция для полного исправления проблемы с изображениями
+export const fixAllImageIssues = async (): Promise<void> => {
+  try {
+    console.log('🚀 Начинаем полное исправление проблем с изображениями...');
+    
+    // Шаг 1: Очистка некорректных данных
+    console.log('\n📋 Шаг 1: Очистка некорректных данных...');
+    await cleanupDatabaseData();
+    
+    // Шаг 2: Диагностика текущего состояния
+    console.log('\n📋 Шаг 2: Диагностика текущего состояния...');
+    await diagnoseImages();
+    
+    // Шаг 3: Миграция изображений
+    console.log('\n📋 Шаг 3: Миграция изображений...');
+    await migrateAllImagesToStorage();
+    
+    // Шаг 4: Финальная диагностика
+    console.log('\n📋 Шаг 4: Финальная диагностика...');
+    await diagnoseImages();
+    
+    console.log('\n🎉 Полное исправление завершено!');
+  } catch (error) {
+    console.error('❌ Ошибка полного исправления:', error);
   }
 }; 

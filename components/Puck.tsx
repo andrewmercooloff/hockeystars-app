@@ -50,7 +50,13 @@ const Puck: React.FC<PuckProps> = ({
           avatar.startsWith('http') || 
           avatar.startsWith('file://') || 
           avatar.startsWith('content://')) {
-        return { uri: avatar };
+        return { 
+          uri: avatar,
+          cache: 'reload', // Принудительно перезагружаем кэш
+          headers: {
+            'Cache-Control': 'no-cache'
+          }
+        };
       }
       
       // Проверяем старые пути к файлам
@@ -60,7 +66,13 @@ const Puck: React.FC<PuckProps> = ({
       
       // Если это просто строка, но не URI, попробуем как URI
       if (avatar.trim().length > 0) {
-        return { uri: avatar };
+        return { 
+          uri: avatar,
+          cache: 'reload',
+          headers: {
+            'Cache-Control': 'no-cache'
+          }
+        };
       }
     }
     
@@ -94,7 +106,15 @@ const Puck: React.FC<PuckProps> = ({
                 borderColor: avatarBorderColor
               }
             ]}
-            onError={() => setImageError(true)}
+            onError={(error) => {
+              console.log('❌ Ошибка загрузки аватара в Puck:', error);
+              console.log('   URL аватара:', avatar);
+              console.log('   Нативная ошибка:', error.nativeEvent?.error);
+              setImageError(true);
+            }}
+            onLoad={() => {
+              console.log('✅ Аватар в Puck успешно загружен:', avatar);
+            }}
           />
         ) : (
           <View style={[
