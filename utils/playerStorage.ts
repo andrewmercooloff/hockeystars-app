@@ -1753,12 +1753,129 @@ export const fixAllImageIssues = async (): Promise<void> => {
     console.log('\n📋 Шаг 3: Миграция изображений...');
     await migrateAllImagesToStorage();
     
-    // Шаг 4: Финальная диагностика
-    console.log('\n📋 Шаг 4: Финальная диагностика...');
+    // Шаг 4: Проверка и исправление URL
+    console.log('\n📋 Шаг 4: Проверка и исправление URL...');
+    await fixImageUrls();
+    
+    // Шаг 5: Финальная диагностика
+    console.log('\n📋 Шаг 5: Финальная диагностика...');
     await diagnoseImages();
     
     console.log('\n🎉 Полное исправление завершено!');
   } catch (error) {
     console.error('❌ Ошибка полного исправления:', error);
+  }
+}; 
+
+// Функция для проверки и исправления URL изображений
+export const fixImageUrls = async (): Promise<void> => {
+  try {
+    console.log('🔧 Проверяем и исправляем URL изображений...');
+    
+    // Загружаем всех игроков
+    const players = await loadPlayers();
+    console.log(`📊 Найдено игроков: ${players.length}`);
+    
+    let fixedCount = 0;
+    
+    for (const player of players) {
+      let hasChanges = false;
+      const updates: Partial<Player> = {};
+      
+      // Проверяем аватар
+      if (player.avatar) {
+        // Если это локальный файл, пытаемся загрузить в Storage
+        if (player.avatar.startsWith('file://') || player.avatar.startsWith('content://') || player.avatar.startsWith('data:')) {
+          console.log(`🔄 Исправляем аватар игрока ${player.name}: ${player.avatar}`);
+          
+          try {
+            const { uploadImageToStorage } = await import('./uploadImage');
+            const newUrl = await uploadImageToStorage(player.avatar);
+            
+            if (newUrl) {
+              updates.avatar = newUrl;
+              hasChanges = true;
+              console.log(`✅ Аватар исправлен: ${newUrl}`);
+            } else {
+              console.log(`❌ Не удалось загрузить аватар для ${player.name}`);
+            }
+          } catch (error) {
+            console.error(`❌ Ошибка загрузки аватара для ${player.name}:`, error);
+          }
+        }
+        // Если это URL, проверяем доступность
+        else if (player.avatar.startsWith('http')) {
+          try {
+            const response = await fetch(player.avatar, { method: 'HEAD' });
+            if (!response.ok) {
+              console.log(`⚠️ Аватар недоступен для ${player.name}: ${player.avatar}`);
+              // Можно попробовать загрузить заново или оставить как есть
+            }
+          } catch (error) {
+            console.log(`⚠️ Ошибка проверки аватара для ${player.name}:`, error);
+          }
+        }
+      }
+      
+      // Проверяем фотографии
+      if (player.photos && player.photos.length > 0) {
+        const fixedPhotos = [];
+        let photosChanged = false;
+        
+        for (const photo of player.photos) {
+          if (photo.startsWith('file://') || photo.startsWith('content://') || photo.startsWith('data:')) {
+            console.log(`🔄 Исправляем фото игрока ${player.name}: ${photo}`);
+            
+            try {
+              const { uploadImageToStorage } = await import('./uploadImage');
+              const newUrl = await uploadImageToStorage(photo);
+              
+              if (newUrl) {
+                fixedPhotos.push(newUrl);
+                photosChanged = true;
+                console.log(`✅ Фото исправлено: ${newUrl}`);
+              } else {
+                console.log(`❌ Не удалось загрузить фото для ${player.name}`);
+                fixedPhotos.push(photo); // Оставляем как есть
+              }
+            } catch (error) {
+              console.error(`❌ Ошибка загрузки фото для ${player.name}:`, error);
+              fixedPhotos.push(photo); // Оставляем как есть
+            }
+          } else if (photo.startsWith('http')) {
+            // Проверяем доступность URL
+            try {
+              const response = await fetch(photo, { method: 'HEAD' });
+              if (!response.ok) {
+                console.log(`⚠️ Фото недоступно для ${player.name}: ${photo}`);
+              }
+            } catch (error) {
+              console.log(`⚠️ Ошибка проверки фото для ${player.name}:`, error);
+            }
+            fixedPhotos.push(photo);
+          } else {
+            fixedPhotos.push(photo);
+          }
+        }
+        
+        if (photosChanged) {
+          updates.photos = fixedPhotos;
+          hasChanges = true;
+        }
+      }
+      
+      // Обновляем игрока, если были изменения
+      if (hasChanges) {
+        const updatedPlayer = await updatePlayer(player.id, updates);
+        if (updatedPlayer) {
+          fixedCount++;
+          console.log(`✅ Игрок ${player.name} обновлен`);
+        }
+      }
+    }
+    
+    console.log(`🎉 Проверка завершена! Исправлено игроков: ${fixedCount}`);
+  } catch (error) {
+    console.error('❌ Ошибка проверки URL изображений:', error);
   }
 }; 

@@ -948,6 +948,37 @@ export default function AdminScreen() {
           <Ionicons name="cloud-upload" size={16} color="#fff" />
           <Text style={styles.imageButtonText}>Миграция</Text>
         </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={[styles.imageButton, styles.fixUrlsButton]}
+          onPress={async () => {
+            try {
+              Alert.alert(
+                'Исправление URL',
+                'Проверить и исправить URL изображений?',
+                [
+                  { text: 'Отмена', style: 'cancel' },
+                  { 
+                    text: 'Исправить', 
+                    onPress: async () => {
+                      const { fixImageUrls } = await import('../utils/playerStorage');
+                      await fixImageUrls();
+                      Alert.alert('Готово', 'Проверка URL изображений завершена');
+                      // Обновляем список игроков
+                      loadData();
+                    }
+                  }
+                ]
+              );
+            } catch (error) {
+              console.error('Ошибка исправления URL:', error);
+              Alert.alert('Ошибка', 'Не удалось исправить URL');
+            }
+          }}
+        >
+          <Ionicons name="link" size={16} color="#fff" />
+          <Text style={styles.imageButtonText}>Исправить URL</Text>
+        </TouchableOpacity>
       </View>
 
       <FlatList
@@ -1964,6 +1995,9 @@ const styles = StyleSheet.create({
   },
   migrateButton: {
     backgroundColor: '#FF4444',
+  },
+  fixUrlsButton: {
+    backgroundColor: '#2196F3',
   },
   fixAllButton: {
     backgroundColor: '#9C27B0',
