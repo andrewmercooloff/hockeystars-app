@@ -237,14 +237,14 @@ export default function HomeScreen() {
 
   const refreshPlayers = useCallback(async () => {
     try {
-      console.log('🔄 Загрузка игроков...');
+      // console.log('🔄 Загрузка игроков...');
       const loadedPlayers = await loadPlayers();
-      console.log(`✅ Загружено игроков: ${loadedPlayers.length}`);
+      // console.log(`✅ Загружено игроков: ${loadedPlayers.length}`);
       
       // Добавляем отладочную информацию для каждого игрока
-      loadedPlayers.forEach(player => {
-        console.log(`👤 Игрок: ${player.name}, Голы: ${player.goals}, Передачи: ${player.assists}, Команда: ${player.team}`);
-      });
+      // loadedPlayers.forEach(player => {
+      //   console.log(`👤 Игрок: ${player.name}, Голы: ${player.goals}, Передачи: ${player.assists}, Команда: ${player.team}`);
+      // });
       
       setPlayers(loadedPlayers);
     } catch (error) {
@@ -291,7 +291,7 @@ export default function HomeScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      console.log('🔄 Обновление данных при фокусе на экране...');
+      // console.log('🔄 Обновление данных при фокусе на экране...');
       refreshPlayers();
       checkForNewUser();
     }, [refreshPlayers, checkForNewUser])
@@ -300,7 +300,7 @@ export default function HomeScreen() {
   // Обработка параметра refresh для принудительного обновления
   useEffect(() => {
     if (params.refresh) {
-      console.log('🔄 Принудительное обновление данных после входа...');
+      // console.log('🔄 Принудительное обновление данных после входа...');
       refreshPlayers();
       checkForNewUser();
       // Очищаем параметр refresh после использования

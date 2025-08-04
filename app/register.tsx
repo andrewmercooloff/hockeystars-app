@@ -17,7 +17,7 @@ import {
 } from 'react-native';
 import CustomAlert from '../components/CustomAlert';
 import TeamSelector from '../components/TeamSelector';
-import { addPlayer, saveCurrentUser, Team, addPlayerTeam } from '../utils/playerStorage';
+import { addPlayer, addPlayerTeam, saveCurrentUser, Team } from '../utils/playerStorage';
 
 const iceBg = require('../assets/images/led.jpg');
 
@@ -116,7 +116,6 @@ export default function RegisterScreen() {
 
       // Открываем галерею для выбора фото
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.8,
@@ -148,7 +147,6 @@ export default function RegisterScreen() {
 
       // Открываем камеру для съемки фото
       const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.8,

@@ -545,17 +545,19 @@ export default function PersonalCabinetScreen() {
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.8,
     });
 
     if (!result.canceled && result.assets[0]) {
-              // Фото загружено из галереи
+      console.log('📸 Фото загружено из галереи:', result.assets[0].uri);
       
       // Загружаем изображение в Supabase Storage
+      console.log('🔄 Начинаем загрузку в Storage...');
       const uploadedUrl = await uploadImageToStorage(result.assets[0].uri);
+      console.log('📤 Результат загрузки:', uploadedUrl);
+      
       if (uploadedUrl) {
         console.log('✅ Изображение загружено в Storage:', uploadedUrl);
         setEditData({...editData, avatar: uploadedUrl});
@@ -602,10 +604,13 @@ export default function PersonalCabinetScreen() {
     });
 
     if (!result.canceled && result.assets[0]) {
-              // Фото загружено с камеры
+      console.log('📸 Фото загружено с камеры:', result.assets[0].uri);
       
       // Загружаем изображение в Supabase Storage
+      console.log('🔄 Начинаем загрузку в Storage...');
       const uploadedUrl = await uploadImageToStorage(result.assets[0].uri);
+      console.log('📤 Результат загрузки:', uploadedUrl);
+      
       if (uploadedUrl) {
         console.log('✅ Изображение загружено в Storage:', uploadedUrl);
         setEditData({...editData, avatar: uploadedUrl});
@@ -672,7 +677,6 @@ export default function PersonalCabinetScreen() {
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: false,
       quality: 0.8,
       allowsMultipleSelection: true, // Включаем множественный выбор

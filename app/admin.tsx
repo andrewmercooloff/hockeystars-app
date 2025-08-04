@@ -434,7 +434,6 @@ export default function AdminScreen() {
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.8,
@@ -539,7 +538,6 @@ export default function AdminScreen() {
       }
 
       const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.8,
@@ -978,6 +976,37 @@ export default function AdminScreen() {
         >
           <Ionicons name="link" size={16} color="#fff" />
           <Text style={styles.imageButtonText}>Исправить URL</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={[styles.imageButton, styles.publicUrlsButton]}
+          onPress={async () => {
+            try {
+              Alert.alert(
+                'Публичные URL',
+                'Обновить URL изображений на публичные ссылки?',
+                [
+                  { text: 'Отмена', style: 'cancel' },
+                  { 
+                    text: 'Обновить', 
+                    onPress: async () => {
+                      const { updateImageUrlsToPublic } = await import('../utils/playerStorage');
+                      await updateImageUrlsToPublic();
+                      Alert.alert('Готово', 'Обновление публичных URL завершено');
+                      // Обновляем список игроков
+                      loadData();
+                    }
+                  }
+                ]
+              );
+            } catch (error) {
+              console.error('Ошибка обновления публичных URL:', error);
+              Alert.alert('Ошибка', 'Не удалось обновить публичные URL');
+            }
+          }}
+        >
+          <Ionicons name="globe" size={16} color="#fff" />
+          <Text style={styles.imageButtonText}>Публичные URL</Text>
         </TouchableOpacity>
       </View>
 
@@ -1998,6 +2027,9 @@ const styles = StyleSheet.create({
   },
   fixUrlsButton: {
     backgroundColor: '#2196F3',
+  },
+  publicUrlsButton: {
+    backgroundColor: '#00BCD4',
   },
   fixAllButton: {
     backgroundColor: '#9C27B0',

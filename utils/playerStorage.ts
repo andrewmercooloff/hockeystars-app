@@ -145,9 +145,9 @@ export interface Notification {
 // Функции преобразования данных
 const convertSupabaseToPlayer = (supabasePlayer: SupabasePlayer): Player => {
   // Преобразование данных из Supabase в Player
-  console.log(`🔄 Конвертируем игрока: ${supabasePlayer.name}`);
-  console.log(`   Аватар из базы: ${supabasePlayer.avatar || 'null'}`);
-  console.log(`   Фотографии из базы: ${supabasePlayer.photos || 'null'}`);
+  // console.log(`🔄 Конвертируем игрока: ${supabasePlayer.name}`);
+  // console.log(`   Аватар из базы: ${supabasePlayer.avatar || 'null'}`);
+  // console.log(`   Фотографии из базы: ${supabasePlayer.photos || 'null'}`);
   
   const result = {
     id: supabasePlayer.id,
@@ -181,7 +181,7 @@ const convertSupabaseToPlayer = (supabasePlayer: SupabasePlayer): Player => {
         try {
           return JSON.parse(supabasePlayer.achievements);
         } catch (error) {
-          console.error('Ошибка парсинга achievements:', error);
+          // console.error('Ошибка парсинга achievements:', error);
           return [];
         }
       }
@@ -193,7 +193,7 @@ const convertSupabaseToPlayer = (supabasePlayer: SupabasePlayer): Player => {
         try {
           return JSON.parse(supabasePlayer.past_teams);
         } catch (error) {
-          console.error('Ошибка парсинга past_teams:', error);
+          // console.error('Ошибка парсинга past_teams:', error);
           return [];
         }
       }
@@ -217,7 +217,7 @@ const convertSupabaseToPlayer = (supabasePlayer: SupabasePlayer): Player => {
         try {
           return JSON.parse(supabasePlayer.photos);
         } catch (error) {
-          console.error('Ошибка парсинга photos:', error);
+          // console.error('Ошибка парсинга photos:', error);
           return [];
         }
       })() : [],
@@ -226,9 +226,9 @@ const convertSupabaseToPlayer = (supabasePlayer: SupabasePlayer): Player => {
     unreadMessagesCount: 0
   };
   
-  console.log(`   Результат конвертации:`);
-  console.log(`     Аватар: ${result.avatar || 'null'}`);
-  console.log(`     Фотографии: ${result.photos ? result.photos.length : 0} шт.`);
+  // console.log(`   Результат конвертации:`);
+  // console.log(`     Аватар: ${result.avatar || 'null'}`);
+  // console.log(`     Фотографии: ${result.photos ? result.photos.length : 0} шт.`);
   
   return result;
 };
@@ -533,28 +533,28 @@ export const loadPlayers = async (): Promise<Player[]> => {
       return [];
     }
     
-    console.log('📊 Загружено игроков из базы:', data?.length || 0);
+    // console.log('📊 Загружено игроков из базы:', data?.length || 0);
     
     // Преобразуем данные из Supabase в формат приложения
     const players = (data || []).map(convertSupabaseToPlayer);
     
     // Логируем информацию об аватарах и фотографиях
-    players.forEach(player => {
-      console.log(`👤 ${player.name}:`);
-      console.log(`   ID: ${player.id}`);
-      console.log(`   Аватар: ${player.avatar ? 'есть' : 'нет'} (${player.avatar || 'null'})`);
-      
-      // Проверяем фотографии
-      if (player.photos && player.photos.length > 0) {
-        console.log(`   Фотографии: ${player.photos.length} шт.`);
-        player.photos.forEach((photo, index) => {
-          console.log(`     Фото ${index + 1}: ${photo}`);
-        });
-      } else {
-        console.log(`   Фотографии: нет`);
-      }
-      console.log('');
-    });
+    // players.forEach(player => {
+    //   console.log(`👤 ${player.name}:`);
+    //   console.log(`   ID: ${player.id}`);
+    //   console.log(`   Аватар: ${player.avatar ? 'есть' : 'нет'} (${player.avatar || 'null'})`);
+    //   
+    //   // Проверяем фотографии
+    //   if (player.photos && player.photos.length > 0) {
+    //     console.log(`   Фотографии: ${player.photos.length} шт.`);
+    //     player.photos.forEach((photo, index) => {
+    //       console.log(`     Фото ${index + 1}: ${photo}`);
+    //     });
+    //   } else {
+    //     console.log(`   Фотографии: нет`);
+    //   }
+    //   console.log('');
+    // });
     
     return players;
   } catch (error) {
@@ -1757,8 +1757,12 @@ export const fixAllImageIssues = async (): Promise<void> => {
     console.log('\n📋 Шаг 4: Проверка и исправление URL...');
     await fixImageUrls();
     
-    // Шаг 5: Финальная диагностика
-    console.log('\n📋 Шаг 5: Финальная диагностика...');
+    // Шаг 5: Обновление на публичные URL
+    console.log('\n📋 Шаг 5: Обновление на публичные URL...');
+    await updateImageUrlsToPublic();
+    
+    // Шаг 6: Финальная диагностика
+    console.log('\n📋 Шаг 6: Финальная диагностика...');
     await diagnoseImages();
     
     console.log('\n🎉 Полное исправление завершено!');
@@ -1879,3 +1883,118 @@ export const fixImageUrls = async (): Promise<void> => {
     console.error('❌ Ошибка проверки URL изображений:', error);
   }
 }; 
+
+// Функция для обновления URL изображений на публичные ссылки
+export const updateImageUrlsToPublic = async (): Promise<void> => {
+  try {
+    console.log('🔗 Обновляем URL изображений на публичные ссылки...');
+    
+    // Загружаем всех игроков
+    const players = await loadPlayers();
+    console.log(`📊 Найдено игроков: ${players.length}`);
+    
+    let updatedCount = 0;
+    
+    for (const player of players) {
+      let hasChanges = false;
+      const updates: Partial<Player> = {};
+      
+      // Проверяем аватар
+      if (player.avatar) {
+        // Если это локальный файл, пытаемся получить публичный URL
+        if (player.avatar.startsWith('file://') || player.avatar.startsWith('content://') || player.avatar.startsWith('data:')) {
+          console.log(`🔄 Обрабатываем локальный аватар игрока ${player.name}`);
+          
+          // Извлекаем имя файла из локального пути
+          const fileName = player.avatar.split('/').pop();
+          if (fileName) {
+            // Создаем публичный URL
+            const publicUrl = `https://jvsypfwiajuwsyuzkyda.supabase.co/storage/v1/object/public/avatars/${fileName}`;
+            
+            // Проверяем доступность URL
+            try {
+              const response = await fetch(publicUrl, { method: 'HEAD' });
+              if (response.ok) {
+                updates.avatar = publicUrl;
+                hasChanges = true;
+                console.log(`✅ Аватар обновлен на публичный URL: ${publicUrl}`);
+              } else {
+                console.log(`❌ Публичный URL недоступен для ${fileName}`);
+              }
+            } catch (error) {
+              console.log(`❌ Ошибка проверки публичного URL для ${fileName}:`, error);
+            }
+          }
+        }
+        // Если это уже URL, проверяем, что он публичный
+        else if (player.avatar.startsWith('http')) {
+          if (!player.avatar.includes('/storage/v1/object/public/')) {
+            console.log(`⚠️ Аватар ${player.name} не является публичным URL: ${player.avatar}`);
+          }
+        }
+      }
+      
+      // Проверяем фотографии
+      if (player.photos && player.photos.length > 0) {
+        const updatedPhotos = [];
+        let photosChanged = false;
+        
+        for (const photo of player.photos) {
+          if (photo.startsWith('file://') || photo.startsWith('content://') || photo.startsWith('data:')) {
+            console.log(`🔄 Обрабатываем локальное фото игрока ${player.name}`);
+            
+            // Извлекаем имя файла из локального пути
+            const fileName = photo.split('/').pop();
+            if (fileName) {
+              // Создаем публичный URL
+              const publicUrl = `https://jvsypfwiajuwsyuzkyda.supabase.co/storage/v1/object/public/avatars/${fileName}`;
+              
+              // Проверяем доступность URL
+              try {
+                const response = await fetch(publicUrl, { method: 'HEAD' });
+                if (response.ok) {
+                  updatedPhotos.push(publicUrl);
+                  photosChanged = true;
+                  console.log(`✅ Фото обновлено на публичный URL: ${publicUrl}`);
+                } else {
+                  console.log(`❌ Публичный URL недоступен для ${fileName}`);
+                  updatedPhotos.push(photo); // Оставляем как есть
+                }
+              } catch (error) {
+                console.log(`❌ Ошибка проверки публичного URL для ${fileName}:`, error);
+                updatedPhotos.push(photo); // Оставляем как есть
+              }
+            } else {
+              updatedPhotos.push(photo);
+            }
+          } else if (photo.startsWith('http')) {
+            if (!photo.includes('/storage/v1/object/public/')) {
+              console.log(`⚠️ Фото не является публичным URL: ${photo}`);
+            }
+            updatedPhotos.push(photo);
+          } else {
+            updatedPhotos.push(photo);
+          }
+        }
+        
+        if (photosChanged) {
+          updates.photos = updatedPhotos;
+          hasChanges = true;
+        }
+      }
+      
+      // Обновляем игрока, если были изменения
+      if (hasChanges) {
+        const updatedPlayer = await updatePlayer(player.id, updates);
+        if (updatedPlayer) {
+          updatedCount++;
+          console.log(`✅ Игрок ${player.name} обновлен`);
+        }
+      }
+    }
+    
+    console.log(`🎉 Обновление URL завершено! Обновлено игроков: ${updatedCount}`);
+  } catch (error) {
+    console.error('❌ Ошибка обновления URL изображений:', error);
+  }
+};

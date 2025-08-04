@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
-import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useMemo, useState } from 'react';
+import { Image, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 
 interface PuckProps {
@@ -24,12 +24,21 @@ const Puck: React.FC<PuckProps> = ({
 }) => {
   const [imageError, setImageError] = useState(false);
   
-  const avatarSize = size * 0.86;
-  const borderRadius = size / 2;
-  const avatarBorderRadius = avatarSize / 2;
-  const iconSize = avatarSize * 0.5;
+  const dimensions = useMemo(() => {
+    const avatarSize = size * 0.86;
+    const borderRadius = size / 2;
+    const avatarBorderRadius = avatarSize / 2;
+    const iconSize = avatarSize * 0.5;
+    
+    return {
+      avatarSize,
+      borderRadius,
+      avatarBorderRadius,
+      iconSize
+    };
+  }, [size]);
 
-  const avatarBorderColor = (() => {
+  const avatarBorderColor = useMemo(() => {
     switch (status) {
       case 'star': return '#FFD700';
       case 'coach': return '#FF4444';
@@ -37,9 +46,9 @@ const Puck: React.FC<PuckProps> = ({
       case 'admin': return '#8A2BE2';
       default: return '#FFFFFF';
     }
-  })();
+  }, [status]);
 
-  const getImageSource = () => {
+  const imageSource = useMemo(() => {
     if (!avatar || imageError) {
       return null;
     }
@@ -78,9 +87,18 @@ const Puck: React.FC<PuckProps> = ({
     
     // Для всех остальных случаев показываем силуэт
     return null;
-  };
+  }, [avatar, imageError]);
 
-  const imageSource = getImageSource();
+  const handleError = useCallback((error: any) => {
+    console.log('❌ Ошибка загрузки аватара в Puck:', error);
+    console.log('   URL аватара:', avatar);
+    console.log('   Нативная ошибка:', error.nativeEvent?.error);
+    setImageError(true);
+  }, [avatar]);
+
+  const handleLoad = useCallback(() => {
+    console.log('✅ Аватар в Puck успешно загружен:', avatar);
+  }, [avatar]);
 
   return (
     <Animated.View style={[
@@ -88,7 +106,7 @@ const Puck: React.FC<PuckProps> = ({
       { 
         width: size, 
         height: size, 
-        borderRadius: borderRadius 
+        borderRadius: dimensions.borderRadius 
       },
       animatedStyle
     ]}>
@@ -99,30 +117,23 @@ const Puck: React.FC<PuckProps> = ({
             style={[
               styles.avatar,
               {
-                width: avatarSize,
-                height: avatarSize,
-                borderRadius: avatarBorderRadius,
+                width: dimensions.avatarSize,
+                height: dimensions.avatarSize,
+                borderRadius: dimensions.avatarBorderRadius,
                 borderWidth: 2,
                 borderColor: avatarBorderColor
               }
             ]}
-            onError={(error) => {
-              console.log('❌ Ошибка загрузки аватара в Puck:', error);
-              console.log('   URL аватара:', avatar);
-              console.log('   Нативная ошибка:', error.nativeEvent?.error);
-              setImageError(true);
-            }}
-            onLoad={() => {
-              console.log('✅ Аватар в Puck успешно загружен:', avatar);
-            }}
+            onError={handleError}
+            onLoad={handleLoad}
           />
         ) : (
           <View style={[
             styles.avatarPlaceholder,
             {
-              width: avatarSize,
-              height: avatarSize,
-              borderRadius: avatarBorderRadius,
+              width: dimensions.avatarSize,
+              height: dimensions.avatarSize,
+              borderRadius: dimensions.avatarBorderRadius,
               borderWidth: 2,
               borderColor: avatarBorderColor,
               backgroundColor: '#2C3E50'
@@ -130,7 +141,7 @@ const Puck: React.FC<PuckProps> = ({
           ]}>
             <Ionicons 
               name="person" 
-              size={iconSize} 
+              size={dimensions.iconSize} 
               color="#FFFFFF" 
             />
           </View>
@@ -152,14 +163,23 @@ const styles = StyleSheet.create({
     backgroundColor: '#000000',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 4.65,
-    elevation: 8,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: {
+          width: 0,
+          height: 4,
+        },
+        shadowOpacity: 0.3,
+        shadowRadius: 4.65,
+      },
+      android: {
+        elevation: 8,
+      },
+      web: {
+        boxShadow: '0 4px 4.65px rgba(0, 0, 0, 0.3)',
+      },
+    }),
     borderWidth: 2,
     borderColor: '#333333',
   },
@@ -168,14 +188,23 @@ const styles = StyleSheet.create({
     backgroundColor: '#000000',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 4.65,
-    elevation: 8,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: {
+          width: 0,
+          height: 4,
+        },
+        shadowOpacity: 0.3,
+        shadowRadius: 4.65,
+      },
+      android: {
+        elevation: 8,
+      },
+      web: {
+        boxShadow: '0 4px 4.65px rgba(0, 0, 0, 0.3)',
+      },
+    }),
     borderWidth: 2,
     borderColor: '#333333',
   },
