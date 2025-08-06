@@ -4,6 +4,7 @@ import { useFonts } from 'expo-font';
 import { SplashScreen, Tabs, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Image, LogBox, Text, TouchableOpacity, View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { initializeStorage, loadCurrentUser, loadNotifications, Player } from '../utils/playerStorage';
 
 // Отключаем все предупреждения
@@ -61,7 +62,7 @@ const LogoHeader = () => {
         style={{ alignItems: 'center', marginTop: -8 }}
         onPress={() => {
           if (currentUser) {
-            router.push('/profile');
+            router.push(`/player/${currentUser.id}`);
           } else {
             router.push('/login');
           }
@@ -206,16 +207,17 @@ export default function RootLayout() {
   }
 
   return (
-    <Tabs
-      screenOptions={{
-        headerStyle: { backgroundColor: '#000', height: 128 },
-        headerTitleAlign: 'center',
-        tabBarStyle: { backgroundColor: '#000', borderTopWidth: 0 },
-        tabBarActiveTintColor: '#fff',
-        tabBarInactiveTintColor: '#888',
-        tabBarShowLabel: false, // Убираем подписи к иконкам
-      }}
-    >
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <Tabs
+        screenOptions={{
+          headerStyle: { backgroundColor: '#000', height: 128 },
+          headerTitleAlign: 'center',
+          tabBarStyle: { backgroundColor: '#000', borderTopWidth: 0 },
+          tabBarActiveTintColor: '#fff',
+          tabBarInactiveTintColor: '#888',
+          tabBarShowLabel: false, // Убираем подписи к иконкам
+        }}
+      >
       <Tabs.Screen
         name="index"
         options={{
@@ -322,13 +324,7 @@ export default function RootLayout() {
           headerTitle: () => <LogoHeader />,
         }}
       />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          href: null,
-          headerTitle: () => <LogoHeader />,
-        }}
-      />
+
       <Tabs.Screen
         name="chat/[id]"
         options={{
@@ -380,6 +376,7 @@ export default function RootLayout() {
         }}
       />
 
-    </Tabs>
+      </Tabs>
+    </GestureHandlerRootView>
   );
 }

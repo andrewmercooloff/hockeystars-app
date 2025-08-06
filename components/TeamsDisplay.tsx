@@ -14,7 +14,7 @@ export default function TeamsDisplay({ teams, onTeamPress, compact = false }: Te
     return (
       <View style={styles.emptyContainer}>
         <Ionicons name="people-outline" size={24} color="#FF4444" />
-        <Text style={styles.emptyText}>Текущие команды не указаны</Text>
+        <Text style={styles.emptyText}>Команды не указаны</Text>
       </View>
     );
   }

@@ -12,23 +12,22 @@ import {
 } from 'react-native';
 import DraggableFlatList, { RenderItemParams } from 'react-native-draggable-flatlist';
 import { createTeam, PastTeam, searchTeams, Team } from '../utils/playerStorage';
-import DraggablePastTeamItem from './DraggablePastTeamItem';
+import DraggableTeamItem from './DraggableTeamItem';
 
-interface PastTeamsSectionProps {
-  pastTeams?: PastTeam[];
+interface CurrentTeamsSectionProps {
+  currentTeams?: PastTeam[];
   isEditing?: boolean;
-  onPastTeamsChange?: (pastTeams: PastTeam[]) => void;
-  onMoveToCurrentTeams?: (team: PastTeam) => void;
+  onCurrentTeamsChange?: (currentTeams: PastTeam[]) => void;
+  onMoveToPastTeams?: (team: PastTeam) => void;
   readOnly?: boolean;
 }
 
-export default function PastTeamsSection({ 
-  pastTeams = [], 
+export default function CurrentTeamsSection({ 
+  currentTeams = [], 
   isEditing = false,
-  onPastTeamsChange,
-  onMoveToCurrentTeams,
+  onCurrentTeamsChange,
   readOnly = false
-}: PastTeamsSectionProps) {
+}: CurrentTeamsSectionProps) {
   const [modalVisible, setModalVisible] = useState(false);
   const [editingTeam, setEditingTeam] = useState<PastTeam | null>(null);
   const [newTeam, setNewTeam] = useState({
@@ -37,7 +36,7 @@ export default function PastTeamsSection({
     teamCity: '',
     startYear: '',
     endYear: '',
-    isCurrent: false
+    isCurrent: true
   });
 
   // Состояние для автодополнения команд
@@ -45,6 +44,7 @@ export default function PastTeamsSection({
   const [searchResults, setSearchResults] = useState<Team[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [selectedExistingTeam, setSelectedExistingTeam] = useState<Team | null>(null);
 
   // Поиск команд при изменении поискового запроса
   useEffect(() => {
@@ -88,6 +88,8 @@ export default function PastTeamsSection({
         teamCountry: team.country || '',
         teamCity: team.city || ''
       });
+      // Сохраняем выбранную команду
+      setSelectedExistingTeam(team);
     }
     setSearchTerm('');
     setSearchResults([]);
@@ -115,49 +117,64 @@ export default function PastTeamsSection({
       }
     }
 
-    // Проверяем, есть ли команда в результатах поиска
-    const existingTeam = searchResults.find(team => 
-      team.name.toLowerCase() === newTeam.teamName.trim().toLowerCase()
-    );
-
+    // Проверяем, была ли выбрана существующая команда
     let teamId: string;
     
-    if (existingTeam) {
-      // Используем существующую команду
-      teamId = existingTeam.id;
-      console.log('✅ Используем существующую команду:', existingTeam.name);
+    if (selectedExistingTeam && selectedExistingTeam.name.toLowerCase() === newTeam.teamName.trim().toLowerCase()) {
+      // Используем выбранную существующую команду
+      teamId = selectedExistingTeam.id;
+      console.log('✅ Используем выбранную существующую команду:', selectedExistingTeam.name);
     } else {
-      // Создаем новую команду в базе данных
-      console.log('🆕 Создаем новую команду в базе данных:', newTeam.teamName.trim());
-      const createdTeam = await createTeam({
-        name: newTeam.teamName.trim(),
-        type: 'club', // По умолчанию тип "клуб"
-        country: newTeam.teamCountry.trim() || 'Беларусь',
-        city: newTeam.teamCity.trim() || undefined
-      });
+      // Проверяем, есть ли команда в результатах поиска
+      const existingTeam = searchResults.find(team => 
+        team.name.toLowerCase() === newTeam.teamName.trim().toLowerCase()
+      );
 
-      if (createdTeam) {
-        teamId = createdTeam.id;
-        console.log('✅ Команда успешно создана в базе данных:', createdTeam.name);
+      if (existingTeam) {
+        // Используем существующую команду из результатов поиска
+        teamId = existingTeam.id;
+        console.log('✅ Используем существующую команду из поиска:', existingTeam.name);
       } else {
-        Alert.alert('Ошибка', 'Не удалось создать команду в базе данных');
-        return;
+        // Создаем новую команду в базе данных
+        console.log('🆕 Создаем новую команду в базе данных:', newTeam.teamName.trim());
+        console.log('🆕 Данные для создания команды:', {
+          name: newTeam.teamName.trim(),
+          type: 'club',
+          country: newTeam.teamCountry.trim() || 'Беларусь',
+          city: newTeam.teamCity.trim() || undefined
+        });
+        
+        const createdTeam = await createTeam({
+          name: newTeam.teamName.trim(),
+          type: 'club', // По умолчанию тип "клуб"
+          country: newTeam.teamCountry.trim() || 'Беларусь',
+          city: newTeam.teamCity.trim() || undefined
+        });
+
+        if (createdTeam) {
+          teamId = createdTeam.id;
+          console.log('✅ Команда успешно создана в базе данных:', createdTeam.name, 'с ID:', createdTeam.id);
+        } else {
+          console.error('❌ Не удалось создать команду в базе данных для:', newTeam.teamName.trim());
+          Alert.alert('Ошибка', 'Не удалось создать команду в базе данных');
+          return;
+        }
       }
     }
 
-    const pastTeam: PastTeam = {
+    const currentTeam: PastTeam = {
       id: teamId, // Используем ID из базы данных
       teamName: newTeam.teamName.trim(),
       teamCountry: newTeam.teamCountry.trim() || undefined,
       teamCity: newTeam.teamCity.trim() || undefined,
       startYear: startYear,
-      endYear: endYear || undefined, // Для прошлых команд год окончания может быть undefined
-      isCurrent: false // Все команды в PastTeamsSection - прошлые
+      endYear: undefined, // Для текущих команд год окончания всегда undefined
+      isCurrent: true // Все команды в CurrentTeamsSection - текущие
     };
 
-    // Добавляем команду в прошлые команды
-    const updatedTeams = [...pastTeams, pastTeam];
-    onPastTeamsChange?.(updatedTeams);
+    // Добавляем команду в текущие команды
+    const updatedTeams = [...currentTeams, currentTeam];
+    onCurrentTeamsChange?.(updatedTeams);
     
     setNewTeam({
       teamName: '',
@@ -165,8 +182,9 @@ export default function PastTeamsSection({
       teamCity: '',
       startYear: '',
       endYear: '',
-      isCurrent: false // Всегда false для PastTeamsSection
+      isCurrent: true // Всегда true для CurrentTeamsSection
     });
+    setSelectedExistingTeam(null);
     setModalVisible(false);
   };
 
@@ -188,64 +206,71 @@ export default function PastTeamsSection({
       return;
     }
 
-    // Проверяем, есть ли команда в результатах поиска
-    const existingTeam = searchResults.find(team => 
-      team.name.toLowerCase() === editingTeam.teamName.trim().toLowerCase()
-    );
-
+    // Проверяем, была ли выбрана существующая команда
     let teamId: string;
-    if (existingTeam) {
-      teamId = existingTeam.id;
-      console.log('✅ Используем существующую команду из поиска при редактировании:', existingTeam.name);
+    
+    if (selectedExistingTeam && selectedExistingTeam.name.toLowerCase() === editingTeam.teamName.trim().toLowerCase()) {
+      // Используем выбранную существующую команду
+      teamId = selectedExistingTeam.id;
+      console.log('✅ Используем выбранную существующую команду при редактировании:', selectedExistingTeam.name);
     } else {
-      // Создаем новую команду в базе данных
-      console.log('🆕 Создаем новую команду в базе данных (редактирование):', editingTeam.teamName.trim());
-      const createdTeam = await createTeam({
-        name: editingTeam.teamName.trim(),
-        type: 'club', // По умолчанию тип "клуб"
-        country: editingTeam.teamCountry || 'Беларусь',
-        city: editingTeam.teamCity || undefined
-      });
+      // Проверяем, есть ли команда в результатах поиска
+      const existingTeam = searchResults.find(team => 
+        team.name.toLowerCase() === editingTeam.teamName.trim().toLowerCase()
+      );
 
-      if (!createdTeam) {
-        Alert.alert('Ошибка', 'Не удалось создать команду в базе данных');
-        return;
+      if (existingTeam) {
+        teamId = existingTeam.id;
+        console.log('✅ Используем существующую команду из поиска при редактировании:', existingTeam.name);
+      } else {
+        const createdTeam = await createTeam({
+          name: editingTeam.teamName.trim(),
+          type: 'club',
+          country: editingTeam.teamCountry.trim() || 'Беларусь',
+          city: editingTeam.teamCity.trim() || undefined
+        });
+
+        if (createdTeam) {
+          teamId = createdTeam.id;
+          console.log('✅ Команда успешно создана в базе данных при редактировании:', createdTeam.name);
+        } else {
+          Alert.alert('Ошибка', 'Не удалось создать команду в базе данных');
+          return;
+        }
       }
-      
-      teamId = createdTeam.id;
-      console.log('✅ Команда успешно создана в базе данных (редактирование):', createdTeam.name, 'с ID:', createdTeam.id);
     }
 
-    // Обновляем команду с правильным ID (всегда остается прошлой)
+    // Обновляем команду в текущих командах (всегда остается текущей)
     const updatedTeam = { 
       ...editingTeam, 
       id: teamId, 
       teamName: editingTeam.teamName.trim(),
-      isCurrent: false // Всегда false для PastTeamsSection
+      endYear: undefined, // Для текущих команд год окончания всегда undefined
+      isCurrent: true // Всегда true для CurrentTeamsSection
     };
-
-    // Обновляем команду в прошлых командах
-    const updatedTeams = pastTeams.map(team =>
+    
+    const updatedTeams = currentTeams.map(team => 
       team.id === editingTeam.id ? updatedTeam : team
     );
-    onPastTeamsChange?.(updatedTeams);
+    onCurrentTeamsChange?.(updatedTeams);
     
     setEditingTeam(null);
+    setSelectedExistingTeam(null);
     setModalVisible(false);
   };
 
   const handleDeleteTeam = (id: string) => {
     Alert.alert(
       'Удаление команды',
-      'Вы уверены, что хотите удалить эту команду из истории?',
+      'Вы уверены, что хотите удалить эту команду?',
       [
         { text: 'Отмена', style: 'cancel' },
         {
           text: 'Удалить',
           style: 'destructive',
           onPress: () => {
-            const updatedTeams = pastTeams.filter(team => team.id !== id);
-            onPastTeamsChange?.(updatedTeams);
+            const updatedTeams = currentTeams.filter(team => team.id !== id);
+            onCurrentTeamsChange?.(updatedTeams);
           }
         }
       ]
@@ -254,68 +279,57 @@ export default function PastTeamsSection({
 
   const openEditModal = (team: PastTeam) => {
     setEditingTeam(team);
+    setSelectedExistingTeam(null);
     setModalVisible(true);
   };
 
-  // Обработка изменения порядка прошлых команд
   const handleDragEnd = ({ data }: { data: PastTeam[] }) => {
-    console.log('🔄 Порядок прошлых команд изменен:', data);
-    onPastTeamsChange?.(data);
+    console.log('🔄 Порядок текущих команд изменен:', data);
+    onCurrentTeamsChange?.(data);
   };
 
-  // Рендер элемента прошлой команды
-  const renderPastTeamItem = ({ item, drag, isActive }: RenderItemParams<PastTeam>) => {
+  const renderCurrentTeamItem = ({ item, drag, isActive }: RenderItemParams<PastTeam>) => {
     return (
-      <DraggablePastTeamItem
+      <DraggableTeamItem
         team={item}
-        onEdit={openEditModal}
-        onDelete={handleDeleteTeam}
+        onRemove={readOnly ? undefined : () => handleDeleteTeam(item.id)}
+        onEdit={readOnly ? undefined : () => openEditModal(item)}
         drag={readOnly ? undefined : drag}
         isActive={isActive}
-        isEditing={isEditing}
+        readOnly={readOnly}
       />
     );
   };
 
   const getPeriodText = (team: PastTeam) => {
-    if (team.isCurrent) {
-      return `${team.startYear} - настоящее время`;
-    }
-    if (team.endYear) {
-      return `${team.startYear} - ${team.endYear}`;
-    }
-    return `${team.startYear}`;
+    // Для текущих команд всегда показываем "настоящее время"
+    return `(${team.startYear} - настоящее время)`;
   };
 
-     // Проверяем, есть ли команды, которые не являются текущими
-   const hasPastTeams = pastTeams.some(team => !team.isCurrent);
-   
-   if (pastTeams.length === 0 && !isEditing) {
-     return null;
-   }
-
   return (
-    <View style={styles.pastTeamsContainer}>
-      
-             {!hasPastTeams ? (
+    <View style={styles.container}>
+      {currentTeams.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Ionicons name="people-outline" size={48} color="#666" />
-          <Text style={styles.emptyText}>Нет прошлых команд</Text>
+          <Text style={styles.emptyText}>Нет текущих команд</Text>
         </View>
-             ) : (
-         <DraggableFlatList
-           data={pastTeams.filter(team => !team.isCurrent)}
-           renderItem={renderPastTeamItem}
-           keyExtractor={(item) => item.id}
-           onDragEnd={readOnly ? undefined : handleDragEnd}
-           contentContainerStyle={styles.teamsList}
-         />
+      ) : (
+        <DraggableFlatList
+          data={currentTeams}
+          renderItem={renderCurrentTeamItem}
+          keyExtractor={(item) => item.id}
+          onDragEnd={readOnly ? undefined : handleDragEnd}
+          contentContainerStyle={styles.teamsList}
+        />
       )}
 
       {isEditing && (
         <TouchableOpacity
           style={styles.addButton}
-          onPress={() => setModalVisible(true)}
+          onPress={() => {
+            setModalVisible(true);
+            setSelectedExistingTeam(null);
+          }}
         >
           <Ionicons name="add-circle" size={24} color="#FF4444" />
           <Text style={styles.addButtonText}>Добавить команду</Text>
@@ -414,14 +428,13 @@ export default function PastTeamsSection({
 
             <TextInput
               style={styles.input}
-              placeholder="Год начала * (например: 2020)"
+              placeholder="Год начала *"
               placeholderTextColor="#888"
               keyboardType="numeric"
-              value={editingTeam ? String(editingTeam.startYear) : newTeam.startYear}
+              value={editingTeam?.startYear?.toString() || newTeam.startYear}
               onChangeText={(text) => {
                 if (editingTeam) {
-                  const year = parseInt(text) || 0;
-                  setEditingTeam({ ...editingTeam, startYear: year });
+                  setEditingTeam({ ...editingTeam, startYear: parseInt(text) || 0 });
                 } else {
                   setNewTeam({ ...newTeam, startYear: text });
                 }
@@ -430,14 +443,13 @@ export default function PastTeamsSection({
 
             <TextInput
               style={styles.input}
-              placeholder="Год окончания (необязательно, например: 2023)"
+              placeholder="Год окончания (необязательно)"
               placeholderTextColor="#888"
               keyboardType="numeric"
-              value={editingTeam ? (editingTeam.endYear ? String(editingTeam.endYear) : '') : newTeam.endYear}
+              value={editingTeam?.endYear?.toString() || newTeam.endYear}
               onChangeText={(text) => {
                 if (editingTeam) {
-                  const year = text ? parseInt(text) : undefined;
-                  setEditingTeam({ ...editingTeam, endYear: year });
+                  setEditingTeam({ ...editingTeam, endYear: text ? parseInt(text) : undefined });
                 } else {
                   setNewTeam({ ...newTeam, endYear: text });
                 }
@@ -446,9 +458,9 @@ export default function PastTeamsSection({
 
 
 
-            <View style={styles.modalButtons}>
+            <View style={styles.buttonContainer}>
               <TouchableOpacity
-                style={styles.cancelButton}
+                style={[styles.button, styles.cancelButton]}
                 onPress={() => {
                   setModalVisible(false);
                   setEditingTeam(null);
@@ -458,17 +470,15 @@ export default function PastTeamsSection({
                     teamCity: '',
                     startYear: '',
                     endYear: '',
-                    isCurrent: false
+                    isCurrent: true
                   });
-                  setSearchTerm('');
-                  setSearchResults([]);
-                  setShowSuggestions(false);
                 }}
               >
                 <Text style={styles.cancelButtonText}>Отмена</Text>
               </TouchableOpacity>
+              
               <TouchableOpacity
-                style={styles.saveButton}
+                style={[styles.button, styles.saveButton]}
                 onPress={editingTeam ? handleEditTeam : handleAddTeam}
               >
                 <Text style={styles.saveButtonText}>
@@ -484,65 +494,21 @@ export default function PastTeamsSection({
 }
 
 const styles = StyleSheet.create({
-  pastTeamsContainer: {
+  container: {
     flex: 1,
   },
   emptyContainer: {
     alignItems: 'center',
-    paddingVertical: 30,
+    paddingVertical: 20,
   },
   emptyText: {
-    color: '#666',
     fontSize: 16,
     fontFamily: 'Gilroy-Regular',
+    color: '#666',
     marginTop: 10,
   },
   teamsList: {
-    maxHeight: 300,
-  },
-  teamItem: {
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderRadius: 12,
-    padding: 15,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  teamHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  teamName: {
-    fontSize: 16,
-    fontFamily: 'Gilroy-Bold',
-    color: '#fff',
-    marginLeft: 10,
-    flex: 1,
-  },
-  editButtons: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  editButton: {
-    padding: 5,
-  },
-  deleteButton: {
-    padding: 5,
-  },
-  teamDetails: {
-    marginLeft: 30,
-  },
-  teamPeriod: {
-    fontSize: 14,
-    fontFamily: 'Gilroy-Bold',
-    color: '#FF4444',
-    marginBottom: 2,
-  },
-  teamLocation: {
-    fontSize: 14,
-    fontFamily: 'Gilroy-Regular',
-    color: '#ccc',
+    paddingBottom: 10,
   },
   addButton: {
     flexDirection: 'row',
@@ -563,34 +529,35 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   modalContent: {
-    backgroundColor: 'rgba(0, 0, 0, 0.95)',
-    borderRadius: 20,
-    padding: 25,
+    backgroundColor: '#1a1a1a',
+    borderRadius: 15,
+    padding: 20,
     width: '90%',
-    maxWidth: 400,
+    maxHeight: '80%',
     borderWidth: 1,
-    borderColor: 'rgba(255, 68, 68, 0.3)',
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontFamily: 'Gilroy-Bold',
-    color: '#FF4444',
+    color: '#fff',
     textAlign: 'center',
     marginBottom: 20,
   },
   searchContainer: {
+    position: 'relative',
     marginBottom: 15,
   },
   searchInput: {
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
     borderRadius: 8,
-    paddingHorizontal: 15,
-    paddingVertical: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     fontSize: 16,
     fontFamily: 'Gilroy-Regular',
     color: '#fff',
@@ -598,19 +565,23 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.2)',
   },
   suggestionsContainer: {
-    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    right: 0,
+    backgroundColor: '#2a2a2a',
     borderRadius: 8,
-    marginTop: 5,
-    maxHeight: 150,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    zIndex: 1000,
+    maxHeight: 200,
   },
   suggestionsList: {
-    maxHeight: 150,
+    maxHeight: 200,
   },
   suggestionItem: {
+    paddingVertical: 12,
     paddingHorizontal: 15,
-    paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.1)',
   },
@@ -622,14 +593,14 @@ const styles = StyleSheet.create({
   suggestionSubtext: {
     fontSize: 14,
     fontFamily: 'Gilroy-Regular',
-    color: '#ccc',
+    color: '#888',
     marginTop: 2,
   },
   input: {
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
     borderRadius: 8,
-    paddingHorizontal: 15,
-    paddingVertical: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     fontSize: 16,
     fontFamily: 'Gilroy-Regular',
     color: '#fff',
@@ -642,37 +613,37 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 20,
   },
+  checkbox: {
+    marginRight: 10,
+  },
   checkboxText: {
     fontSize: 16,
     fontFamily: 'Gilroy-Regular',
     color: '#fff',
-    marginLeft: 10,
   },
-  modalButtons: {
+  buttonContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    gap: 15,
+    gap: 10,
+  },
+  button: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
   },
   cancelButton: {
-    flex: 1,
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 12,
-    padding: 15,
-    alignItems: 'center',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  saveButton: {
+    backgroundColor: '#FF4444',
   },
   cancelButtonText: {
     fontSize: 16,
     fontFamily: 'Gilroy-Bold',
     color: '#fff',
-  },
-  saveButton: {
-    flex: 1,
-    backgroundColor: '#FF4444',
-    borderRadius: 12,
-    padding: 15,
-    alignItems: 'center',
   },
   saveButtonText: {
     fontSize: 16,

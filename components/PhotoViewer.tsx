@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
     Dimensions,
     Image,
@@ -23,6 +23,11 @@ interface PhotoViewerProps {
 
 export default function PhotoViewer({ photos, visible, onClose, initialIndex = 0 }: PhotoViewerProps) {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
+
+  // Обновляем currentIndex при изменении initialIndex
+  useEffect(() => {
+    setCurrentIndex(initialIndex);
+  }, [initialIndex]);
 
   const nextPhoto = () => {
     setCurrentIndex((prev) => (prev + 1) % photos.length);
@@ -105,7 +110,7 @@ export default function PhotoViewer({ photos, visible, onClose, initialIndex = 0
                       <Image
                         source={{ uri: photo }}
                         style={styles.thumbnailImage}
-                        resizeMode="contain"
+                        resizeMode="cover"
                       />
                     </TouchableOpacity>
                   ))}
@@ -156,11 +161,12 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
   },
   mainImage: {
-    width: screenWidth - 40,
-    height: screenHeight * 0.6,
+    width: '100%',
+    height: '100%',
   },
   navButton: {
     position: 'absolute',
@@ -188,7 +194,7 @@ const styles = StyleSheet.create({
   },
   thumbnail: {
     width: 60,
-    height: 60,
+    aspectRatio: 4/3,
     borderRadius: 8,
     marginHorizontal: 5,
     borderWidth: 2,

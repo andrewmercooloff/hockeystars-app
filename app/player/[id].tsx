@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
@@ -8,6 +9,7 @@ import {
     ImageBackground,
     Linking,
     Modal,
+    Platform,
     ScrollView,
     StyleSheet,
     Text,
@@ -15,15 +17,16 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
+import Animated from 'react-native-reanimated';
 import AchievementsSection from '../../components/AchievementsSection';
+import CurrentTeamsSection from '../../components/CurrentTeamsSection';
 import CustomAlert from '../../components/CustomAlert';
+import EditablePhotosSection from '../../components/EditablePhotosSection';
 import NormativesSection from '../../components/NormativesSection';
 import PastTeamsSection from '../../components/PastTeamsSection';
-import PhotosSection from '../../components/PhotosSection';
-import TeamsDisplay from '../../components/TeamsDisplay';
 import VideoCarousel from '../../components/VideoCarousel';
 import YouTubeVideo from '../../components/YouTubeVideo';
-import { acceptFriendRequest, Achievement, calculateHockeyExperience, cancelFriendRequest, clearAllFriendRequests, createFriendRequestNotification, debugFriendRequests, declineFriendRequest, getFriends, getFriendshipStatus, getPlayerById, getPlayerTeams, loadCurrentUser, PastTeam, Player, PlayerTeam, removeFriend, sendFriendRequest, updatePlayer } from '../../utils/playerStorage';
+import { acceptFriendRequest, Achievement, calculateHockeyExperience, cancelFriendRequest, clearAllFriendRequests, createFriendRequestNotification, debugFriendRequests, declineFriendRequest, getFriends, getFriendshipStatus, getPlayerById, loadCurrentUser, PastTeam, Player, removeFriend, sendFriendRequest, updatePlayer } from '../../utils/playerStorage';
 import { supabase } from '../../utils/supabase';
 
 const iceBg = require('../../assets/images/led.jpg');
@@ -59,15 +62,19 @@ export default function PlayerProfile() {
   const [editData, setEditData] = useState<Partial<Player>>({});
   const [showCountryPicker, setShowCountryPicker] = useState(false);
   const [showPositionPicker, setShowPositionPicker] = useState(false);
+  const [showGripPicker, setShowGripPicker] = useState(false);
+  const [showBirthDatePicker, setShowBirthDatePicker] = useState(false);
+  const [selectedBirthDate, setSelectedBirthDate] = useState(new Date());
   const [videoFields, setVideoFields] = useState<Array<{url: string, timeCode: string}>>([{ url: '', timeCode: '' }]);
   const [galleryPhotos, setGalleryPhotos] = useState<string[]>([]);
-  const [playerTeams, setPlayerTeams] = useState<PlayerTeam[]>([]);
+  const [playerTeams, setPlayerTeams] = useState<PastTeam[]>([]);
   const [achievements, setAchievements] = useState<Achievement[]>([]);
   const [pastTeams, setPastTeams] = useState<PastTeam[]>([]);
   
   // Массивы для селекторов
   const countries = ['Беларусь', 'Россия', 'Канада', 'США', 'Финляндия', 'Швеция', 'Литва', 'Латвия', 'Польша'];
   const positions = ['Нападающий', 'Защитник', 'Вратарь'];
+  const grips = ['Левый', 'Правый'];
 
 
 
@@ -87,6 +94,10 @@ export default function PlayerProfile() {
   );
 
   const loadPlayerData = async () => {
+    // Сбрасываем состояния редактирования при загрузке нового профиля
+    setIsEditing(false);
+    setEditData({});
+    
     try {
       if (id) {
         const playerData = await getPlayerById(id as string);
@@ -101,11 +112,24 @@ export default function PlayerProfile() {
         // Загружаем команды игрока
         if (playerData) {
           try {
-            const teams = await getPlayerTeams(playerData.id);
-            setPlayerTeams(teams);
-            console.log('🏒 Команды игрока:', teams);
+            const { getPlayerTeamsAsPastTeams } = await import('../../utils/playerStorage');
+            const teams = await getPlayerTeamsAsPastTeams(playerData.id);
+            console.log('🏒 Команды из БД (player_teams):', teams);
+            
+            // Разделяем команды на текущие и прошлые
+            const currentTeams = teams.filter(team => team.isCurrent);
+            const pastTeams = teams.filter(team => !team.isCurrent);
+            
+            setPlayerTeams(currentTeams);
+            setPastTeams(pastTeams);
+            
+            console.log('🏒 Текущие команды (из player_teams):', currentTeams);
+            console.log('🏒 Прошлые команды (из player_teams):', pastTeams);
+            console.log('🏒 Старые данные pastTeams из players:', playerData.pastTeams);
           } catch (error) {
             console.error('Ошибка загрузки команд игрока:', error);
+            setPlayerTeams([]);
+            setPastTeams([]);
           }
         }
         
@@ -174,7 +198,7 @@ export default function PlayerProfile() {
           const migratedAvatarUrl = await uploadImageToStorage(playerData.avatar);
           if (migratedAvatarUrl) {
             updatedPlayerData = { ...playerData, avatar: migratedAvatarUrl };
-            await updatePlayer(playerData.id, updatedPlayerData);
+            await updatePlayer(playerData.id, updatedPlayerData, userData?.id);
             console.log('✅ Аватар игрока мигрирован в Storage:', migratedAvatarUrl);
           }
         }
@@ -199,8 +223,8 @@ export default function PlayerProfile() {
             // Проверяем, является ли фото локальным
             if (photo.startsWith('file://') || photo.startsWith('content://') || photo.startsWith('data:')) {
               console.log('🔄 Мигрируем локальное фото игрока в Storage:', photo);
-              const { uploadImageToStorage } = await import('../../utils/uploadImage');
-              const migratedUrl = await uploadImageToStorage(photo);
+              const { uploadGalleryPhoto } = await import('../../utils/uploadImage');
+              const migratedUrl = await uploadGalleryPhoto(photo);
               if (migratedUrl) {
                 migratedPhotos.push(migratedUrl);
               }
@@ -213,7 +237,7 @@ export default function PlayerProfile() {
           // Если были мигрированы фото, обновляем игрока
           if (migratedPhotos.length !== updatedPlayerData.photos.length) {
             const finalUpdatedPlayer = { ...updatedPlayerData, photos: migratedPhotos };
-            await updatePlayer(updatedPlayerData.id, finalUpdatedPlayer);
+            await updatePlayer(updatedPlayerData.id, finalUpdatedPlayer, userData?.id);
             setPlayer(finalUpdatedPlayer);
           }
         } else {
@@ -225,10 +249,7 @@ export default function PlayerProfile() {
           setAchievements(playerData.achievements);
         }
 
-        // Инициализируем прошлые команды
-        if (playerData?.pastTeams && Array.isArray(playerData.pastTeams)) {
-          setPastTeams(playerData.pastTeams);
-        }
+
         
         // Проверяем статус дружбы, если пользователь авторизован
         if (userData && playerData) {
@@ -273,6 +294,94 @@ export default function PlayerProfile() {
       cancelText: 'Отмена',
       secondaryText: 'Дополнительно'
     });
+  };
+
+  const showBirthDatePickerModal = () => {
+    // Устанавливаем текущую дату рождения или сегодняшнюю дату
+    if (editData.birthDate || player?.birthDate) {
+      const dateStr = editData.birthDate || player?.birthDate || '';
+      const parts = dateStr.split('.');
+      if (parts.length === 3) {
+        const day = parseInt(parts[0]);
+        const month = parseInt(parts[1]) - 1; // Месяцы в JS начинаются с 0
+        const year = parseInt(parts[2]);
+        setSelectedBirthDate(new Date(year, month, day));
+      } else {
+        setSelectedBirthDate(new Date());
+      }
+    } else {
+      setSelectedBirthDate(new Date());
+    }
+    setShowBirthDatePicker(true);
+  };
+
+  const onBirthDateChange = (event: any, date?: Date) => {
+    if (Platform.OS === 'ios') {
+      // На iOS календарь не закрывается автоматически
+      if (date) {
+        setSelectedBirthDate(date);
+      }
+    } else {
+      // На Android календарь закрывается только при полном выборе
+      if (event.type === 'set' && date) {
+        setShowBirthDatePicker(false);
+        setSelectedBirthDate(date);
+        const day = date.getDate().toString().padStart(2, '0');
+        const month = (date.getMonth() + 1).toString().padStart(2, '0');
+        const year = date.getFullYear().toString();
+        const formattedDate = `${day}.${month}.${year}`;
+        setEditData({...editData, birthDate: formattedDate});
+      } else if (event.type === 'dismissed') {
+        setShowBirthDatePicker(false);
+      }
+    }
+  };
+
+  // Функция для форматирования даты в читаемый вид
+  const formatBirthDate = (dateString: string): string => {
+    if (!dateString) return 'Не указана';
+    
+    let day: number, month: number, year: number;
+    
+    // Проверяем формат ДД.ММ.ГГГГ
+    if (dateString.includes('.')) {
+      const parts = dateString.split('.');
+      
+      if (parts.length !== 3) {
+        return dateString;
+      }
+      
+      day = parseInt(parts[0]);
+      month = parseInt(parts[1]);
+      year = parseInt(parts[2]);
+    }
+    // Проверяем формат ГГГГ-ММ-ДД (ISO)
+    else if (dateString.includes('-')) {
+      const parts = dateString.split('-');
+      
+      if (parts.length !== 3) {
+        return dateString;
+      }
+      
+      year = parseInt(parts[0]);
+      month = parseInt(parts[1]);
+      day = parseInt(parts[2]);
+    }
+    // Если формат не распознан
+    else {
+      return dateString;
+    }
+    
+    if (isNaN(day) || isNaN(month) || isNaN(year)) {
+      return dateString;
+    }
+    
+    const months = [
+      'января', 'февраля', 'марта', 'апреля', 'мая', 'июня',
+      'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'
+    ];
+    
+    return `${day} ${months[month - 1]} ${year}`;
   };
 
   const handleSendMessage = () => {
@@ -512,38 +621,30 @@ export default function PlayerProfile() {
     }
   };
 
-  const handleCurrentTeamChange = async (teamName: string, isCurrent: boolean) => {
+  const handleCurrentTeamChange = async (teams: PastTeam[]) => {
     try {
-      // Находим команду по названию
-      const team = selectedTeams.find(t => t.name === teamName);
-      if (!team) {
-        console.log('Команда не найдена в списке доступных команд:', teamName);
-        return;
-      }
-
-      if (isCurrent) {
-        // Добавляем команду в текущие команды
-        const success = await addPlayerTeam(player.id, team.id, true);
-        if (success) {
-          // Обновляем локальное состояние
-          await loadPlayerTeams(player.id);
-        }
-      }
+      console.log('🔄 Обновляем текущие команды:', teams);
+      setPlayerTeams(teams);
     } catch (error) {
-      console.error('Ошибка при изменении текущей команды:', error);
+      console.error('Ошибка при изменении текущих команд:', error);
     }
   };
 
   const handleSave = async () => {
     if (!player || !currentUser) {
+      console.error('❌ handleSave: player или currentUser не найдены');
       showCustomAlert('Ошибка', 'Данные не найдены', 'error');
       return;
     }
 
+    // Проверяем права доступа
+    if (currentUser.status !== 'admin' && currentUser.id !== player.id) {
+      console.error('❌ handleSave: нет прав доступа', { currentUserStatus: currentUser.status, currentUserId: currentUser.id, playerId: player.id });
+      showCustomAlert('Ошибка', 'У вас нет прав для редактирования этого профиля', 'error');
+      return;
+    }
+
     try {
-      console.log('💾 Сохраняем изменения для игрока:', player.name);
-      console.log('📝 Данные для сохранения:', editData);
-      
       // Объединяем поля видео в одну строку
       const goalsText = videoFields
         .filter(video => video.url.trim())
@@ -559,22 +660,64 @@ export default function PlayerProfile() {
         ...editData, 
         favoriteGoals: goalsText,
         photos: galleryPhotos,
-        achievements: achievements,
-        pastTeams: pastTeams
+        achievements: achievements
+        // Убираем pastTeams, так как команды сохраняются в отдельной таблице
       };
-      console.log('📝 Полные данные для сохранения:', updatedPlayer);
       
-      await updatePlayer(player.id, updatedPlayer);
+      // Синхронизируем команды с базой данных
+      try {
+        const { syncPlayerTeams, clearOldPastTeamsData } = await import('../../utils/playerStorage');
+        
+        // Сначала очищаем старые данные команд
+        const clearSuccess = await clearOldPastTeamsData(player.id);
+        if (!clearSuccess) {
+          console.error('❌ Ошибка очистки старых данных команд');
+          showCustomAlert('Ошибка', 'Не удалось очистить старые данные команд', 'error');
+          return;
+        }
+        
+        const teamsSyncSuccess = await syncPlayerTeams(player.id, playerTeams, pastTeams);
+        
+        if (!teamsSyncSuccess) {
+          console.error('❌ Ошибка синхронизации команд');
+          showCustomAlert('Ошибка', 'Не удалось сохранить команды', 'error');
+          return;
+        }
+      } catch (syncError) {
+        console.error('❌ Исключение при синхронизации команд:', syncError);
+        showCustomAlert('Ошибка', 'Не удалось сохранить команды', 'error');
+        return;
+      }
+      // Выполняем обновление данных игрока и перезагрузку команд параллельно
+      const [refreshedPlayer, teams] = await Promise.all([
+        updatePlayer(player.id, updatedPlayer, currentUser.id).then(() => getPlayerById(player.id)),
+        import('../../utils/playerStorage').then(({ getPlayerTeamsAsPastTeams }) => getPlayerTeamsAsPastTeams(player.id))
+      ]);
       
-      // Обновляем данные игрока
-      const refreshedPlayer = await getPlayerById(player.id);
-      setPlayer(refreshedPlayer);
+      // Обновляем состояние игрока
+      if (refreshedPlayer) {
+        setPlayer(refreshedPlayer);
+      }
+      
+      // Обновляем состояние команд
+      if (teams) {
+        const currentTeams = teams.filter(team => team.isCurrent);
+        const pastTeams = teams.filter(team => !team.isCurrent);
+        
+        setPlayerTeams(currentTeams);
+        setPastTeams(pastTeams);
+      }
       
       setIsEditing(false);
       showCustomAlert('Успешно', 'Данные игрока обновлены', 'success');
       
     } catch (error) {
-      console.error('❌ Ошибка сохранения:', error);
+      console.error('❌ handleSave: общая ошибка сохранения:', error);
+      console.error('❌ handleSave: детали ошибки:', {
+        name: error.name,
+        message: error.message,
+        stack: error.stack
+      });
       showCustomAlert('Ошибка', 'Не удалось сохранить изменения', 'error');
     }
   };
@@ -625,6 +768,28 @@ export default function PlayerProfile() {
     );
   };
 
+  const handleLogout = async () => {
+    showCustomAlert(
+      'Выход из профиля',
+      'Вы уверены, что хотите выйти из профиля?',
+      'warning',
+      async () => {
+        try {
+          // Очищаем данные текущего пользователя
+          const { logoutUser } = await import('../../utils/playerStorage');
+          await logoutUser();
+          
+          // Переходим на главную страницу
+          router.replace('/');
+        } catch (error) {
+          console.error('❌ Ошибка при выходе:', error);
+          // Даже если произошла ошибка, все равно переходим на главную
+          router.replace('/');
+        }
+      }
+    );
+  };
+
   if (loading) {
     return (
       <View style={styles.container}>
@@ -661,13 +826,13 @@ export default function PlayerProfile() {
         <View style={styles.overlay}>
           <ScrollView contentContainerStyle={styles.scrollContainer}>
             
-            {/* Кнопка редактирования для администратора в самом верху */}
-            {currentUser?.status === 'admin' && (
+            {/* Кнопка редактирования в самом верху */}
+            {(currentUser?.status === 'admin' || currentUser?.id === player.id) && (
               <View style={styles.editButtonContainer}>
                 <TouchableOpacity 
                   style={styles.editButton} 
                   onPress={() => {
-                    console.log('🔧 Админ редактирует игрока:', player.name);
+                    console.log('🔧 Редактирование профиля:', player.name);
                     if (isEditing) {
                       handleSave();
                     } else {
@@ -676,57 +841,110 @@ export default function PlayerProfile() {
                     }
                   }}
                 >
-                  <Ionicons name={isEditing ? "checkmark" : "create"} size={20} color="#8A2BE2" />
+                  <Ionicons name={isEditing ? "checkmark" : "create"} size={40} color="#fff" />
                 </TouchableOpacity>
               </View>
             )}
 
             {/* Фото и основная информация */}
             <View style={styles.profileSection}>
-              {(() => {
-                const imageSource = player.avatar;
-                const hasValidImage = imageSource && typeof imageSource === 'string' && (
-                  imageSource.startsWith('data:image/') || 
-                  imageSource.startsWith('http') || 
-                  imageSource.startsWith('file://') || 
-                  imageSource.startsWith('content://')
-                );
+              {isEditing && (currentUser?.status === 'admin' || currentUser?.id === player.id) ? (
+                <TouchableOpacity 
+                  style={styles.profileImage}
+                  onPress={() => {
+                    showCustomAlert('Редактирование фото', 'Функция редактирования фото будет добавлена позже', 'info');
+                  }}
+                >
+                  {(() => {
+                    const imageSource = player.avatar;
+                    const hasValidImage = imageSource && typeof imageSource === 'string' && (
+                      imageSource.startsWith('data:image/') || 
+                      imageSource.startsWith('http') || 
+                      imageSource.startsWith('file://') || 
+                      imageSource.startsWith('content://')
+                    );
 
-                if (hasValidImage) {
-                  return (
-                    <Image 
-                      source={{ 
-                        uri: imageSource,
-                        cache: 'reload', // Принудительно перезагружаем кэш
-                        headers: {
-                          'Cache-Control': 'no-cache'
-                        }
-                      }}
-                      style={styles.profileImage}
-                      onError={(error) => {
-                        console.log('❌ Ошибка загрузки аватара в профиле игрока:', error);
-                        console.log('   URL аватара:', imageSource);
-                        console.log('   Нативная ошибка:', error.nativeEvent?.error);
-                      }}
-                      onLoad={() => {
-                        console.log('✅ Аватар в профиле игрока успешно загружен:', imageSource);
-                      }}
-                    />
+                    if (hasValidImage) {
+                      return (
+                        <Image 
+                          source={{ 
+                            uri: imageSource,
+                            cache: 'reload',
+                            headers: {
+                              'Cache-Control': 'no-cache'
+                            }
+                          }}
+                          style={styles.profileImage}
+                        />
+                      );
+                    } else {
+                      return (
+                        <View style={[styles.profileImage, styles.avatarPlaceholder]}>
+                          <Ionicons name="person" size={48} color="#FFFFFF" />
+                        </View>
+                      );
+                    }
+                  })()}
+                  <View style={[styles.editOverlay, { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', borderRadius: 60 }]}>
+                    <Ionicons name="camera" size={24} color="#fff" />
+                  </View>
+                </TouchableOpacity>
+              ) : (
+                (() => {
+                  const imageSource = player.avatar;
+                  const hasValidImage = imageSource && typeof imageSource === 'string' && (
+                    imageSource.startsWith('data:image/') || 
+                    imageSource.startsWith('http') || 
+                    imageSource.startsWith('file://') || 
+                    imageSource.startsWith('content://')
                   );
-                } else {
-                  return (
-                    <View style={[styles.profileImage, styles.avatarPlaceholder]}>
-                      <Ionicons name="person" size={48} color="#FFFFFF" />
-                    </View>
-                  );
-                }
-              })()}
+
+                  if (hasValidImage) {
+                    return (
+                      <Image 
+                        source={{ 
+                          uri: imageSource,
+                          cache: 'reload',
+                          headers: {
+                            'Cache-Control': 'no-cache'
+                          }
+                        }}
+                        style={styles.profileImage}
+                        onError={(error) => {
+                          console.log('❌ Ошибка загрузки аватара в профиле игрока:', error);
+                          console.log('   URL аватара:', imageSource);
+                          console.log('   Нативная ошибка:', error.nativeEvent?.error);
+                        }}
+                        onLoad={() => {
+                          console.log('✅ Аватар в профиле игрока успешно загружен:', imageSource);
+                        }}
+                      />
+                    );
+                  } else {
+                    return (
+                      <View style={[styles.profileImage, styles.avatarPlaceholder]}>
+                        <Ionicons name="person" size={48} color="#FFFFFF" />
+                      </View>
+                    );
+                  }
+                })()
+              )}
               <View style={styles.nameRow}>
-                <Text style={styles.playerName}>{player.name?.toUpperCase()}</Text>
-                {isEditing && currentUser?.status === 'admin' ? (
+                {isEditing ? (
+                  <TextInput
+                    style={[styles.editInput, { fontSize: 28, fontFamily: 'Gilroy-Bold', color: '#fff', textAlign: 'center', marginBottom: 5 }]}
+                    value={editData.name || player.name || ''}
+                    onChangeText={(text) => setEditData({...editData, name: text})}
+                    placeholder="Имя Фамилия"
+                    placeholderTextColor="#888"
+                  />
+                ) : (
+                  <Text style={styles.playerName}>{player.name?.toUpperCase()}</Text>
+                )}
+                {isEditing ? (
                   <TextInput
                     style={[styles.editInput, { width: 60, marginLeft: 10 }]}
-                    value={editData.number || player.number || ''}
+                    value={editData.number !== undefined ? editData.number : (player.number || '')}
                     onChangeText={(text) => setEditData({...editData, number: text})}
                     placeholder="#"
                     keyboardType="numeric"
@@ -755,11 +973,16 @@ export default function PlayerProfile() {
                   ))}
                 </View>
               )}
-              {player.hockeyStartDate && player.hockeyStartDate !== '' && player.hockeyStartDate !== 'null' && (
-                <Text style={styles.hockeyExperience}>
-                  В хоккее {calculateHockeyExperience(player.hockeyStartDate)}
-                </Text>
+              
+              {/* Опыт в хоккее */}
+              {player.status === 'player' && player.hockeyStartDate && (
+                <View style={styles.hockeyExperienceContainer}>
+                  <Text style={styles.hockeyExperienceText}>
+                    В хоккее {calculateHockeyExperience(player.hockeyStartDate)}
+                  </Text>
+                </View>
               )}
+
               
 
               
@@ -961,7 +1184,7 @@ export default function PlayerProfile() {
               </View>
             )}
 
-            {/* Статистика - только для обычных игроков с данными */}
+            {/* Статистика текущего сезона - только для обычных игроков с данными */}
             {player && player.status !== 'star' && (() => {
               const goalsNum = parseInt(player.goals || '0') || 0;
               const assistsNum = parseInt(player.assists || '0') || 0;
@@ -983,42 +1206,157 @@ export default function PlayerProfile() {
               // Показываем статистику только если есть хотя бы одно ненулевое значение
               const hasStats = pointsNum > 0 || goalsNum > 0 || assistsNum > 0 || gamesNum > 0;
               
-              return hasStats ? (
+              return (hasStats || (isEditing && (currentUser?.status === 'admin' || currentUser?.id === player.id))) ? (
                 <View style={styles.section}>
-                  <Text style={styles.sectionTitle}>Статистика</Text>
-                  <View style={styles.statsGrid}>
-                    {pointsNum > 0 && (
+                  <Text style={styles.sectionTitle}>Статистика текущего сезона</Text>
+                  {isEditing ? (
+                    <View style={styles.statsGrid}>
                       <View style={styles.statItem}>
-                        <Text style={styles.statValue}>{pointsNum.toString()}</Text>
-                        <Text style={styles.statLabel}>Очков</Text>
-                      </View>
-                    )}
-                    <View style={styles.statItem}>
-                      <Text style={styles.statValue}>{friends.length}</Text>
-                      <Text style={styles.statLabel}>Друзей</Text>
-                    </View>
-                    {goalsNum > 0 && (
-                      <View style={styles.statItem}>
-                        <Text style={styles.statValue}>{goalsNum.toString()}</Text>
-                        <Text style={styles.statLabel}>Голов</Text>
-                      </View>
-                    )}
-                    {assistsNum > 0 && (
-                      <View style={styles.statItem}>
-                        <Text style={styles.statValue}>{assistsNum.toString()}</Text>
-                        <Text style={styles.statLabel}>Передач</Text>
-                      </View>
-                    )}
-                    {gamesNum > 0 && (
-                      <View style={styles.statItem}>
-                        <Text style={styles.statValue}>{gamesNum.toString()}</Text>
                         <Text style={styles.statLabel}>Игр</Text>
+                        <TextInput
+                          style={styles.editInput}
+                          value={editData.games !== undefined ? editData.games : (player.games || '')}
+                          onChangeText={(text) => setEditData({...editData, games: text})}
+                          placeholder="0"
+                          placeholderTextColor="#888"
+                          keyboardType="numeric"
+                        />
                       </View>
-                    )}
-                  </View>
+                      <View style={styles.statItem}>
+                        <Text style={styles.statLabel}>Голов</Text>
+                        <TextInput
+                          style={styles.editInput}
+                          value={editData.goals !== undefined ? editData.goals : (player.goals || '')}
+                          onChangeText={(text) => setEditData({...editData, goals: text})}
+                          placeholder="0"
+                          placeholderTextColor="#888"
+                          keyboardType="numeric"
+                        />
+                      </View>
+                      <View style={styles.statItem}>
+                        <Text style={styles.statLabel}>Передач</Text>
+                        <TextInput
+                          style={styles.editInput}
+                          value={editData.assists !== undefined ? editData.assists : (player.assists || '')}
+                          onChangeText={(text) => setEditData({...editData, assists: text})}
+                          placeholder="0"
+                          placeholderTextColor="#888"
+                          keyboardType="numeric"
+                        />
+                      </View>
+                    </View>
+                  ) : (
+                    <View style={styles.statsGrid}>
+                      {pointsNum > 0 && (
+                        <View style={styles.statItem}>
+                          <Text style={styles.statValue}>{pointsNum.toString()}</Text>
+                          <Text style={styles.statLabel}>Очков</Text>
+                        </View>
+                      )}
+                      <View style={styles.statItem}>
+                        <Text style={styles.statValue}>{friends.length}</Text>
+                        <Text style={styles.statLabel}>Друзей</Text>
+                      </View>
+                      {goalsNum > 0 && (
+                        <View style={styles.statItem}>
+                          <Text style={styles.statValue}>{goalsNum.toString()}</Text>
+                          <Text style={styles.statLabel}>Голов</Text>
+                        </View>
+                      )}
+                      {assistsNum > 0 && (
+                        <View style={styles.statItem}>
+                          <Text style={styles.statValue}>{assistsNum.toString()}</Text>
+                          <Text style={styles.statLabel}>Передач</Text>
+                        </View>
+                      )}
+                      {gamesNum > 0 && (
+                        <View style={styles.statItem}>
+                          <Text style={styles.statValue}>{gamesNum.toString()}</Text>
+                          <Text style={styles.statLabel}>Игр</Text>
+                        </View>
+                      )}
+                    </View>
+                  )}
                 </View>
               ) : null;
             })()}
+
+            {/* Секция команд */}
+            {(playerTeams.length > 0 || pastTeams.length > 0 || (isEditing && (currentUser?.status === 'admin' || currentUser?.id === player.id))) && (
+              <View style={styles.section}>
+                <Text style={styles.teamsSectionTitle}>Команды</Text>
+                
+                {isEditing && (currentUser?.status === 'admin' || currentUser?.id === player.id) ? (
+                  <>
+                    {/* Текущие команды */}
+                    <Text style={styles.subsectionTitle}>Текущие команды</Text>
+                    <CurrentTeamsSection
+                      currentTeams={playerTeams}
+                      onCurrentTeamsChange={setPlayerTeams}
+                      onMoveToPastTeams={(team) => {
+                        console.log('🔄 Перемещаем команду в прошлые команды:', team);
+                        setPastTeams(prev => [...prev, team]);
+                      }}
+                      readOnly={false}
+                      isEditing={true}
+                    />
+                    
+                    {/* Прошлые команды */}
+                    <Text style={styles.subsectionTitle}>Прошлые команды</Text>
+                    <PastTeamsSection
+                      pastTeams={pastTeams}
+                      isEditing={isEditing}
+                      onPastTeamsChange={setPastTeams}
+                      onMoveToCurrentTeams={(team) => {
+                        console.log('🔄 Перемещаем команду в текущие команды:', team);
+                        setPlayerTeams(prev => [...prev, team]);
+                      }}
+                      readOnly={false}
+                    />
+                  </>
+                ) : (
+                  <>
+                    {/* Текущие команды */}
+                    {playerTeams.length > 0 && (
+                      <>
+                        <Text style={styles.subsectionTitle}>Текущие команды</Text>
+                        <View style={styles.teamsListContainer}>
+                          {playerTeams.map((team, index) => (
+                            <View key={`current-${team.id}-${index}`} style={styles.teamItem}>
+                              <Animated.View style={styles.rotatedStar}>
+                                <Ionicons name="star" size={16} color="#FF4444" />
+                              </Animated.View>
+                              <Text style={styles.teamsListText}>
+                                {team.teamName} ({team.startYear} - настоящее время)
+                              </Text>
+                            </View>
+                          ))}
+                        </View>
+                      </>
+                    )}
+                    
+                    {/* Прошлые команды */}
+                    {pastTeams.length > 0 && (
+                      <>
+                        <Text style={styles.subsectionTitle}>Прошлые команды</Text>
+                        <View style={styles.teamsListContainer}>
+                          {pastTeams.map((team, index) => (
+                            <View key={`past-${team.id}-${index}`} style={styles.teamItem}>
+                              <Animated.View style={styles.rotatedStar}>
+                                <Ionicons name="star" size={16} color="#888" />
+                              </Animated.View>
+                              <Text style={styles.teamsListText}>
+                                {team.teamName} ({team.startYear}{team.endYear && team.endYear !== team.startYear ? ` - ${team.endYear}` : ''})
+                              </Text>
+                            </View>
+                          ))}
+                        </View>
+                      </>
+                    )}
+                  </>
+                )}
+              </View>
+            )}
 
             {/* Информация о команде для звезд */}
             {player.status === 'star' && (
@@ -1058,7 +1396,7 @@ export default function PlayerProfile() {
               <View style={styles.infoGrid}>
                 <View style={styles.infoItem}>
                   <Text style={styles.infoLabel}>Страна</Text>
-                  {isEditing && currentUser?.status === 'admin' ? (
+                  {isEditing && (currentUser?.status === 'admin' || currentUser?.id === player.id) ? (
                     <TouchableOpacity
                       style={styles.pickerButton}
                       onPress={() => setShowCountryPicker(true)}
@@ -1072,23 +1410,11 @@ export default function PlayerProfile() {
                     <Text style={styles.infoValue}>{player.country || 'Не указана'}</Text>
                   )}
                 </View>
-                <View style={styles.infoItem}>
-                  <Text style={styles.infoLabel}>Команда</Text>
-                  {isEditing && currentUser?.status === 'admin' ? (
-                    <TextInput
-                      style={styles.editInput}
-                      value={editData.team || player.team || ''}
-                      onChangeText={(text) => setEditData({...editData, team: text})}
-                      placeholder="Команда"
-                    />
-                  ) : (
-                    <Text style={styles.infoValue}>{player.team || 'Не указана'}</Text>
-                  )}
-                </View>
+
                 {player.status === 'player' && (
                   <View style={styles.infoItem}>
                     <Text style={styles.infoLabel}>Позиция</Text>
-                    {isEditing && currentUser?.status === 'admin' ? (
+                    {isEditing && (currentUser?.status === 'admin' || currentUser?.id === player.id) ? (
                       <TouchableOpacity
                         style={styles.pickerButton}
                         onPress={() => setShowPositionPicker(true)}
@@ -1105,27 +1431,53 @@ export default function PlayerProfile() {
                 )}
                 <View style={styles.infoItem}>
                   <Text style={styles.infoLabel}>Дата рождения</Text>
-                  {isEditing ? (
-                    <TextInput
-                      style={styles.editInput}
-                      value={editData.birthDate || player.birthDate || ''}
-                      onChangeText={(text) => setEditData({...editData, birthDate: text})}
-                      placeholder="ДД.ММ.ГГГГ"
-                    />
+                  {isEditing && (currentUser?.status === 'admin' || currentUser?.id === player.id) ? (
+                    <TouchableOpacity
+                      style={styles.pickerButton}
+                      onPress={showBirthDatePickerModal}
+                    >
+                      <Text style={styles.pickerButtonText}>
+                        {editData.birthDate || player.birthDate || 'Выберите дату'}
+                      </Text>
+                      <Ionicons name="calendar-outline" size={16} color="#fff" />
+                    </TouchableOpacity>
                   ) : (
-                    <Text style={styles.infoValue}>{player.birthDate || 'Не указана'}</Text>
+                    <Text style={styles.infoValue}>{formatBirthDate(player.birthDate || '')}</Text>
                   )}
                 </View>
                 {player.status === 'player' && (
                   <View style={styles.infoItem}>
-                    <Text style={styles.infoLabel}>Хват</Text>
-                    {isEditing && currentUser?.status === 'admin' ? (
+                    <Text style={styles.infoLabel}>Начал играть в хоккей</Text>
+                    {isEditing && (currentUser?.status === 'admin' || currentUser?.id === player.id) ? (
                       <TextInput
                         style={styles.editInput}
-                        value={editData.grip || player.grip || ''}
-                        onChangeText={(text) => setEditData({...editData, grip: text})}
-                        placeholder="Хват"
+                        value={editData.hockeyStartDate !== undefined ? editData.hockeyStartDate : (player.hockeyStartDate || '')}
+                        onChangeText={(text) => setEditData({...editData, hockeyStartDate: text})}
+                        placeholder="ММ.ГГГГ (например: 12.2014)"
                       />
+                    ) : (
+                      <Text style={styles.infoValue}>
+                        {player.hockeyStartDate ? 
+                          `В хоккее ${calculateHockeyExperience(player.hockeyStartDate)}` : 
+                          'Не указано'
+                        }
+                      </Text>
+                    )}
+                  </View>
+                )}
+                {player.status === 'player' && (
+                  <View style={styles.infoItem}>
+                    <Text style={styles.infoLabel}>Хват</Text>
+                    {isEditing && (currentUser?.status === 'admin' || currentUser?.id === player.id) ? (
+                      <TouchableOpacity
+                        style={styles.pickerButton}
+                        onPress={() => setShowGripPicker(true)}
+                      >
+                        <Text style={styles.pickerButtonText}>
+                          {editData.grip || player.grip || 'Выберите хват'}
+                        </Text>
+                        <Ionicons name="chevron-down" size={16} color="#fff" />
+                      </TouchableOpacity>
                     ) : (
                       <Text style={styles.infoValue}>{player.grip || 'Не указан'}</Text>
                     )}
@@ -1141,10 +1493,10 @@ export default function PlayerProfile() {
                 <View style={styles.infoGrid}>
                   <View style={styles.infoItem}>
                     <Text style={styles.infoLabel}>Рост</Text>
-                    {isEditing && currentUser?.status === 'admin' ? (
+                    {isEditing && (currentUser?.status === 'admin' || currentUser?.id === player.id) ? (
                       <TextInput
                         style={styles.editInput}
-                        value={editData.height || player.height || ''}
+                        value={editData.height !== undefined ? editData.height : (player.height || '')}
                         onChangeText={(text) => setEditData({...editData, height: text})}
                         placeholder="Рост (см)"
                         placeholderTextColor="#888"
@@ -1156,10 +1508,10 @@ export default function PlayerProfile() {
                   </View>
                   <View style={styles.infoItem}>
                     <Text style={styles.infoLabel}>Вес</Text>
-                    {isEditing && currentUser?.status === 'admin' ? (
+                    {isEditing && (currentUser?.status === 'admin' || currentUser?.id === player.id) ? (
                       <TextInput
                         style={styles.editInput}
-                        value={editData.weight || player.weight || ''}
+                        value={editData.weight !== undefined ? editData.weight : (player.weight || '')}
                         onChangeText={(text) => setEditData({...editData, weight: text})}
                         placeholder="Вес (кг)"
                         placeholderTextColor="#888"
@@ -1174,10 +1526,10 @@ export default function PlayerProfile() {
             )}
 
             {/* Видео моментов - только для игроков (не тренеры) */}
-            {player.status === 'player' && ((currentUser && currentUser.id === player.id) || (player.favoriteGoals && player.favoriteGoals.trim() !== '') || (isEditing && currentUser?.status === 'admin')) && (
+            {player.status === 'player' && ((currentUser && currentUser.id === player.id && isEditing) || (player.favoriteGoals && player.favoriteGoals.trim() !== '' && player.favoriteGoals.trim() !== 'null') || (isEditing && currentUser?.status === 'admin')) && (
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Видео моментов</Text>
-                {isEditing && currentUser?.status === 'admin' ? (
+                {isEditing && (currentUser?.status === 'admin' || currentUser?.id === player.id) ? (
                   <View>
                     <Text style={styles.sectionSubtitle}>
                       Добавьте ссылку на YouTube видео и время начала момента (формат: минуты:секунды, например: 1:25){'\n'}
@@ -1282,72 +1634,7 @@ export default function PlayerProfile() {
               </View>
             )}
 
-            {/* Фотографии - показываем всем кроме звезд и администраторов */}
-            {player && player.status && player.status.trim() !== 'star' && player.status.trim() !== 'admin' ? (
-              (currentUser && currentUser.id === player.id) || 
-              friendshipStatus === 'friends' || 
-              currentUser?.status === 'coach' || 
-              currentUser?.status === 'scout' ||
-              currentUser?.status === 'admin' ? (
-                isEditing && currentUser?.status === 'admin' ? (
-                  <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Фотографии</Text>
-                    <Text style={styles.sectionSubtitle}>
-                      Добавьте фотографии для профиля
-                    </Text>
-                    <View>
-                      <TouchableOpacity
-                        style={styles.addPhotoButton}
-                        onPress={() => {
-                          // Здесь можно добавить логику для добавления фото
-                          // Пока просто добавляем пустую строку
-                          setGalleryPhotos([...galleryPhotos, '']);
-                        }}
-                      >
-                        <Ionicons name="add-circle" size={24} color="#FF4444" />
-                        <Text style={styles.addPhotoButtonText}>Добавить фотографию</Text>
-                      </TouchableOpacity>
-                      
-                      {/* Показываем добавленные фотографии */}
-                      {galleryPhotos.length > 0 && (
-                        <View style={styles.galleryContainer}>
-                          <Text style={styles.galleryTitle}>Добавленные фотографии:</Text>
-                          <View style={styles.galleryGrid}>
-                            {galleryPhotos.map((photo, index) => (
-                              <View key={index} style={styles.galleryItem}>
-                                <Image source={{ uri: photo }} style={styles.galleryImage} />
-                                <TouchableOpacity
-                                  style={styles.removePhotoButton}
-                                  onPress={() => {
-                                    const newPhotos = galleryPhotos.filter((_, i) => i !== index);
-                                    setGalleryPhotos(newPhotos);
-                                  }}
-                                >
-                                  <Ionicons name="close-circle" size={24} color="#FF4444" />
-                                </TouchableOpacity>
-                              </View>
-                            ))}
-                          </View>
-                        </View>
-                      )}
-                    </View>
-                  </View>
-                ) : (
-                  <PhotosSection photos={player.photos} />
-                )
-              ) : (
-                <View style={styles.section}>
-                  <Text style={styles.sectionTitle}>Фотографии</Text>
-                  <View style={styles.lockedSectionContainer}>
-                    <Ionicons name="lock-closed" size={48} color="#FF4444" />
-                    <Text style={styles.lockedSectionTitle}>Добавьте в друзья</Text>
-                    <Text style={styles.lockedSectionText}>
-                      Добавьте {player.name} в друзья, чтобы увидеть фотографии
-                    </Text>
-                  </View>
-                </View>
-              )
-            ) : null}
+
 
             {/* Нормативы - показываем только игрокам (не тренерам) */}
             {player && player.status === 'player' ? (
@@ -1363,8 +1650,8 @@ export default function PlayerProfile() {
                 (player.plankTime && player.plankTime !== '0' && player.plankTime !== '' && player.plankTime !== 'null') ||
                 (player.sprint100m && player.sprint100m !== '0' && player.sprint100m !== '' && player.sprint100m !== 'null') ||
                 (player.longJump && player.longJump !== '0' && player.longJump !== '' && player.longJump !== 'null') ||
-                (isEditing && currentUser?.status === 'admin') ? (
-                  isEditing && currentUser?.status === 'admin' ? (
+                (isEditing && (currentUser?.status === 'admin' || currentUser?.id === player.id)) ? (
+                  isEditing && (currentUser?.status === 'admin' || currentUser?.id === player.id) ? (
                     // Редактируемая версия нормативов
                     <View style={styles.section}>
                       <Text style={styles.sectionTitle}>Нормативы</Text>
@@ -1373,7 +1660,7 @@ export default function PlayerProfile() {
                           <Text style={styles.infoLabel}>Подтягивания</Text>
                           <TextInput
                             style={styles.editInput}
-                            value={editData.pullUps || player.pullUps || ''}
+                            value={editData.pullUps !== undefined ? editData.pullUps : (player.pullUps || '')}
                             onChangeText={(text) => setEditData({...editData, pullUps: text})}
                             placeholder="Количество раз"
                             keyboardType="numeric"
@@ -1383,7 +1670,7 @@ export default function PlayerProfile() {
                           <Text style={styles.infoLabel}>Отжимания</Text>
                           <TextInput
                             style={styles.editInput}
-                            value={editData.pushUps || player.pushUps || ''}
+                            value={editData.pushUps !== undefined ? editData.pushUps : (player.pushUps || '')}
                             onChangeText={(text) => setEditData({...editData, pushUps: text})}
                             placeholder="Количество раз"
                             keyboardType="numeric"
@@ -1393,7 +1680,7 @@ export default function PlayerProfile() {
                           <Text style={styles.infoLabel}>Планка</Text>
                           <TextInput
                             style={styles.editInput}
-                            value={editData.plankTime || player.plankTime || ''}
+                            value={editData.plankTime !== undefined ? editData.plankTime : (player.plankTime || '')}
                             onChangeText={(text) => setEditData({...editData, plankTime: text})}
                             placeholder="Время в секундах"
                             keyboardType="numeric"
@@ -1403,7 +1690,7 @@ export default function PlayerProfile() {
                           <Text style={styles.infoLabel}>100 метров</Text>
                           <TextInput
                             style={styles.editInput}
-                            value={editData.sprint100m || player.sprint100m || ''}
+                            value={editData.sprint100m !== undefined ? editData.sprint100m : (player.sprint100m || '')}
                             onChangeText={(text) => setEditData({...editData, sprint100m: text})}
                             placeholder="Время в секундах"
                             keyboardType="numeric"
@@ -1413,7 +1700,7 @@ export default function PlayerProfile() {
                           <Text style={styles.infoLabel}>Прыжок в длину</Text>
                           <TextInput
                             style={styles.editInput}
-                            value={editData.longJump || player.longJump || ''}
+                            value={editData.longJump !== undefined ? editData.longJump : (player.longJump || '')}
                             onChangeText={(text) => setEditData({...editData, longJump: text})}
                             placeholder="Длина в см"
                             keyboardType="numeric"
@@ -1445,27 +1732,24 @@ export default function PlayerProfile() {
               )
             ) : null}
 
-            {/* Текущие команды */}
-            {playerTeams.length > 0 && (
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Текущие команды</Text>
-                <TeamsDisplay teams={playerTeams} />
-              </View>
-            )}
 
-            {/* Прошлые команды */}
-            <PastTeamsSection 
-              pastTeams={pastTeams}
-              isEditing={isEditing && currentUser?.status === 'admin'}
-              onPastTeamsChange={setPastTeams}
-              onCurrentTeamChange={handleCurrentTeamChange}
-            />
+
 
             {/* Достижения */}
             <AchievementsSection 
               achievements={achievements}
-              isEditing={isEditing && currentUser?.status === 'admin'}
+              isEditing={isEditing && (currentUser?.status === 'admin' || currentUser?.id === player.id)}
               onAchievementsChange={setAchievements}
+            />
+
+            {/* Фотографии */}
+            <EditablePhotosSection
+              photos={galleryPhotos}
+              isEditing={isEditing && (currentUser?.status === 'admin' || currentUser?.id === player.id)}
+              onPhotosChange={(newPhotos) => {
+                console.log('📸 setGalleryPhotos called with:', newPhotos);
+                setGalleryPhotos(newPhotos);
+              }}
             />
 
             {/* Друзья */}
@@ -1507,14 +1791,52 @@ export default function PlayerProfile() {
             {/* Кнопки действий */}
             <View style={styles.actionsSection}>
               {currentUser && currentUser.id === player.id ? (
-                // Если пользователь смотрит свой профиль - показываем кнопку редактирования
-                <TouchableOpacity 
-                  style={styles.actionButton} 
-                  onPress={() => router.push({ pathname: '/profile', params: { edit: 'true' } })}
-                >
-                  <Ionicons name="create-outline" size={20} color="#fff" />
-                  <Text style={styles.actionButtonText}>Редактировать профиль</Text>
-                </TouchableOpacity>
+                // Если пользователь смотрит свой профиль
+                isEditing ? (
+                  // Кнопки для режима редактирования
+                  <>
+                    <TouchableOpacity 
+                      style={[styles.actionButton, { backgroundColor: '#4CAF50' }]} 
+                      onPress={handleSave}
+                    >
+                      <Ionicons name="checkmark-outline" size={20} color="#fff" />
+                      <Text style={styles.actionButtonText}>Сохранить</Text>
+                    </TouchableOpacity>
+                    
+                    <TouchableOpacity 
+                      style={[styles.actionButton, { backgroundColor: '#f44336' }]} 
+                      onPress={() => {
+                        setIsEditing(false);
+                        setEditData({});
+                      }}
+                    >
+                      <Ionicons name="close-outline" size={20} color="#fff" />
+                      <Text style={styles.actionButtonText}>Отмена</Text>
+                    </TouchableOpacity>
+                  </>
+                ) : (
+                  // Кнопки для владельца профиля
+                  <>
+                    <TouchableOpacity 
+                      style={styles.actionButton} 
+                      onPress={() => {
+                        setEditData(player);
+                        setIsEditing(true);
+                      }}
+                    >
+                      <Ionicons name="create-outline" size={20} color="#fff" />
+                      <Text style={styles.actionButtonText}>Редактировать профиль</Text>
+                    </TouchableOpacity>
+                    
+                    <TouchableOpacity 
+                      style={[styles.actionButton, { backgroundColor: '#000000' }]} 
+                      onPress={handleLogout}
+                    >
+                      <Ionicons name="log-out-outline" size={20} color="#fff" />
+                      <Text style={styles.actionButtonText}>Выйти из профиля</Text>
+                    </TouchableOpacity>
+                  </>
+                )
               ) : currentUser ? (
                 // Если пользователь авторизован и смотрит чужой профиль - показываем кнопки взаимодействия
                 <>
@@ -1596,6 +1918,30 @@ export default function PlayerProfile() {
                         <Ionicons name="chatbubble-outline" size={20} color="#fff" />
                         <Text style={styles.actionButtonText}>Написать сообщение</Text>
                       </TouchableOpacity>
+                      
+                      {/* Кнопки для владельца профиля */}
+                      {currentUser?.id === player.id && (
+                        <>
+                          <TouchableOpacity 
+                            style={[styles.actionButton, { backgroundColor: '#FF4444' }]} 
+                            onPress={() => {
+                              setEditData(player);
+                              setIsEditing(true);
+                            }}
+                          >
+                            <Ionicons name="create-outline" size={20} color="#fff" />
+                            <Text style={styles.actionButtonText}>Редактировать профиль</Text>
+                          </TouchableOpacity>
+                          
+                          <TouchableOpacity 
+                            style={[styles.actionButton, { backgroundColor: '#000000' }]} 
+                            onPress={handleLogout}
+                          >
+                            <Ionicons name="log-out-outline" size={20} color="#fff" />
+                            <Text style={styles.actionButtonText}>Выйти из профиля</Text>
+                          </TouchableOpacity>
+                        </>
+                      )}
                     </>
                   )}
                 </>
@@ -1715,6 +2061,76 @@ export default function PlayerProfile() {
           </View>
         </View>
       )}
+
+      {/* Модальное окно выбора хвата */}
+      {showGripPicker && (
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <Text style={styles.modalTitle}>Выберите хват</Text>
+            <ScrollView style={styles.modalScroll}>
+              {grips.map((grip) => (
+                <TouchableOpacity
+                  key={grip}
+                  style={styles.modalOption}
+                  onPress={() => {
+                    setEditData({...editData, grip: grip});
+                    setShowGripPicker(false);
+                  }}
+                >
+                  <Text style={styles.modalOptionText}>{grip}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            <TouchableOpacity
+              style={styles.modalCancelButton}
+              onPress={() => setShowGripPicker(false)}
+            >
+              <Text style={styles.modalCancelButtonText}>Отмена</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
+      {/* Модальное окно выбора даты рождения */}
+      {showBirthDatePicker && (
+        <View style={styles.modalOverlay}>
+          <View style={styles.datePickerModal}>
+            <DateTimePicker
+              value={selectedBirthDate}
+              mode="date"
+              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+              onChange={onBirthDateChange}
+              maximumDate={new Date()}
+              minimumDate={new Date(1900, 0, 1)}
+              textColor="#fff"
+              themeVariant="dark"
+            />
+            {Platform.OS === 'ios' && (
+              <View style={styles.datePickerButtons}>
+                <TouchableOpacity 
+                  style={styles.datePickerButton} 
+                  onPress={() => setShowBirthDatePicker(false)}
+                >
+                  <Text style={styles.datePickerButtonText}>Отмена</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={[styles.datePickerButton, styles.confirmButton]} 
+                  onPress={() => {
+                    const day = selectedBirthDate.getDate().toString().padStart(2, '0');
+                    const month = (selectedBirthDate.getMonth() + 1).toString().padStart(2, '0');
+                    const year = selectedBirthDate.getFullYear().toString();
+                    const formattedDate = `${day}.${month}.${year}`;
+                    setEditData({...editData, birthDate: formattedDate});
+                    setShowBirthDatePicker(false);
+                  }}
+                >
+                  <Text style={styles.datePickerButtonText}>Подтвердить</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        </View>
+      )}
     </View>
   );
 }
@@ -1741,16 +2157,15 @@ const styles = StyleSheet.create({
   editButtonContainer: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    paddingHorizontal: 20,
-    paddingTop: 10,
+    paddingHorizontal: 40,
+    paddingTop: 20,
     paddingBottom: 10,
   },
   editButton: {
-    padding: 10,
-    backgroundColor: '#8A2BE2',
-    borderRadius: 25,
-    width: 50,
-    height: 50,
+    padding: 20,
+    borderRadius: 50,
+    width: 100,
+    height: 100,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1836,6 +2251,15 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  hockeyExperienceContainer: {
+    marginTop: 5,
+    alignItems: 'center',
+  },
+  hockeyExperienceText: {
+    fontSize: 16,
+    fontFamily: 'Gilroy-Regular',
+    color: '#FF4444',
   },
   hockeyExperience: {
     fontSize: 16,
@@ -2269,11 +2693,15 @@ const styles = StyleSheet.create({
     position: 'relative',
     width: 80,
     height: 80,
+    borderWidth: 2,
+    borderColor: '#FF4444',
+    borderRadius: 8,
   },
   galleryImage: {
     width: '100%',
     height: '100%',
     borderRadius: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
   },
   removePhotoButton: {
     position: 'absolute',
@@ -2341,6 +2769,106 @@ const styles = StyleSheet.create({
   },
   modalCancelButtonText: {
     fontSize: 16,
+    fontFamily: 'Gilroy-Bold',
+    color: '#fff',
+  },
+  subsectionTitle: {
+    fontSize: 14,
+    fontFamily: 'Gilroy-Regular',
+    color: '#fff',
+    marginBottom: 8,
+    marginTop: 8,
+  },
+  teamsListContainer: {
+    marginBottom: 10,
+  },
+  teamItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  rotatedStar: {
+    transform: [{ rotate: '20deg' }],
+  },
+  teamsListText: {
+    fontSize: 14,
+    fontFamily: 'Gilroy-Bold',
+    color: '#fff',
+    lineHeight: 18,
+    marginLeft: 8,
+  },
+  teamsSectionTitle: {
+    fontSize: 20,
+    fontFamily: 'Gilroy-Bold',
+    color: '#FF4444',
+    marginBottom: 5,
+  },
+  editInput: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 16,
+    fontFamily: 'Gilroy-Regular',
+    color: '#fff',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    minHeight: 40,
+  },
+  editOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 60,
+  },
+  addTeamButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    marginTop: 10,
+    marginBottom: 15,
+  },
+  addTeamButtonText: {
+    fontSize: 16,
+    fontFamily: 'Gilroy-Regular',
+    color: '#FF4444',
+    marginLeft: 8,
+  },
+  datePickerModal: {
+    backgroundColor: '#000',
+    borderRadius: 15,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    minWidth: 300,
+  },
+  datePickerButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 15,
+    gap: 10,
+  },
+  datePickerButton: {
+    flex: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 8,
+    padding: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  confirmButton: {
+    backgroundColor: '#FF4444',
+    borderColor: '#FF4444',
+  },
+  datePickerButtonText: {
+    fontSize: 14,
     fontFamily: 'Gilroy-Bold',
     color: '#fff',
   },

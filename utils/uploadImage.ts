@@ -35,7 +35,7 @@ const ensureAvatarsBucket = async () => {
   }
 };
 
-// Функция для загрузки изображения в Supabase Storage
+// Функция для загрузки изображения в Supabase Storage (для аватаров)
 export const uploadImageToStorage = async (imageUri: string, fileName?: string): Promise<string | null> => {
   try {
     console.log('🚨🚨🚨 UPLOAD_DEBUG: Начинаем загрузку изображения в Supabase Storage...');
@@ -65,12 +65,12 @@ export const uploadImageToStorage = async (imageUri: string, fileName?: string):
       try {
         const result = await ImageManipulator.manipulateAsync(
           imageUri,
-          [{ resize: { width: 400, height: 400 } }],
+          [{ resize: { width: 800 } }], // Только ширина, высота автоматически
           { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
         );
         
         processedImageUri = result.uri;
-        console.log('✅ Изображение обработано:', processedImageUri);
+        console.log('✅ Изображение обработано с сохранением пропорций:', processedImageUri);
       } catch (manipulatorError) {
         console.error('❌ Ошибка обработки изображения:', manipulatorError);
         console.log('⚠️ Используем оригинальный URI');
@@ -203,6 +203,171 @@ export const uploadImageToStorage = async (imageUri: string, fileName?: string):
     }
   } catch (error) {
     console.error('❌ Ошибка загрузки изображения:', error);
+    return null;
+  }
+};
+
+// Функция для загрузки фотографий галереи в Supabase Storage
+export const uploadGalleryPhoto = async (imageUri: string, fileName?: string): Promise<string | null> => {
+  try {
+    console.log('📸 GALLERY_UPLOAD_DEBUG: Начинаем загрузку фотографии галереи...');
+    
+    // Создаем уникальное имя файла
+    const timestamp = Date.now();
+    const fileExtension = imageUri.split('.').pop() || 'jpg';
+    let finalFileName = fileName || `gallery_${timestamp}.${fileExtension}`;
+    
+    // Очищаем имя файла от лишних слешей
+    finalFileName = finalFileName.replace(/^\/+/, '').replace(/\/+$/, '');
+    
+    console.log('📸 GALLERY_UPLOAD_DEBUG: Имя файла:', finalFileName);
+    
+    // Если это локальный файл, сначала сжимаем его
+    let processedImageUri = imageUri;
+    if (imageUri.startsWith('file://') || imageUri.startsWith('content://')) {
+      console.log('🔄 Обрабатываем локальное изображение галереи...');
+      
+      try {
+        const result = await ImageManipulator.manipulateAsync(
+          imageUri,
+          [{ resize: { width: 1200 } }], // Больший размер для галереи
+          { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
+        );
+        
+        processedImageUri = result.uri;
+        console.log('✅ Изображение галереи обработано:', processedImageUri);
+      } catch (manipulatorError) {
+        console.error('❌ Ошибка обработки изображения галереи:', manipulatorError);
+        console.log('⚠️ Используем оригинальный URI');
+        processedImageUri = imageUri;
+      }
+    }
+    
+    // Конвертируем изображение в blob
+    console.log('📤 Конвертируем в blob:', processedImageUri);
+    let blob;
+    
+    if (processedImageUri.startsWith('file://')) {
+      // Для локальных файлов используем expo-file-system
+      console.log('📸 GALLERY_UPLOAD_DEBUG: Используем expo-file-system для локального файла');
+      try {
+        const base64 = await FileSystem.readAsStringAsync(processedImageUri, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+        
+        console.log('📸 GALLERY_UPLOAD_DEBUG: Base64 получен, длина:', base64.length);
+        
+        // Создаем FormData с base64
+        const formData = new FormData();
+        formData.append('file', {
+          uri: processedImageUri,
+          type: 'image/jpeg',
+          name: finalFileName,
+        } as any);
+        
+        // Используем FormData для загрузки в bucket avatars (можно изменить на отдельный bucket)
+        console.log('📸 GALLERY_UPLOAD_DEBUG: FormData создан, используем для загрузки');
+        
+        // Загружаем напрямую через FormData
+        const { data, error } = await supabase.storage
+          .from('avatars')
+          .upload(finalFileName, formData, {
+            contentType: 'image/jpeg',
+            upsert: true
+          });
+        
+        if (error) {
+          console.error('📸 GALLERY_UPLOAD_DEBUG: Ошибка загрузки через FormData:', error);
+          return null;
+        }
+        
+        console.log('📸 GALLERY_UPLOAD_DEBUG: Файл загружен через FormData:', data.path);
+        
+        // Получаем публичный URL
+        const { data: urlData } = supabase.storage
+          .from('avatars')
+          .getPublicUrl(data.path);
+        
+        const publicUrl = urlData.publicUrl;
+        console.log('📸 GALLERY_UPLOAD_DEBUG: Публичный URL получен:', publicUrl);
+        
+        // Проверяем, нет ли двойных слешей в URL
+        if (publicUrl.includes('avatars//')) {
+          console.error('❌ ОБНАРУЖЕН ДВОЙНОЙ СЛЕШ В URL!');
+          console.error('URL:', publicUrl);
+          return null;
+        }
+        
+        console.log('📸 GALLERY_UPLOAD_DEBUG: Возвращаем URL:', publicUrl);
+        return publicUrl;
+        
+      } catch (fileSystemError) {
+        console.error('📸 GALLERY_UPLOAD_DEBUG: Ошибка FileSystem:', fileSystemError);
+        return null;
+      }
+    } else {
+      // Для других URI используем fetch
+      try {
+        const response = await fetch(processedImageUri);
+        if (!response.ok) {
+          console.error('❌ Ошибка fetch:', response.status, response.statusText);
+          return null;
+        }
+        blob = await response.blob();
+        console.log('📸 GALLERY_UPLOAD_DEBUG: Blob создан через fetch, размер:', blob.size, 'байт');
+        
+        if (blob.size === 0) {
+          console.error('📸 GALLERY_UPLOAD_DEBUG: Blob пустой!');
+          return null;
+        }
+        
+        console.log('📤 Загружаем в Supabase Storage...');
+        
+        // Загружаем в Supabase Storage
+        const { data, error } = await supabase.storage
+          .from('avatars')
+          .upload(finalFileName, blob, {
+            cacheControl: '3600',
+            upsert: false
+          });
+        
+        if (error) {
+          console.error('❌ Ошибка загрузки в Storage:', error);
+          return null;
+        }
+        
+        console.log('✅ Файл загружен в Storage:', data.path);
+        
+        // Получаем публичный URL
+        const { data: urlData } = supabase.storage
+          .from('avatars')
+          .getPublicUrl(finalFileName);
+        
+        if (!urlData || !urlData.publicUrl) {
+          console.error('❌ Не удалось получить публичный URL');
+          return null;
+        }
+        
+        const publicUrl = urlData.publicUrl;
+        console.log('📸 GALLERY_UPLOAD_DEBUG: Изображение загружено:', publicUrl);
+        
+        // Проверяем, нет ли двойных слешей в URL
+        if (publicUrl.includes('avatars//')) {
+          console.error('❌ ОБНАРУЖЕН ДВОЙНОЙ СЛЕШ В URL!');
+          console.error('URL:', publicUrl);
+          return null;
+        }
+        
+        console.log('📸 GALLERY_UPLOAD_DEBUG: Возвращаем URL:', publicUrl);
+        return publicUrl;
+        
+      } catch (fetchError) {
+        console.error('❌ Ошибка fetch:', fetchError);
+        return null;
+      }
+    }
+  } catch (error) {
+    console.error('❌ Ошибка загрузки изображения галереи:', error);
     return null;
   }
 };

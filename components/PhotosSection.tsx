@@ -105,17 +105,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 5,
   },
   photoContainer: {
-    width: screenWidth * 0.4,
-    height: 120,
+    width: screenWidth * 0.25,
+    height: screenWidth * 0.25,
     marginHorizontal: 5,
     borderRadius: 12,
     overflow: 'hidden',
     position: 'relative',
+    borderWidth: 2,
+    borderColor: '#FF4444',
   },
   photo: {
     width: '100%',
     height: '100%',
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
   },
   photoOverlay: {
     position: 'absolute',

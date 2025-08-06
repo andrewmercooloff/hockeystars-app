@@ -18,6 +18,8 @@ CREATE TABLE player_teams (
   team_id UUID REFERENCES teams(id) ON DELETE CASCADE,
   is_primary BOOLEAN DEFAULT FALSE, -- основная команда игрока
   joined_date DATE,
+  start_year INTEGER, -- год начала в команде
+  end_year INTEGER, -- год окончания в команде (NULL для текущих команд)
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   UNIQUE(player_id, team_id)
 );
@@ -109,7 +111,9 @@ RETURNS TABLE (
   team_country VARCHAR(100),
   team_city VARCHAR(100),
   is_primary BOOLEAN,
-  joined_date DATE
+  joined_date DATE,
+  start_year INTEGER,
+  end_year INTEGER
 ) AS $$
 BEGIN
   RETURN QUERY
@@ -120,7 +124,9 @@ BEGIN
     t.country,
     t.city,
     pt.is_primary,
-    pt.joined_date
+    pt.joined_date,
+    pt.start_year,
+    pt.end_year
   FROM player_teams pt
   JOIN teams t ON pt.team_id = t.id
   WHERE pt.player_id = player_uuid
