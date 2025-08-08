@@ -1,17 +1,21 @@
 {
   "expo": {
-    "name": "instead",
-    "slug": "instead",
+    "name": "HockeyStars",
+    "slug": "hockeystars",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "instead",
+    "scheme": "hockeystars",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.mercooloff.hockeystars",
+      "buildNumber": "1"
     },
     "android": {
+      "package": "com.mercooloff.hockeystars",
+      "versionCode": 1,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
@@ -40,7 +44,11 @@
       "typedRoutes": true
     },
     "extra": {
-      "disableWarnings": true
+      "disableWarnings": true,
+      "router": {},
+      "eas": {
+        "projectId": "b86a6296-6a05-4257-be78-c498a2fcb046"
+      }
     }
   }
 }

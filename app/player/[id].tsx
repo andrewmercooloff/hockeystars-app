@@ -696,7 +696,7 @@ export default function PlayerProfile() {
       
       // Обновляем состояние игрока
       if (refreshedPlayer) {
-        setPlayer(refreshedPlayer);
+      setPlayer(refreshedPlayer);
       }
       
       // Обновляем состояние команд
@@ -855,20 +855,20 @@ export default function PlayerProfile() {
                     showCustomAlert('Редактирование фото', 'Функция редактирования фото будет добавлена позже', 'info');
                   }}
                 >
-                  {(() => {
-                    const imageSource = player.avatar;
-                    const hasValidImage = imageSource && typeof imageSource === 'string' && (
-                      imageSource.startsWith('data:image/') || 
-                      imageSource.startsWith('http') || 
-                      imageSource.startsWith('file://') || 
-                      imageSource.startsWith('content://')
-                    );
+              {(() => {
+                const imageSource = player.avatar;
+                const hasValidImage = imageSource && typeof imageSource === 'string' && (
+                  imageSource.startsWith('data:image/') || 
+                  imageSource.startsWith('http') || 
+                  imageSource.startsWith('file://') || 
+                  imageSource.startsWith('content://')
+                );
 
-                    if (hasValidImage) {
-                      return (
-                        <Image 
-                          source={{ 
-                            uri: imageSource,
+                if (hasValidImage) {
+                  return (
+                    <Image 
+                      source={{ 
+                        uri: imageSource,
                             cache: 'reload',
                             headers: {
                               'Cache-Control': 'no-cache'
@@ -905,28 +905,28 @@ export default function PlayerProfile() {
                         source={{ 
                           uri: imageSource,
                           cache: 'reload',
-                          headers: {
-                            'Cache-Control': 'no-cache'
-                          }
-                        }}
-                        style={styles.profileImage}
-                        onError={(error) => {
-                          console.log('❌ Ошибка загрузки аватара в профиле игрока:', error);
-                          console.log('   URL аватара:', imageSource);
-                          console.log('   Нативная ошибка:', error.nativeEvent?.error);
-                        }}
-                        onLoad={() => {
-                          console.log('✅ Аватар в профиле игрока успешно загружен:', imageSource);
-                        }}
-                      />
-                    );
-                  } else {
-                    return (
-                      <View style={[styles.profileImage, styles.avatarPlaceholder]}>
-                        <Ionicons name="person" size={48} color="#FFFFFF" />
-                      </View>
-                    );
-                  }
+                        headers: {
+                          'Cache-Control': 'no-cache'
+                        }
+                      }}
+                      style={styles.profileImage}
+                      onError={(error) => {
+                        console.log('❌ Ошибка загрузки аватара в профиле игрока:', error);
+                        console.log('   URL аватара:', imageSource);
+                        console.log('   Нативная ошибка:', error.nativeEvent?.error);
+                      }}
+                      onLoad={() => {
+                        console.log('✅ Аватар в профиле игрока успешно загружен:', imageSource);
+                      }}
+                    />
+                  );
+                } else {
+                  return (
+                    <View style={[styles.profileImage, styles.avatarPlaceholder]}>
+                      <Ionicons name="person" size={48} color="#FFFFFF" />
+                    </View>
+                  );
+                }
                 })()
               )}
               <View style={styles.nameRow}>
@@ -939,7 +939,7 @@ export default function PlayerProfile() {
                     placeholderTextColor="#888"
                   />
                 ) : (
-                  <Text style={styles.playerName}>{player.name?.toUpperCase()}</Text>
+                <Text style={styles.playerName}>{player.name?.toUpperCase()}</Text>
                 )}
                 {isEditing ? (
                   <TextInput
@@ -978,8 +978,8 @@ export default function PlayerProfile() {
               {player.status === 'player' && player.hockeyStartDate && (
                 <View style={styles.hockeyExperienceContainer}>
                   <Text style={styles.hockeyExperienceText}>
-                    В хоккее {calculateHockeyExperience(player.hockeyStartDate)}
-                  </Text>
+                  В хоккее {calculateHockeyExperience(player.hockeyStartDate)}
+                </Text>
                 </View>
               )}
 
@@ -1246,36 +1246,36 @@ export default function PlayerProfile() {
                       </View>
                     </View>
                   ) : (
-                    <View style={styles.statsGrid}>
-                      {pointsNum > 0 && (
-                        <View style={styles.statItem}>
-                          <Text style={styles.statValue}>{pointsNum.toString()}</Text>
-                          <Text style={styles.statLabel}>Очков</Text>
-                        </View>
-                      )}
+                  <View style={styles.statsGrid}>
+                    {pointsNum > 0 && (
                       <View style={styles.statItem}>
-                        <Text style={styles.statValue}>{friends.length}</Text>
-                        <Text style={styles.statLabel}>Друзей</Text>
+                        <Text style={styles.statValue}>{pointsNum.toString()}</Text>
+                        <Text style={styles.statLabel}>Очков</Text>
                       </View>
-                      {goalsNum > 0 && (
-                        <View style={styles.statItem}>
-                          <Text style={styles.statValue}>{goalsNum.toString()}</Text>
-                          <Text style={styles.statLabel}>Голов</Text>
-                        </View>
-                      )}
-                      {assistsNum > 0 && (
-                        <View style={styles.statItem}>
-                          <Text style={styles.statValue}>{assistsNum.toString()}</Text>
-                          <Text style={styles.statLabel}>Передач</Text>
-                        </View>
-                      )}
-                      {gamesNum > 0 && (
-                        <View style={styles.statItem}>
-                          <Text style={styles.statValue}>{gamesNum.toString()}</Text>
-                          <Text style={styles.statLabel}>Игр</Text>
-                        </View>
-                      )}
+                    )}
+                    <View style={styles.statItem}>
+                      <Text style={styles.statValue}>{friends.length}</Text>
+                      <Text style={styles.statLabel}>Друзей</Text>
                     </View>
+                    {goalsNum > 0 && (
+                      <View style={styles.statItem}>
+                        <Text style={styles.statValue}>{goalsNum.toString()}</Text>
+                        <Text style={styles.statLabel}>Голов</Text>
+                      </View>
+                    )}
+                    {assistsNum > 0 && (
+                      <View style={styles.statItem}>
+                        <Text style={styles.statValue}>{assistsNum.toString()}</Text>
+                        <Text style={styles.statLabel}>Передач</Text>
+                      </View>
+                    )}
+                    {gamesNum > 0 && (
+                      <View style={styles.statItem}>
+                        <Text style={styles.statValue}>{gamesNum.toString()}</Text>
+                        <Text style={styles.statLabel}>Игр</Text>
+                      </View>
+                    )}
+                  </View>
                   )}
                 </View>
               ) : null;
@@ -1449,21 +1449,21 @@ export default function PlayerProfile() {
                   <View style={styles.infoItem}>
                     <Text style={styles.infoLabel}>Начал играть в хоккей</Text>
                     {isEditing && (currentUser?.status === 'admin' || currentUser?.id === player.id) ? (
-                      <TextInput
-                        style={styles.editInput}
+                    <TextInput
+                      style={styles.editInput}
                         value={editData.hockeyStartDate !== undefined ? editData.hockeyStartDate : (player.hockeyStartDate || '')}
                         onChangeText={(text) => setEditData({...editData, hockeyStartDate: text})}
                         placeholder="ММ.ГГГГ (например: 12.2014)"
-                      />
-                    ) : (
+                    />
+                  ) : (
                       <Text style={styles.infoValue}>
                         {player.hockeyStartDate ? 
                           `В хоккее ${calculateHockeyExperience(player.hockeyStartDate)}` : 
                           'Не указано'
                         }
                       </Text>
-                    )}
-                  </View>
+                  )}
+                </View>
                 )}
                 {player.status === 'player' && (
                   <View style={styles.infoItem}>
@@ -1817,16 +1817,16 @@ export default function PlayerProfile() {
                 ) : (
                   // Кнопки для владельца профиля
                   <>
-                    <TouchableOpacity 
-                      style={styles.actionButton} 
+                <TouchableOpacity 
+                  style={styles.actionButton} 
                       onPress={() => {
                         setEditData(player);
                         setIsEditing(true);
                       }}
-                    >
-                      <Ionicons name="create-outline" size={20} color="#fff" />
-                      <Text style={styles.actionButtonText}>Редактировать профиль</Text>
-                    </TouchableOpacity>
+                >
+                  <Ionicons name="create-outline" size={20} color="#fff" />
+                  <Text style={styles.actionButtonText}>Редактировать профиль</Text>
+                </TouchableOpacity>
                     
                     <TouchableOpacity 
                       style={[styles.actionButton, { backgroundColor: '#000000' }]} 
@@ -1939,7 +1939,7 @@ export default function PlayerProfile() {
                           >
                             <Ionicons name="log-out-outline" size={20} color="#fff" />
                             <Text style={styles.actionButtonText}>Выйти из профиля</Text>
-                          </TouchableOpacity>
+                      </TouchableOpacity>
                         </>
                       )}
                     </>

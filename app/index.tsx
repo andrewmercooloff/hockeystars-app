@@ -7,6 +7,7 @@ import {
     Dimensions,
     ImageBackground,
     Modal,
+    Platform,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -33,6 +34,29 @@ const usePuckCollisionSystem = (players: Player[]) => {
   const puckSize = 70; // Размер шайбы
   const [puckPositions, setPuckPositions] = useState<PuckPosition[]>([]);
 
+  // Платформо-зависимые границы
+  const getBoundaries = () => {
+    if (Platform.OS === 'ios') {
+      // Для iPhone используем границы от самых краев экрана (льда)
+      return {
+        leftOffset: 5,
+        topOffset: 5,
+        rightOffset: 5,
+        bottomOffset: 235
+      };
+    } else {
+      // Для Android и Web используем уменьшенные границы + 5px отступы
+      return {
+        leftOffset: 10,
+        topOffset: 10,
+        rightOffset: 160,
+        bottomOffset: 425
+      };
+    }
+  };
+
+  const boundaries = getBoundaries();
+
   useEffect(() => {
     if (players.length === 0) return;
 
@@ -51,8 +75,8 @@ const usePuckCollisionSystem = (players: Player[]) => {
           const minDistance = puckSize * 1.05; // Минимальное расстояние при инициализации
           
           do {
-            newX = 5 + Math.random() * (width - 15 - puckSize);
-            newY = 5 + Math.random() * (height - 235 - puckSize);
+            newX = boundaries.leftOffset + Math.random() * (width - boundaries.rightOffset - puckSize);
+            newY = boundaries.topOffset + Math.random() * (height - boundaries.bottomOffset - puckSize);
             attempts++;
             
             // Проверяем расстояние до всех существующих шайб
@@ -71,16 +95,18 @@ const usePuckCollisionSystem = (players: Player[]) => {
           
           // Если не удалось найти подходящую позицию, используем случайную
           if (attempts >= maxAttempts) {
-            newX = 5 + Math.random() * (width - 15 - puckSize);
-            newY = 5 + Math.random() * (height - 235 - puckSize);
+            newX = boundaries.leftOffset + Math.random() * (width - boundaries.rightOffset - puckSize);
+            newY = boundaries.topOffset + Math.random() * (height - boundaries.bottomOffset - puckSize);
           }
           
+          // Платформо-зависимая скорость
+          const speedMultiplier = Platform.OS === 'ios' ? 0.39 : 0.32; // Увеличена скорость для Android/Web
           nextPositions.push({
             id: player.id,
             x: newX,
             y: newY,
-            vx: (Math.random() - 0.5) * 0.39, // Увеличено в 2.6 раза с 0.15 до 0.39
-            vy: (Math.random() - 0.5) * 0.39, // Увеличено в 2.6 раза с 0.15 до 0.39
+            vx: (Math.random() - 0.5) * speedMultiplier,
+            vy: (Math.random() - 0.5) * speedMultiplier,
             size: puckSize,
           });
         }
@@ -101,14 +127,14 @@ const usePuckCollisionSystem = (players: Player[]) => {
           let newVx = pos.vx;
           let newVy = pos.vy;
 
-          // Обработка коллизий со стенами (еще больше уменьшены отступы для использования всего пространства)
-          if (newX <= 5 || newX >= width - 15 - puckSize) {
+          // Обработка коллизий со стенами (платформо-зависимые границы)
+          if (newX <= boundaries.leftOffset || newX >= width - boundaries.rightOffset - puckSize) {
             newVx = -newVx * 0.8;
-            newX = Math.max(5, Math.min(width - 15 - puckSize, newX));
+            newX = Math.max(boundaries.leftOffset, Math.min(width - boundaries.rightOffset - puckSize, newX));
           }
-          if (newY <= 5 || newY >= height - 225 - puckSize) {
+          if (newY <= boundaries.topOffset || newY >= height - (boundaries.bottomOffset - 10) - puckSize) {
             newVy = -newVy * 0.8;
-            newY = Math.max(5, Math.min(height - 225 - puckSize, newY));
+            newY = Math.max(boundaries.topOffset, Math.min(height - (boundaries.bottomOffset - 10) - puckSize, newY));
           }
 
           // Улучшенная система коллизий между шайбами
@@ -119,36 +145,31 @@ const usePuckCollisionSystem = (players: Player[]) => {
             const dy = newY - otherPos.y;
             const distance = Math.sqrt(dx * dx + dy * dy);
             
-            // Минимальное расстояние между центрами шайб (еще больше уменьшено для более близкого расположения)
-            const minDistance = puckSize * 1.02;
+            // Платформо-зависимое отталкивание шайб
+            const collisionDistance = Platform.OS === 'ios' ? puckSize * 1.02 : puckSize * 0.5;
             
-            if (distance < minDistance && distance > 0) {
+            if (distance < collisionDistance && distance > 0) {
               const angle = Math.atan2(dy, dx);
-              const overlap = minDistance - distance;
+              const overlap = collisionDistance - distance;
               
-              // Умеренное отталкивание при наложении
+              // Отталкивание при столкновении
               const pushForce = overlap * 0.2;
               newVx += Math.cos(angle) * pushForce;
               newVy += Math.sin(angle) * pushForce;
               
               // Принудительное разделение только при сильном наложении
-              if (distance < puckSize * 0.6) {
+              const separationThreshold = Platform.OS === 'ios' ? puckSize * 0.6 : puckSize * 0.3;
+              if (distance < separationThreshold) {
                 const separationForce = (puckSize - distance) * 0.1;
                 newX += Math.cos(angle) * separationForce;
                 newY += Math.sin(angle) * separationForce;
               }
-              
-              // Слабое отталкивание для предотвращения "залипания"
-              if (distance < minDistance * 0.8) {
-                const repulsionForce = 0.05;
-                newVx += Math.cos(angle) * repulsionForce;
-                newVy += Math.sin(angle) * repulsionForce;
-              }
             }
           });
           
-          // Ограничение максимальной скорости для стабильности
-          const maxSpeed = 5.2; // Увеличено в 2.6 раза с 2.0 до 5.2
+          // Платформо-зависимые ограничения скорости
+          const maxSpeed = Platform.OS === 'ios' ? 5.2 : 4.2; // Увеличена максимальная скорость для Android/Web
+          const minSpeed = Platform.OS === 'ios' ? 0.208 : 0.17; // Увеличена минимальная скорость для Android/Web
           const currentSpeed = Math.sqrt(newVx * newVx + newVy * newVy);
           if (currentSpeed > maxSpeed) {
             newVx = (newVx / currentSpeed) * maxSpeed;
@@ -156,7 +177,6 @@ const usePuckCollisionSystem = (players: Player[]) => {
           }
           
           // Минимальная скорость для предотвращения остановки
-          const minSpeed = 0.208; // Увеличено в 2.6 раза с 0.08 до 0.208
           if (currentSpeed < minSpeed) {
             const angle = Math.random() * 2 * Math.PI;
             newVx = Math.cos(angle) * minSpeed;
