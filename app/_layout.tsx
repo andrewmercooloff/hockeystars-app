@@ -338,6 +338,24 @@ export default function RootLayout() {
         }}
       />
       <Tabs.Screen
+        name="country"
+        options={{
+          tabBarIcon: ({ size }) => (
+            <Ionicons name="flag" size={size} color="#fff" />
+          ),
+          headerTitle: () => <LogoHeader />,
+        }}
+      />
+      <Tabs.Screen
+        name="exercises"
+        options={{
+          tabBarIcon: ({ size }) => (
+            <Ionicons name="fitness" size={size} color="#fff" />
+          ),
+          headerTitle: () => <LogoHeader />,
+        }}
+      />
+      <Tabs.Screen
         name="login"
         options={{
           href: null,
