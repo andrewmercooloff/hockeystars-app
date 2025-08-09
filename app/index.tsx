@@ -275,11 +275,6 @@ export default function HomeScreen() {
   const checkForNewUser = useCallback(async () => {
     try {
       const user = await loadCurrentUser();
-      if (user) {
-        console.log(`👤 Текущий пользователь: ${user.name} (${user.status})`);
-      } else {
-        console.log('👤 Пользователь не авторизован');
-      }
       setCurrentUser(user);
     } catch (error) {
       console.error('❌ Ошибка загрузки пользователя:', error);

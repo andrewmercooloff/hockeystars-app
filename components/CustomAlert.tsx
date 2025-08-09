@@ -1,13 +1,13 @@
-import React from 'react';
-import { 
-  View, 
-  Text, 
-  TouchableOpacity, 
-  StyleSheet, 
-  Modal,
-  ImageBackground
-} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import React from 'react';
+import {
+    ImageBackground,
+    Modal,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
+} from 'react-native';
 
 const iceBg = require('../assets/images/led.jpg');
 

@@ -74,7 +74,6 @@ export default function RegisterScreen() {
   };
 
   const pickImage = async () => {
-    console.log('📸 pickImage вызван');
     // Показываем системное окно выбора источника фото
     Alert.alert(
       'Выберите источник фото',
@@ -83,14 +82,12 @@ export default function RegisterScreen() {
         {
           text: 'Галерея',
           onPress: () => {
-            console.log('📸 Выбрана галерея');
             pickFromGallery();
           }
         },
         {
           text: 'Камера',
           onPress: () => {
-            console.log('📸 Выбрана камера');
             takePhoto();
           }
         },
@@ -104,10 +101,8 @@ export default function RegisterScreen() {
 
   const pickFromGallery = async () => {
     try {
-      console.log('📸 pickFromGallery вызван');
       // Запрашиваем разрешение на доступ к галерее
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      console.log('📸 Разрешение галереи:', status);
       
       if (status !== 'granted') {
         Alert.alert('Ошибка', 'Нужно разрешение для доступа к галерее');
@@ -121,10 +116,7 @@ export default function RegisterScreen() {
         quality: 0.8,
       });
 
-      console.log('📸 Результат выбора из галереи:', result);
-
       if (!result.canceled && result.assets[0]) {
-        console.log('📸 Фото выбрано:', result.assets[0].uri);
         setFormData({...formData, avatar: result.assets[0].uri});
       }
     } catch (error) {
@@ -135,10 +127,8 @@ export default function RegisterScreen() {
 
   const takePhoto = async () => {
     try {
-      console.log('📸 takePhoto вызван');
       // Запрашиваем разрешение на доступ к камере
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
-      console.log('📸 Разрешение камеры:', status);
       
       if (status !== 'granted') {
         Alert.alert('Ошибка', 'Нужно разрешение для доступа к камере');
@@ -152,10 +142,7 @@ export default function RegisterScreen() {
         quality: 0.8,
       });
 
-      console.log('📸 Результат съемки:', result);
-
       if (!result.canceled && result.assets[0]) {
-        console.log('📸 Фото снято:', result.assets[0].uri);
         setFormData({...formData, avatar: result.assets[0].uri});
       }
     } catch (error) {
@@ -208,8 +195,6 @@ export default function RegisterScreen() {
     }
 
     try {
-      console.log('📝 Данные формы для регистрации:', JSON.stringify(formData, null, 2));
-      
       // Добавляем игрока в хранилище
       const playerData = {
         email: formData.username, // Используем username как email для входа
@@ -228,19 +213,13 @@ export default function RegisterScreen() {
         age: 0, // Добавляем возраст по умолчанию
       };
       
-      console.log('📤 Данные для addPlayer:', JSON.stringify(playerData, null, 2));
-      
       const newPlayer = await addPlayer(playerData);
-      
-      console.log('Регистрация игрока:', newPlayer);
       
       // Добавляем все выбранные команды для игрока
       if (selectedTeams.length > 0) {
-        console.log('➕ Добавляем команды для игрока:', selectedTeams);
         for (const team of selectedTeams) {
           try {
             await addPlayerTeam(newPlayer.id, team.id);
-            console.log(`✅ Команда "${team.name}" добавлена для игрока`);
           } catch (error) {
             console.error(`❌ Ошибка добавления команды "${team.name}":`, error);
           }
@@ -249,7 +228,6 @@ export default function RegisterScreen() {
       
       // Автоматически входим в систему
       await saveCurrentUser(newPlayer);
-      console.log('✅ Пользователь автоматически вошел в систему:', newPlayer.name);
       
       // Показываем успешное сообщение
       showAlert(

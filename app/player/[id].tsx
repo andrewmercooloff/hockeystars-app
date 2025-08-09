@@ -85,7 +85,6 @@ export default function PlayerProfile() {
   // Добавляем обновление при фокусе экрана
   useFocusEffect(
     useCallback(() => {
-      console.log('🔄 Экран профиля игрока получил фокус, обновляем данные...');
       // Добавляем небольшую задержку для обновления данных из базы
       setTimeout(() => {
       loadPlayerData();
@@ -102,19 +101,12 @@ export default function PlayerProfile() {
       if (id) {
         const playerData = await getPlayerById(id as string);
         const userData = await loadCurrentUser();
-        console.log('Loaded player data:', playerData?.name, 'Status:', playerData?.status, 'Is star:', playerData?.status === 'star');
-        console.log('📸 Аватар игрока:', {
-          name: playerData?.name,
-          hasAvatar: !!playerData?.avatar,
-          avatarLength: playerData?.avatar?.length || 0
-        });
         
         // Загружаем команды игрока
         if (playerData) {
           try {
             const { getPlayerTeamsAsPastTeams } = await import('../../utils/playerStorage');
             const teams = await getPlayerTeamsAsPastTeams(playerData.id);
-            console.log('🏒 Команды из БД (player_teams):', teams);
             
             // Разделяем команды на текущие и прошлые
             const currentTeams = teams.filter(team => team.isCurrent);
@@ -122,10 +114,6 @@ export default function PlayerProfile() {
             
             setPlayerTeams(currentTeams);
             setPastTeams(pastTeams);
-            
-            console.log('🏒 Текущие команды (из player_teams):', currentTeams);
-            console.log('🏒 Прошлые команды (из player_teams):', pastTeams);
-            console.log('🏒 Старые данные pastTeams из players:', playerData.pastTeams);
           } catch (error) {
             console.error('Ошибка загрузки команд игрока:', error);
             setPlayerTeams([]);
@@ -133,61 +121,61 @@ export default function PlayerProfile() {
           }
         }
         
-        // Добавляем подробную отладочную информацию
+        // Добавляем подробную отладочную информацию (закомментировано для production)
         if (playerData) {
-          console.log('🔍 Подробные данные игрока:');
-          console.log('   Имя:', playerData.name);
-          console.log('   Команда:', playerData.team);
-          console.log('   Позиция:', playerData.position);
-          console.log('   Голы:', playerData.goals);
-          console.log('   Передачи:', playerData.assists);
-          console.log('   Рост:', playerData.height);
-          console.log('   Вес:', playerData.weight);
-          console.log('   Страна:', playerData.country);
-          console.log('   Город:', playerData.city);
-          console.log('   Телефон:', playerData.phone);
-          console.log('   Достижения:', playerData.achievements);
+          // console.log('🔍 Подробные данные игрока:');
+          // console.log('   Имя:', playerData.name);
+          // console.log('   Команда:', playerData.team);
+          // console.log('   Позиция:', playerData.position);
+          // console.log('   Голы:', playerData.goals);
+          // console.log('   Передачи:', playerData.assists);
+          // console.log('   Рост:', playerData.height);
+          // console.log('   Вес:', playerData.weight);
+          // console.log('   Страна:', playerData.country);
+          // console.log('   Город:', playerData.city);
+          // console.log('   Телефон:', playerData.phone);
+          // console.log('   Достижения:', playerData.achievements);
           
-          // Добавляем отладку проблемных полей
-          console.log('🏒 Хоккейные данные:');
-          console.log('   Дата начала хоккея (hockeyStartDate):', playerData.hockeyStartDate);
-          console.log('   hockeyStartDate существует:', !!playerData.hockeyStartDate);
-          console.log('   hockeyStartDate !== "":', playerData.hockeyStartDate !== '');
-          console.log('   Рассчитанный опыт:', calculateHockeyExperience(playerData.hockeyStartDate));
+          // // Добавляем отладку проблемных полей
+          // console.log('🏒 Хоккейные данные:');
+          // console.log('   Дата начала хоккея (hockeyStartDate):', playerData.hockeyStartDate);
+          // console.log('   hockeyStartDate существует:', !!playerData.hockeyStartDate);
+          // console.log('   hockeyStartDate !== "":', playerData.hockeyStartDate !== '');
+          // console.log('   Рассчитанный опыт:', calculateHockeyExperience(playerData.hockeyStartDate));
           
-          console.log('📊 Нормативы:');
-          console.log('   Подтягивания (pullUps):', playerData.pullUps);
-          console.log('   Отжимания (pushUps):', playerData.pushUps);
-          console.log('   Планка (plankTime):', playerData.plankTime);
-          console.log('   Спринт 100м (sprint100m):', playerData.sprint100m);
-          console.log('   Прыжок в длину (longJump):', playerData.longJump);
+          // console.log('📊 Нормативы:');
+          // console.log('   Подтягивания (pullUps):', playerData.pullUps);
+          // console.log('   Отжимания (pushUps):', playerData.pushUps);
+          // console.log('   Планка (plankTime):', playerData.plankTime);
+          // console.log('   Спринт 100м (sprint100m):', playerData.sprint100m);
+          // console.log('   Прыжок в длину (longJump):', playerData.longJump);
           
-          console.log('🎥 Видео моментов:');
-          console.log('   favoriteGoals:', playerData.favoriteGoals);
-          console.log('   favoriteGoals.trim():', playerData.favoriteGoals ? playerData.favoriteGoals.trim() : 'null');
-          console.log('   favoriteGoals !== "":', playerData.favoriteGoals ? playerData.favoriteGoals.trim() !== '' : false);
-          if (playerData.favoriteGoals) {
-            const videos = playerData.favoriteGoals.split('\n').filter(goal => goal.trim());
-            console.log('   Количество видео:', videos.length);
-            videos.forEach((video, i) => {
-              console.log(`   Видео ${i + 1}:`, video);
-            });
-          }
+          // console.log('🎥 Видео моментов:');
+          // console.log('   favoriteGoals:', playerData.favoriteGoals);
+          // console.log('   favoriteGoals.trim():', playerData.favoriteGoals ? playerData.favoriteGoals.trim() : 'null');
+          // console.log('   favoriteGoals !== "":', playerData.favoriteGoals ? playerData.favoriteGoals.trim() !== '' : false);
+          // if (playerData.favoriteGoals) {
+          //   const videos = playerData.favoriteGoals.split('\n').filter(goal => goal.trim());
+          //   console.log('   Количество видео:', videos.length);
+          //   videos.forEach((video, i) => {
+          //     console.log(`   Видео ${i + 1}:`, video);
+          //   });
+          // }
           
-          // Проверяем условия отображения
-          console.log('🔍 Условия отображения:');
-          console.log('   Статус игрока:', playerData.status);
-          console.log('   Статус игрока === "player":', playerData.status === 'player');
-          console.log('   Есть видео:', playerData.favoriteGoals && playerData.favoriteGoals.trim() !== '');
-          console.log('   Есть нормативы:', 
-            (playerData.pullUps && playerData.pullUps !== '0' && playerData.pullUps !== '' && playerData.pullUps !== 'null') ||
-            (playerData.pushUps && playerData.pushUps !== '0' && playerData.pushUps !== '' && playerData.pushUps !== 'null') ||
-            (playerData.plankTime && playerData.plankTime !== '0' && playerData.plankTime !== '' && playerData.plankTime !== 'null') ||
-            (playerData.sprint100m && playerData.sprint100m !== '0' && playerData.sprint100m !== '' && playerData.sprint100m !== 'null') ||
-            (playerData.longJump && playerData.longJump !== '0' && playerData.longJump !== '' && playerData.longJump !== 'null')
-          );
-          console.log('   Показывать нормативы для собственного профиля:', true); // Всегда true для собственного профиля
-          console.log('   Показывать видео для собственного профиля:', true); // Всегда true для собственного профиля
+          // // Проверяем условия отображения
+          // console.log('🔍 Условия отображения:');
+          // console.log('   Статус игрока:', playerData.status);
+          // console.log('   Статус игрока === "player":', playerData.status === 'player');
+          // console.log('   Есть видео:', playerData.favoriteGoals && playerData.favoriteGoals.trim() !== '');
+          // console.log('   Есть нормативы:', 
+          //   (playerData.pullUps && playerData.pullUps !== '0' && playerData.pullUps !== '' && playerData.pullUps !== 'null') ||
+          //   (playerData.pushUps && playerData.pushUps !== '0' && playerData.pushUps !== '' && playerData.pushUps !== 'null') ||
+          //   (playerData.plankTime && playerData.plankTime !== '0' && playerData.plankTime !== '' && playerData.plankTime !== 'null') ||
+          //   (playerData.sprint100m && playerData.sprint100m !== '0' && playerData.sprint100m !== '' && playerData.sprint100m !== 'null') ||
+          //   (playerData.longJump && playerData.longJump !== '0' && playerData.longJump !== '' && playerData.longJump !== 'null')
+          // );
+          // console.log('   Показывать нормативы для собственного профиля:', true); // Всегда true для собственного профиля
+          // console.log('   Показывать видео для собственного профиля:', true); // Всегда true для собственного профиля
         }
         
         // Мигрируем аватар в Storage, если он локальный

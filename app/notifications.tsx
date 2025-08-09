@@ -14,8 +14,6 @@ import {
 } from 'react-native';
 import {
     clearAllNotifications,
-    getPlayerById,
-    getUserConversations,
     loadCurrentUser,
     loadNotifications,
     markNotificationAsRead,
@@ -26,7 +24,7 @@ const iceBg = require('../assets/images/led.jpg');
 
 interface NotificationItem {
   id: string;
-  type: 'message' | 'friend_request' | 'system';
+  type: 'friend_request' | 'autograph_request' | 'stick_request' | 'system' | 'achievement' | 'team_invite';
   title: string;
   message: string;
   timestamp: number;
@@ -51,7 +49,6 @@ export default function NotificationsScreen() {
   // Обновляем уведомления при фокусе на экране
   useFocusEffect(
     useCallback(() => {
-      console.log('🔄 Экран уведомлений получил фокус, обновляем данные...');
       loadNotificationsData();
     }, [])
   );
@@ -69,72 +66,29 @@ export default function NotificationsScreen() {
       
       // Загружаем все уведомления из хранилища
       const storedNotifications = await loadNotifications(user.id);
-      console.log('🔔 Загружено уведомлений из хранилища:', storedNotifications.length);
       
       // Фильтруем уведомления, которые относятся к текущему пользователю
+      // Исключаем уведомления о сообщениях
       const userNotifications = storedNotifications.filter(notification => {
         // Уведомления о запросах дружбы показываем только если они предназначены для этого пользователя
         if (notification.type === 'friend_request') {
           return notification.receiverId === user.id;
         }
-        // Уведомления о сообщениях показываем только если они для этого пользователя
-        if (notification.type === 'message') {
-          return notification.playerId && notification.playerId !== user.id;
+        // Уведомления о автографах, клюшках и других действиях
+        if (notification.type === 'autograph_request' || 
+            notification.type === 'stick_request' || 
+            notification.type === 'achievement' || 
+            notification.type === 'team_invite' || 
+            notification.type === 'system') {
+          return notification.receiverId === user.id || notification.playerId === user.id;
         }
-        return true;
+        return false; // Исключаем все остальные типы (включая message)
       });
       
-      console.log('🔔 Отфильтровано уведомлений для пользователя:', userNotifications.length);
-      console.log('🔔 Детали уведомлений:', userNotifications);
-      
-      // Создаем уведомления на основе непрочитанных сообщений (только если их нет в хранилище)
-      const conversations = await getUserConversations(user.id);
-      const messageNotifications: NotificationItem[] = [];
-      
-      for (const [otherUserId, messages] of Object.entries(conversations)) {
-        const unreadMessages = messages.filter(m => 
-          m.receiverId === user.id && !m.isRead
-        );
-        
-        if (unreadMessages.length > 0) {
-          const otherPlayer = await getPlayerById(otherUserId);
-          if (otherPlayer) {
-            const lastUnreadMessage = unreadMessages[unreadMessages.length - 1];
-            
-            // Проверяем, нет ли уже такого уведомления в хранилище
-            const existingNotification = userNotifications.find(n => 
-              n.type === 'message' && n.playerId === otherUserId
-            );
-            
-            if (!existingNotification) {
-              messageNotifications.push({
-                id: `msg_${otherUserId}_${lastUnreadMessage.timestamp}`,
-                type: 'message',
-                title: `Новое сообщение от ${otherPlayer.name}`,
-                message: lastUnreadMessage.text.length > 50 
-                  ? lastUnreadMessage.text.substring(0, 50) + '...' 
-                  : lastUnreadMessage.text,
-                timestamp: lastUnreadMessage.timestamp,
-                isRead: false,
-                playerId: otherUserId,
-                playerName: otherPlayer.name,
-                playerAvatar: otherPlayer.avatar || undefined
-              });
-            }
-          }
-        }
-      }
-      
-      // Объединяем уведомления из хранилища и сообщения
-      const allNotifications = [...userNotifications, ...messageNotifications];
-      
       // Сортируем по времени (новые сверху)
-      allNotifications.sort((a, b) => b.timestamp - a.timestamp);
+      userNotifications.sort((a, b) => b.timestamp - a.timestamp);
       
-      console.log('🔔 Финальный список уведомлений:', allNotifications.length);
-      console.log('🔔 Детали финальных уведомлений:', allNotifications);
-      
-      setNotifications(allNotifications);
+      setNotifications(userNotifications);
     } catch (error) {
       console.error('Ошибка загрузки уведомлений:', error);
       Alert.alert('Ошибка', 'Не удалось загрузить уведомления');
@@ -147,10 +101,6 @@ export default function NotificationsScreen() {
   const onRefresh = () => {
     setRefreshing(true);
     loadNotificationsData();
-  };
-
-  const openChat = (playerId: string) => {
-    router.push({ pathname: '/chat/[id]', params: { id: playerId } });
   };
 
   const handleNotificationPress = async (notification: NotificationItem) => {
@@ -167,10 +117,17 @@ export default function NotificationsScreen() {
       }
 
       // Выполняем действие в зависимости от типа уведомления
-      if (notification.type === 'message' && notification.playerId) {
-        openChat(notification.playerId);
-      } else if (notification.type === 'friend_request' && notification.playerId) {
+      if (notification.type === 'friend_request' && notification.playerId) {
         // Переходим к профилю игрока для принятия/отклонения запроса
+        router.push(`/player/${notification.playerId}`);
+      } else if (notification.type === 'autograph_request' && notification.playerId) {
+        // Переходим к профилю звезды для ответа на запрос автографа
+        router.push(`/player/${notification.playerId}`);
+      } else if (notification.type === 'stick_request' && notification.playerId) {
+        // Переходим к профилю звезды для ответа на запрос клюшки
+        router.push(`/player/${notification.playerId}`);
+      } else if (notification.type === 'team_invite' && notification.playerId) {
+        // Переходим к профилю игрока для ответа на приглашение в команду
         router.push(`/player/${notification.playerId}`);
       }
     } catch (error) {
@@ -199,10 +156,16 @@ export default function NotificationsScreen() {
 
   const getNotificationIcon = (type: string) => {
     switch (type) {
-      case 'message':
-        return 'chatbubble';
       case 'friend_request':
         return 'person-add';
+      case 'autograph_request':
+        return 'create';
+      case 'stick_request':
+        return 'key';
+      case 'achievement':
+        return 'trophy';
+      case 'team_invite':
+        return 'people';
       case 'system':
         return 'information-circle';
       default:
@@ -234,7 +197,7 @@ export default function NotificationsScreen() {
               <Text style={styles.headerTitle}>Уведомления</Text>
               {currentUser && (
                 <Text style={styles.headerSubtitle}>
-                  {notifications.length} новых уведомлений
+                  {notifications.length} уведомлений
                 </Text>
               )}
             </View>
@@ -277,7 +240,7 @@ export default function NotificationsScreen() {
                   <Ionicons name="notifications-outline" size={64} color="#FF4444" />
                   <Text style={styles.emptyTitle}>Нет уведомлений</Text>
                   <Text style={styles.emptySubtitle}>
-                    У вас пока нет новых уведомлений
+                    У вас пока нет уведомлений о дружбе, автографах или других действиях
                   </Text>
                 </View>
               </View>

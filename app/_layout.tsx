@@ -5,7 +5,7 @@ import { SplashScreen, Tabs, useLocalSearchParams, useRouter } from 'expo-router
 import React, { useEffect, useState } from 'react';
 import { Image, LogBox, Text, TouchableOpacity, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { initializeStorage, loadCurrentUser, loadNotifications, Player } from '../utils/playerStorage';
+import { initializeStorage, loadCurrentUser, loadNotifications, markNotificationAsRead, Player } from '../utils/playerStorage';
 
 // Отключаем все предупреждения
 LogBox.ignoreAllLogs();
@@ -42,7 +42,6 @@ const LogoHeader = () => {
   // Обновляем данные при изменении параметров
   useEffect(() => {
     if (params.refresh) {
-      console.log('🔄 Обновление данных в заголовке...');
       loadUser();
     }
   }, [params.refresh]);
@@ -89,9 +88,9 @@ const LogoHeader = () => {
                   resizeMode: 'cover'
                 }}
                 onError={(error) => {
-                  console.log('❌ Заголовок - Ошибка загрузки изображения:', error);
-                  if (currentUser?.status === 'admin') {
-                    console.log('   Администратор - ошибка загрузки аватара в заголовке');
+                  // Ошибка загрузки изображения - логируем только в development
+                  if (__DEV__) {
+                    console.error('❌ Заголовок - Ошибка загрузки изображения:', error);
                   }
                 }}
               />
@@ -144,7 +143,35 @@ export default function RootLayout() {
       if (user) {
         // Загружаем непрочитанные уведомления (без логов)
         const notifications = await loadNotifications(user.id);
-        const unreadNotificationsCount = notifications.filter((n: any) => !n.isRead).length;
+        
+        // Помечаем все уведомления о сообщениях как прочитанные
+        const messageNotifications = notifications.filter((n: any) => n.type === 'message' && !n.is_read);
+        if (messageNotifications.length > 0) {
+          for (const notification of messageNotifications) {
+            try {
+              await markNotificationAsRead(notification.id);
+            } catch (error) {
+              console.error('Ошибка отметки уведомления:', error);
+            }
+          }
+        }
+        
+        // Фильтруем уведомления, исключая сообщения
+        const filteredNotifications = notifications.filter((n: any) => {
+          // Исключаем уведомления о сообщениях
+          if (n.type === 'message') {
+            return false;
+          }
+          // Включаем только нужные типы уведомлений
+          return n.type === 'friend_request' || 
+                 n.type === 'autograph_request' || 
+                 n.type === 'stick_request' || 
+                 n.type === 'achievement' || 
+                 n.type === 'team_invite' || 
+                 n.type === 'system';
+        });
+        
+        const unreadNotificationsCount = filteredNotifications.filter((n: any) => !n.is_read).length;
         
         // Загружаем непрочитанные сообщения (без логов)
         const { getUnreadMessageCount } = await import('../utils/playerStorage');

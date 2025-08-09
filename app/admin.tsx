@@ -85,11 +85,12 @@ const AdminHeader = () => {
               }
               style={styles.profileImage}
               onError={(error) => {
-                console.log('❌ Ошибка загрузки аватара в AdminHeader:', error);
-                console.log('   URL аватара:', currentUser.avatar);
+                if (__DEV__) {
+                  console.error('❌ Ошибка загрузки аватара в AdminHeader:', error);
+                }
               }}
               onLoad={() => {
-                console.log('✅ Аватар в AdminHeader успешно загружен:', currentUser.avatar);
+                // Аватар успешно загружен
               }}
             />
           ) : (
@@ -111,58 +112,25 @@ export default function AdminScreen() {
 
   useEffect(() => {
     loadData();
-    console.log('🔧 Экран администратора загружен');
   }, []);
 
 
 
   const loadData = async () => {
     try {
-      console.log('🔧 Загружаем данные для панели администратора...');
       const [loadedPlayers, user] = await Promise.all([
         loadPlayers(),
         loadCurrentUser()
       ]);
-      console.log('🔧 Загружено игроков:', loadedPlayers.length);
-      console.log('🔧 Текущий пользователь:', user?.name, 'статус:', user?.status);
-      console.log('📸 Аватар текущего пользователя:', user?.avatar);
-      console.log('📸 Тип аватара текущего пользователя:', typeof user?.avatar);
       
       setPlayers(loadedPlayers);
       setCurrentUser(user);
       
       // Проверяем, является ли пользователь администратором
       if (user?.status !== 'admin') {
-        console.log('❌ Пользователь не является администратором:', user?.status);
         Alert.alert('Доступ запрещен', 'Только администраторы могут использовать эту функцию');
         router.back();
-      } else {
-        console.log('✅ Пользователь является администратором');
-        
-        // Дополнительная отладочная информация для admin
-        if (user.avatar && typeof user.avatar === 'string') {
-          if (user.avatar.startsWith('http')) {
-            console.log('✅ Аватар admin - это HTTP URL');
-          } else if (user.avatar.startsWith('data:')) {
-            console.log('✅ Аватар admin - это base64 строка');
-          } else if (user.avatar.startsWith('file://') || user.avatar.startsWith('content://')) {
-            console.log('✅ Аватар admin - это локальный файл');
-          } else {
-            console.log('⚠️ Аватар admin - неизвестный формат:', user.avatar);
-          }
-        } else {
-          console.log('⚠️ Аватар admin отсутствует или имеет неверный тип');
-        }
       }
-      
-      // Находим всех admin пользователей и выводим информацию о их аватарах
-      const adminUsers = loadedPlayers.filter(p => p.status === 'admin');
-      console.log('👑 Найдено admin пользователей:', adminUsers.length);
-      adminUsers.forEach((adminUser, index) => {
-        console.log(`👑 Admin ${index + 1}:`, adminUser.name);
-        console.log(`📸 Аватар admin ${index + 1}:`, adminUser.avatar);
-        console.log(`📸 Тип аватара admin ${index + 1}:`, typeof adminUser.avatar);
-      });
       
     } catch (error) {
       console.error('❌ Ошибка загрузки данных:', error);
@@ -180,7 +148,6 @@ export default function AdminScreen() {
 
 
   const handleEditPlayer = (player: Player) => {
-    console.log('🔧 Редактируем игрока:', player.name, 'статус:', player.status);
     setSelectedPlayer(player);
     setShowPlayerModal(true);
   };
@@ -267,12 +234,12 @@ export default function AdminScreen() {
             { borderColor: getStatusColor(item.status) }
           ]}
           onError={(error) => {
-            console.log('❌ Ошибка загрузки аватара в списке игроков:', error);
-            console.log('   Игрок:', item.name);
-            console.log('   URL аватара:', item.avatar);
+            if (__DEV__) {
+              console.error('❌ Ошибка загрузки аватара в списке игроков:', error);
+            }
           }}
           onLoad={() => {
-            console.log('✅ Аватар в списке игроков успешно загружен:', item.name, item.avatar);
+            // Аватар успешно загружен
           }}
         />
         <View style={styles.playerInfo}>

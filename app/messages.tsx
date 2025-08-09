@@ -42,7 +42,6 @@ export default function MessagesScreen() {
   // Обновляем список сообщений при фокусе на экране
   useFocusEffect(
     React.useCallback(() => {
-      console.log('🔄 Экран сообщений получил фокус, обновляем данные...');
       loadChats();
     }, [])
   );
@@ -59,7 +58,6 @@ export default function MessagesScreen() {
       // Загружаем чаты для пользователя
       setCurrentUser(user);
       const conversations = await getUserConversations(user.id);
-      console.log('📨 Получены беседы:', Object.keys(conversations).length);
       
       const chatPreviews: ChatPreview[] = [];
       
@@ -73,8 +71,6 @@ export default function MessagesScreen() {
             const unreadCount = messages.filter(m => 
               m.receiverId === user.id && !m.read
             ).length;
-            
-            console.log(`💬 Беседа с ${otherPlayer.name}: ${messages.length} сообщений, ${unreadCount} непрочитанных`);
             
             chatPreviews.push({
               player: otherPlayer,
