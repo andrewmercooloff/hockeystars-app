@@ -123,7 +123,7 @@ export default function CurrentTeamsSection({
     if (selectedExistingTeam && selectedExistingTeam.name.toLowerCase() === newTeam.teamName.trim().toLowerCase()) {
       // Используем выбранную существующую команду
       teamId = selectedExistingTeam.id;
-      console.log('✅ Используем выбранную существующую команду:', selectedExistingTeam.name);
+      
     } else {
       // Проверяем, есть ли команда в результатах поиска
       const existingTeam = searchResults.find(team => 
@@ -133,16 +133,10 @@ export default function CurrentTeamsSection({
       if (existingTeam) {
         // Используем существующую команду из результатов поиска
         teamId = existingTeam.id;
-        console.log('✅ Используем существующую команду из поиска:', existingTeam.name);
+
       } else {
         // Создаем новую команду в базе данных
-        console.log('🆕 Создаем новую команду в базе данных:', newTeam.teamName.trim());
-        console.log('🆕 Данные для создания команды:', {
-          name: newTeam.teamName.trim(),
-          type: 'club',
-          country: newTeam.teamCountry.trim() || 'Беларусь',
-          city: newTeam.teamCity.trim() || undefined
-        });
+
         
         const createdTeam = await createTeam({
           name: newTeam.teamName.trim(),
@@ -153,7 +147,7 @@ export default function CurrentTeamsSection({
 
         if (createdTeam) {
           teamId = createdTeam.id;
-          console.log('✅ Команда успешно создана в базе данных:', createdTeam.name, 'с ID:', createdTeam.id);
+
         } else {
           console.error('❌ Не удалось создать команду в базе данных для:', newTeam.teamName.trim());
           Alert.alert('Ошибка', 'Не удалось создать команду в базе данных');
@@ -212,7 +206,7 @@ export default function CurrentTeamsSection({
     if (selectedExistingTeam && selectedExistingTeam.name.toLowerCase() === editingTeam.teamName.trim().toLowerCase()) {
       // Используем выбранную существующую команду
       teamId = selectedExistingTeam.id;
-      console.log('✅ Используем выбранную существующую команду при редактировании:', selectedExistingTeam.name);
+      
     } else {
       // Проверяем, есть ли команда в результатах поиска
       const existingTeam = searchResults.find(team => 
@@ -221,7 +215,7 @@ export default function CurrentTeamsSection({
 
       if (existingTeam) {
         teamId = existingTeam.id;
-        console.log('✅ Используем существующую команду из поиска при редактировании:', existingTeam.name);
+
       } else {
         const createdTeam = await createTeam({
           name: editingTeam.teamName.trim(),
@@ -232,7 +226,7 @@ export default function CurrentTeamsSection({
 
         if (createdTeam) {
           teamId = createdTeam.id;
-          console.log('✅ Команда успешно создана в базе данных при редактировании:', createdTeam.name);
+
         } else {
           Alert.alert('Ошибка', 'Не удалось создать команду в базе данных');
           return;
@@ -284,7 +278,7 @@ export default function CurrentTeamsSection({
   };
 
   const handleDragEnd = ({ data }: { data: PastTeam[] }) => {
-    console.log('🔄 Порядок текущих команд изменен:', data);
+    
     onCurrentTeamsChange?.(data);
   };
 

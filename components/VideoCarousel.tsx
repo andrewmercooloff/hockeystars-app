@@ -60,7 +60,7 @@ const YouTubeThumbnail = ({ videoUrl }: { videoUrl: string }) => {
   const currentThumbnail = thumbnailFormats[currentImageIndex];
   
   const handleError = () => {
-    console.log(`❌ Ошибка загрузки превью ${currentImageIndex + 1} для видео:`, videoUrl);
+    
     if (currentImageIndex < thumbnailFormats.length - 1) {
       setCurrentImageIndex(currentImageIndex + 1);
     }
@@ -87,7 +87,7 @@ export default function VideoCarousel({ videos, onVideoPress }: VideoCarouselPro
   const [selectedVideo, setSelectedVideo] = useState<{ url: string; timeCode?: string } | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   
-  console.log('🎥 VideoCarousel получил видео:', videos);
+  
 
   const handleVideoPress = (video: { url: string; timeCode?: string }) => {
     if (onVideoPress) {

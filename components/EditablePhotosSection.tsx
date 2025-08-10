@@ -28,7 +28,7 @@ export default function EditablePhotosSection({
   isEditing = false,
   onPhotosChange 
 }: EditablePhotosSectionProps) {
-  console.log('📸 EditablePhotosSection render:', { photos: photos.length, isEditing });
+
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
   const [photoViewerVisible, setPhotoViewerVisible] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -77,7 +77,7 @@ export default function EditablePhotosSection({
         input.onchange = async (event) => {
           const files = (event.target as HTMLInputElement).files;
                      if (files) {
-             console.log('📸 Выбрано файлов:', files.length);
+
              setIsUploading(true);
              setUploadingCount(files.length);
              setUploadProgress(0);
@@ -87,13 +87,13 @@ export default function EditablePhotosSection({
              
              for (let i = 0; i < files.length && newPhotos.length < 50; i++) {
                const file = files[i];
-               console.log('📤 Обрабатываем файл:', file.name);
+
                const reader = new FileReader();
                reader.onload = async (e) => {
                  const base64String = e.target?.result as string;
-                 console.log('📤 Base64 получен, длина:', base64String.length);
+
                  const uploadedUrl = await uploadGalleryPhoto(base64String);
-                 console.log('📤 Результат загрузки:', uploadedUrl);
+
                                    if (uploadedUrl) {
                     newPhotos.unshift(uploadedUrl);
                     onPhotosChange?.(newPhotos);
@@ -130,7 +130,7 @@ export default function EditablePhotosSection({
         });
 
                           if (!result.canceled && result.assets) {
-           console.log('📸 Выбрано фотографий:', result.assets.length);
+
            setIsUploading(true);
            setUploadingCount(result.assets.length);
            setUploadProgress(0);
@@ -138,20 +138,19 @@ export default function EditablePhotosSection({
            const newPhotos = [...photos];
                         for (let i = 0; i < result.assets.length && newPhotos.length < 50; i++) {
                const asset = result.assets[i];
-             console.log('📤 Загружаем фото:', asset.uri);
+
              
              // Обновляем прогресс
              setUploadProgress(((i + 1) / result.assets.length) * 100);
              
              const uploadedUrl = await uploadGalleryPhoto(asset.uri);
-             console.log('📤 Результат загрузки:', uploadedUrl);
+
                            if (uploadedUrl) {
                 newPhotos.unshift(uploadedUrl);
               }
            }
            
-           console.log('📸 Обновляем фотографии:', newPhotos.length);
-           console.log('📸 Новые фотографии:', newPhotos);
+
            onPhotosChange?.(newPhotos);
            
            // Скрываем индикатор загрузки

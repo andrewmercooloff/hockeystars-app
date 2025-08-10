@@ -105,14 +105,12 @@ const Puck: React.FC<PuckProps> = ({
   }, [avatar, imageError]);
 
   const handleError = useCallback((error: any) => {
-    console.log('❌ Ошибка загрузки аватара в Puck:', error);
-    console.log('   URL аватара:', avatar);
-    console.log('   Нативная ошибка:', error.nativeEvent?.error);
+
     setImageError(true);
   }, [avatar]);
 
   const handleLoad = useCallback(() => {
-    console.log('✅ Аватар в Puck успешно загружен:', avatar);
+
   }, [avatar]);
 
   return (

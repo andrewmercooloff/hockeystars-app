@@ -1,5 +1,5 @@
-import { loadPlayers, loadCurrentUser } from './playerStorage';
 import api from './api';
+import { loadPlayers } from './playerStorage';
 
 interface SyncResult {
   success: boolean;
@@ -10,13 +10,12 @@ interface SyncResult {
 
 export const syncLocalPlayersToServer = async (): Promise<SyncResult> => {
   try {
-    console.log('=== НАЧАЛО СИНХРОНИЗАЦИИ ===');
-    console.log('Начинаем синхронизацию локальных игроков на сервер...');
+    
     
     // Загружаем локальных игроков
-    console.log('Загружаем локальных игроков...');
+
     const localPlayers = await loadPlayers();
-    console.log(`Найдено ${localPlayers.length} локальных игроков:`, localPlayers.map(p => p.name));
+
     
     if (localPlayers.length === 0) {
       return {
@@ -26,14 +25,14 @@ export const syncLocalPlayersToServer = async (): Promise<SyncResult> => {
     }
 
     // Сначала регистрируем каждого игрока на сервере
-    console.log('Начинаем регистрацию игроков на сервере...');
+
     let exportedCount = 0;
     const errors: string[] = [];
 
     for (const player of localPlayers) {
-      console.log(`Обрабатываем игрока: ${player.name}`);
+
               try {
-          console.log(`Проверяем существование игрока ${player.name} на сервере...`);
+
           // Проверяем, есть ли уже такой пользователь на сервере
           const existingPlayer = await api.getPlayerById(player.id).catch(() => {
             // Игрок не найден на сервере - это нормально для новых игроков
@@ -41,7 +40,7 @@ export const syncLocalPlayersToServer = async (): Promise<SyncResult> => {
           });
           
           if (!existingPlayer) {
-            console.log(`Регистрируем нового игрока: ${player.name}`);
+
           // Регистрируем нового игрока на сервере
           const registrationData = {
             username: player.username || `player_${player.id}`,
@@ -56,10 +55,10 @@ export const syncLocalPlayersToServer = async (): Promise<SyncResult> => {
           };
 
           const result = await api.register(registrationData);
-          console.log(`Игрок ${player.name} успешно экспортирован на сервер`);
+
           exportedCount++;
         } else {
-          console.log(`Игрок ${player.name} уже существует на сервере`);
+
         }
       } catch (error) {
         const errorMsg = `Ошибка экспорта игрока ${player.name}: ${error}`;
@@ -99,7 +98,7 @@ export const syncLocalPlayersToServer = async (): Promise<SyncResult> => {
         };
 
         await api.updateProfile(profileData);
-        console.log(`Профиль игрока ${player.name} обновлен на сервере`);
+
       } catch (error) {
         console.error(`Ошибка обновления профиля игрока ${player.name}:`, error);
       }
@@ -124,10 +123,9 @@ export const syncLocalPlayersToServer = async (): Promise<SyncResult> => {
 
 export const checkServerConnection = async (): Promise<boolean> => {
   try {
-    console.log('Проверяем подключение к серверу...');
-    console.log('API URL: http://192.168.1.10:3000/api');
+    
     const result = await api.healthCheck();
-    console.log('Результат проверки сервера:', result);
+    
     return true;
   } catch (error) {
     console.error('Сервер недоступен:', error);

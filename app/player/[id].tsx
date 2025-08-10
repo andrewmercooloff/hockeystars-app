@@ -181,13 +181,13 @@ export default function PlayerProfile() {
         // Мигрируем аватар в Storage, если он локальный
         let updatedPlayerData = playerData;
         if (playerData?.avatar && (playerData.avatar.startsWith('file://') || playerData.avatar.startsWith('content://') || playerData.avatar.startsWith('data:'))) {
-          console.log('🔄 Мигрируем локальный аватар игрока в Storage:', playerData.avatar);
+      
           const { uploadImageToStorage } = await import('../../utils/uploadImage');
           const migratedAvatarUrl = await uploadImageToStorage(playerData.avatar);
           if (migratedAvatarUrl) {
             updatedPlayerData = { ...playerData, avatar: migratedAvatarUrl };
             await updatePlayer(playerData.id, updatedPlayerData, userData?.id);
-            console.log('✅ Аватар игрока мигрирован в Storage:', migratedAvatarUrl);
+
           }
         }
         
@@ -210,7 +210,7 @@ export default function PlayerProfile() {
           for (const photo of updatedPlayerData.photos) {
             // Проверяем, является ли фото локальным
             if (photo.startsWith('file://') || photo.startsWith('content://') || photo.startsWith('data:')) {
-              console.log('🔄 Мигрируем локальное фото игрока в Storage:', photo);
+  
               const { uploadGalleryPhoto } = await import('../../utils/uploadImage');
               const migratedUrl = await uploadGalleryPhoto(photo);
               if (migratedUrl) {
@@ -243,12 +243,12 @@ export default function PlayerProfile() {
         if (userData && playerData) {
           // Если пользователь смотрит свой профиль, устанавливаем статус 'friends'
           if (userData.id === playerData.id) {
-            console.log('🔍 Пользователь смотрит свой профиль, устанавливаем статус friends');
+    
             setFriendshipStatus('friends');
           } else {
-            console.log('🔍 Проверяем статус дружбы между пользователем', userData.name, 'и игроком', playerData.name);
+    
             const friendsStatus = await getFriendshipStatus(userData.id, playerData.id);
-            console.log('🔍 Получен статус дружбы:', friendsStatus);
+            
             setFriendshipStatus(friendsStatus);
           }
         }
@@ -383,10 +383,6 @@ export default function PlayerProfile() {
   };
 
   const handleAddFriend = async () => {
-    console.log('🔧 handleAddFriend вызвана!');
-    console.log('🔧 friendshipStatus:', friendshipStatus);
-    console.log('🔧 currentUser.id:', currentUser?.id);
-    console.log('🔧 player.id:', player?.id);
     
     if (!currentUser || !player) {
       showCustomAlert('Ошибка', 'Необходимо войти в профиль для добавления в друзья', 'error', () => router.push('/login'));
@@ -396,10 +392,8 @@ export default function PlayerProfile() {
     setFriendLoading(true);
     try {
       if (friendshipStatus === 'friends') {
-        console.log('🔧 Удаляем из друзей');
         // Удаляем из друзей
         const success = await removeFriend(currentUser.id, player.id);
-        console.log('🔧 removeFriend результат:', success);
         if (success) {
           setFriendshipStatus('none');
           showCustomAlert('Успешно', `${player.name} удален из друзей`, 'success');
@@ -410,7 +404,7 @@ export default function PlayerProfile() {
         console.log('🔧 Отправляем запрос дружбы');
         // Отправляем запрос дружбы
         const success = await sendFriendRequest(currentUser.id, player.id);
-        console.log('🔧 sendFriendRequest результат:', success);
+
         if (success) {
           setFriendshipStatus('pending');
           showCustomAlert('Запрос отправлен', `Запрос дружбы отправлен ${player.name}`, 'success');
@@ -418,10 +412,8 @@ export default function PlayerProfile() {
           showCustomAlert('Ошибка', 'Не удалось отправить запрос дружбы', 'error');
         }
       } else if (friendshipStatus === 'sent' || friendshipStatus === 'sent_request' || friendshipStatus === 'pending') {
-        console.log('🔧 Отменяем запрос');
         // Отменяем запрос
         const success = await cancelFriendRequest(currentUser.id, player.id);
-        console.log('🔧 cancelFriendRequest результат:', success);
         if (success) {
           setFriendshipStatus('none');
           showCustomAlert('Запрос отменен', 'Запрос дружбы отменен', 'info');
@@ -429,11 +421,8 @@ export default function PlayerProfile() {
           showCustomAlert('Ошибка', 'Не удалось отменить запрос', 'error');
         }
       } else if (friendshipStatus === 'received_request') {
-        console.log('🔧 Принимаем запрос');
-        console.log('🔧 Параметры для acceptFriendRequest:', { currentUserId: currentUser.id, playerId: player.id });
         // Принимаем запрос
         const success = await acceptFriendRequest(currentUser.id, player.id);
-        console.log('🔧 acceptFriendRequest результат:', success);
         if (success) {
           setFriendshipStatus('friends');
           showCustomAlert('Дружба принята', `${player.name} добавлен в друзья`, 'success');
@@ -480,11 +469,9 @@ export default function PlayerProfile() {
 
   // Функция для парсинга URL и таймкода
   const parseVideoUrl = (input: string): { url: string; timeCode?: string } => {
-    console.log('🔍 parseVideoUrl обрабатывает:', input);
     const timeMatch = input.match(/\(время:\s*(\d{1,2}:\d{2})\)/);
     const timeCode = timeMatch ? timeMatch[1] : undefined;
     const url = input.replace(/\s*\(время:\s*\d{1,2}:\d{2}\)/, '').trim();
-    console.log('🔍 Результат parseVideoUrl:', { url, timeCode });
     return { url, timeCode };
   };
 
@@ -527,7 +514,6 @@ export default function PlayerProfile() {
   };
 
   const handleClearAllFriendRequests = async () => {
-    console.log('🔧 Очистка всех запросов дружбы...');
     await clearAllFriendRequests();
     showCustomAlert('Очистка', 'Все запросы дружбы очищены', 'info');
     // Обновляем данные после очистки
@@ -537,7 +523,7 @@ export default function PlayerProfile() {
   const handleTestNotification = async () => {
     if (!currentUser || !player) return;
     
-    console.log('🔔 Тестируем создание уведомления...');
+
     await createFriendRequestNotification(player.id, currentUser.id);
     showCustomAlert('Тест', 'Тестовое уведомление создано', 'info');
   };
@@ -546,7 +532,7 @@ export default function PlayerProfile() {
     try {
       const notificationsData = await AsyncStorage.getItem('hockeystars_notifications');
       const allNotifications = notificationsData ? JSON.parse(notificationsData) : [];
-      console.log('🔔 Все уведомления в системе:', allNotifications);
+
       showCustomAlert('Отладка', `Всего уведомлений: ${allNotifications.length}`, 'info');
     } catch (error) {
       console.error('❌ Ошибка просмотра уведомлений:', error);
@@ -556,7 +542,7 @@ export default function PlayerProfile() {
   const handleSendFriendRequestFromPlayer = async () => {
     if (!currentUser || !player) return;
     
-    console.log('🔔 Отправляем запрос дружбы от игрока к администратору...');
+
     try {
       await sendFriendRequest(player.id, currentUser.id);
       showCustomAlert('Успех', 'Запрос дружбы отправлен от имени игрока', 'success');
@@ -598,7 +584,7 @@ export default function PlayerProfile() {
   const handleRefreshCounters = async () => {
     if (!currentUser) return;
     
-    console.log('🔄 Принудительно обновляем счетчики...');
+
     try {
       const { getUnreadMessageCount } = await import('../../utils/playerStorage');
       const unreadMessagesCount = await getUnreadMessageCount(currentUser.id);
@@ -611,7 +597,7 @@ export default function PlayerProfile() {
 
   const handleCurrentTeamChange = async (teams: PastTeam[]) => {
     try {
-      console.log('🔄 Обновляем текущие команды:', teams);
+
       setPlayerTeams(teams);
     } catch (error) {
       console.error('Ошибка при изменении текущих команд:', error);
@@ -728,7 +714,7 @@ export default function PlayerProfile() {
       'warning',
       async () => {
         try {
-          console.log('🗑️ Удаляем пользователя:', player.id);
+      
           
           // Удаляем пользователя из базы данных
           const { error } = await supabase
@@ -740,7 +726,7 @@ export default function PlayerProfile() {
             console.error('❌ Ошибка удаления пользователя:', error);
             showCustomAlert('Ошибка', 'Не удалось удалить пользователя', 'error');
           } else {
-            console.log('✅ Пользователь успешно удален');
+
             showCustomAlert(
               'Успешно', 
               `Пользователь "${player.name}" удален`,
@@ -820,7 +806,7 @@ export default function PlayerProfile() {
                 <TouchableOpacity 
                   style={styles.editButton} 
                   onPress={() => {
-                    console.log('🔧 Редактирование профиля:', player.name);
+                
                     if (isEditing) {
                       handleSave();
                     } else {
@@ -899,12 +885,10 @@ export default function PlayerProfile() {
                       }}
                       style={styles.profileImage}
                       onError={(error) => {
-                        console.log('❌ Ошибка загрузки аватара в профиле игрока:', error);
-                        console.log('   URL аватара:', imageSource);
-                        console.log('   Нативная ошибка:', error.nativeEvent?.error);
+                                console.error('❌ Ошибка загрузки аватара в профиле игрока:', error);
                       }}
                       onLoad={() => {
-                        console.log('✅ Аватар в профиле игрока успешно загружен:', imageSource);
+                
                       }}
                     />
                   );
@@ -1179,17 +1163,7 @@ export default function PlayerProfile() {
               const gamesNum = parseInt(player.games || '0') || 0;
               const pointsNum = goalsNum + assistsNum;
               
-              console.log('📊 Статистика игрока:', {
-                name: player.name,
-                goals: player.goals,
-                goalsNum,
-                assists: player.assists,
-                assistsNum,
-                games: player.games,
-                gamesNum,
-                pointsNum,
-                hasStats: pointsNum > 0 || goalsNum > 0 || assistsNum > 0 || gamesNum > 0
-              });
+
               
               // Показываем статистику только если есть хотя бы одно ненулевое значение
               const hasStats = pointsNum > 0 || goalsNum > 0 || assistsNum > 0 || gamesNum > 0;
@@ -1282,7 +1256,7 @@ export default function PlayerProfile() {
                       currentTeams={playerTeams}
                       onCurrentTeamsChange={setPlayerTeams}
                       onMoveToPastTeams={(team) => {
-                        console.log('🔄 Перемещаем команду в прошлые команды:', team);
+                
                         setPastTeams(prev => [...prev, team]);
                       }}
                       readOnly={false}
@@ -1296,7 +1270,7 @@ export default function PlayerProfile() {
                       isEditing={isEditing}
                       onPastTeamsChange={setPastTeams}
                       onMoveToCurrentTeams={(team) => {
-                        console.log('🔄 Перемещаем команду в текущие команды:', team);
+                
                         setPlayerTeams(prev => [...prev, team]);
                       }}
                       readOnly={false}
@@ -1608,9 +1582,7 @@ export default function PlayerProfile() {
                   (() => {
                     const videoUrls = player.favoriteGoals.split('\n').filter(goal => goal.trim());
                     const parsedVideos = videoUrls.map(goal => parseVideoUrl(goal.trim()));
-                    console.log('🎥 Обработка видео в профиле:');
-                    console.log('   Исходные строки:', videoUrls);
-                    console.log('   Обработанные видео:', parsedVideos);
+                    
                     return (
                   <VideoCarousel
                         videos={parsedVideos}
@@ -1735,7 +1707,7 @@ export default function PlayerProfile() {
               photos={galleryPhotos}
               isEditing={isEditing && (currentUser?.status === 'admin' || currentUser?.id === player.id)}
               onPhotosChange={(newPhotos) => {
-                console.log('📸 setGalleryPhotos called with:', newPhotos);
+            
                 setGalleryPhotos(newPhotos);
               }}
             />

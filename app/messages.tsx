@@ -157,6 +157,14 @@ export default function MessagesScreen() {
     <View style={styles.container}>
       <ImageBackground source={iceBg} style={styles.background} resizeMode="cover">
         <View style={styles.overlay}>
+          {/* Заголовок страницы */}
+          <View style={styles.pageHeader}>
+            <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+              <Ionicons name="arrow-back" size={24} color="#fff" />
+            </TouchableOpacity>
+            <Text style={styles.pageTitle}>Сообщения</Text>
+          </View>
+          
           {/* Список чатов */}
           <ScrollView 
             style={styles.chatsContainer}
@@ -278,6 +286,24 @@ const styles = StyleSheet.create({
     color: '#FF4444',
     fontSize: 14,
     fontFamily: 'Gilroy-Regular',
+  },
+  pageHeader: {
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 68, 68, 0.3)',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  backButton: {
+    marginRight: 16,
+  },
+  pageTitle: {
+    color: '#fff',
+    fontSize: 24,
+    fontFamily: 'Gilroy-Bold',
+    flex: 1,
   },
   chatsContainer: {
     flex: 1,

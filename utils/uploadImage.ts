@@ -17,8 +17,7 @@ const ensureAvatarsBucket = async () => {
       });
     
     if (error) {
-      console.error('🚨🚨🚨 BUCKET_DEBUG: Ошибка доступа к bucket avatars:', error);
-      console.log('🚨🚨🚨 BUCKET_DEBUG: Убедитесь, что bucket avatars существует и доступен');
+      console.error('❌ Ошибка доступа к bucket avatars:', error);
       return false;
     }
     
@@ -27,7 +26,6 @@ const ensureAvatarsBucket = async () => {
       .from('avatars')
       .remove([testFileName]);
     
-    console.log('🚨🚨🚨 BUCKET_DEBUG: Bucket avatars доступен');
     return true;
   } catch (error) {
     console.error('❌ Ошибка проверки bucket:', error);
@@ -38,12 +36,10 @@ const ensureAvatarsBucket = async () => {
 // Функция для загрузки изображения в Supabase Storage (для аватаров)
 export const uploadImageToStorage = async (imageUri: string, fileName?: string): Promise<string | null> => {
   try {
-    console.log('🚨🚨🚨 UPLOAD_DEBUG: Начинаем загрузку изображения в Supabase Storage...');
-    
     // Проверяем и создаем bucket если нужно
     const bucketReady = await ensureAvatarsBucket();
     if (!bucketReady) {
-      console.error('🚨🚨🚨 UPLOAD_DEBUG: Не удалось подготовить bucket avatars');
+      console.error('❌ Не удалось подготовить bucket avatars');
       return null;
     }
     
@@ -55,13 +51,9 @@ export const uploadImageToStorage = async (imageUri: string, fileName?: string):
     // Очищаем имя файла от лишних слешей
     finalFileName = finalFileName.replace(/^\/+/, '').replace(/\/+$/, '');
     
-    console.log('🚨🚨🚨 UPLOAD_DEBUG: Имя файла:', finalFileName);
-    
     // Если это локальный файл, сначала сжимаем его
     let processedImageUri = imageUri;
     if (imageUri.startsWith('file://') || imageUri.startsWith('content://')) {
-      console.log('🔄 Обрабатываем локальное изображение...');
-      
       try {
         const result = await ImageManipulator.manipulateAsync(
           imageUri,
@@ -70,27 +62,26 @@ export const uploadImageToStorage = async (imageUri: string, fileName?: string):
         );
         
         processedImageUri = result.uri;
-        console.log('✅ Изображение обработано с сохранением пропорций:', processedImageUri);
+    
       } catch (manipulatorError) {
         console.error('❌ Ошибка обработки изображения:', manipulatorError);
-        console.log('⚠️ Используем оригинальный URI');
+
         processedImageUri = imageUri;
       }
     }
     
-    // Конвертируем изображение в blob
-    console.log('📤 Конвертируем в blob:', processedImageUri);
+
     let blob;
     
     if (processedImageUri.startsWith('file://')) {
       // Для локальных файлов используем expo-file-system
-      console.log('🚨🚨🚨 UPLOAD_DEBUG: Используем expo-file-system для локального файла');
+
       try {
         const base64 = await FileSystem.readAsStringAsync(processedImageUri, {
           encoding: FileSystem.EncodingType.Base64,
         });
         
-        console.log('🚨🚨🚨 UPLOAD_DEBUG: Base64 получен, длина:', base64.length);
+
         
         // Создаем FormData с base64
         const formData = new FormData();
@@ -100,8 +91,7 @@ export const uploadImageToStorage = async (imageUri: string, fileName?: string):
           name: finalFileName,
         } as any);
         
-        // Используем FormData для загрузки
-        console.log('🚨🚨🚨 UPLOAD_DEBUG: FormData создан, используем для загрузки');
+
         
         // Загружаем напрямую через FormData
         const { data, error } = await supabase.storage
@@ -112,11 +102,11 @@ export const uploadImageToStorage = async (imageUri: string, fileName?: string):
           });
         
         if (error) {
-          console.error('🚨🚨🚨 UPLOAD_DEBUG: Ошибка загрузки через FormData:', error);
+          console.error('❌ Ошибка загрузки через FormData:', error);
           return null;
         }
         
-        console.log('🚨🚨🚨 UPLOAD_DEBUG: Файл загружен через FormData:', data.path);
+
         
         // Получаем публичный URL
         const { data: urlData } = supabase.storage
@@ -124,7 +114,7 @@ export const uploadImageToStorage = async (imageUri: string, fileName?: string):
           .getPublicUrl(data.path);
         
         const publicUrl = urlData.publicUrl;
-        console.log('🚨🚨🚨 UPLOAD_DEBUG: Публичный URL получен:', publicUrl);
+
         
         // Проверяем, нет ли двойных слешей в URL
         if (publicUrl.includes('avatars//')) {
@@ -133,11 +123,11 @@ export const uploadImageToStorage = async (imageUri: string, fileName?: string):
           return null;
         }
         
-        console.log('🚨🚨🚨 UPLOAD_DEBUG: Возвращаем URL:', publicUrl);
+
         return publicUrl;
         
       } catch (fileSystemError) {
-        console.error('🚨🚨🚨 UPLOAD_DEBUG: Ошибка FileSystem:', fileSystemError);
+        console.error('❌ Ошибка FileSystem:', fileSystemError);
         return null;
       }
     } else {
@@ -149,14 +139,11 @@ export const uploadImageToStorage = async (imageUri: string, fileName?: string):
           return null;
         }
         blob = await response.blob();
-        console.log('🚨🚨🚨 UPLOAD_DEBUG: Blob создан через fetch, размер:', blob.size, 'байт');
+
         
         if (blob.size === 0) {
-          console.error('🚨🚨🚨 UPLOAD_DEBUG: Blob пустой!');
           return null;
         }
-        
-        console.log('📤 Загружаем в Supabase Storage...');
         
         // Загружаем в Supabase Storage
         const { data, error } = await supabase.storage
@@ -171,8 +158,6 @@ export const uploadImageToStorage = async (imageUri: string, fileName?: string):
           return null;
         }
         
-        console.log('✅ Файл загружен в Storage:', data.path);
-        
         // Получаем публичный URL
         const { data: urlData } = supabase.storage
           .from('avatars')
@@ -184,7 +169,6 @@ export const uploadImageToStorage = async (imageUri: string, fileName?: string):
         }
         
         const publicUrl = urlData.publicUrl;
-        console.log('🚨🚨🚨 UPLOAD_DEBUG: Изображение загружено:', publicUrl);
         
         // Проверяем, нет ли двойных слешей в URL
         if (publicUrl.includes('avatars//')) {
@@ -193,7 +177,6 @@ export const uploadImageToStorage = async (imageUri: string, fileName?: string):
           return null;
         }
         
-        console.log('🚨🚨🚨 UPLOAD_DEBUG: Возвращаем URL:', publicUrl);
         return publicUrl;
         
       } catch (fetchError) {
@@ -210,7 +193,7 @@ export const uploadImageToStorage = async (imageUri: string, fileName?: string):
 // Функция для загрузки фотографий галереи в Supabase Storage
 export const uploadGalleryPhoto = async (imageUri: string, fileName?: string): Promise<string | null> => {
   try {
-    console.log('📸 GALLERY_UPLOAD_DEBUG: Начинаем загрузку фотографии галереи...');
+
     
     // Создаем уникальное имя файла
     const timestamp = Date.now();
@@ -220,13 +203,11 @@ export const uploadGalleryPhoto = async (imageUri: string, fileName?: string): P
     // Очищаем имя файла от лишних слешей
     finalFileName = finalFileName.replace(/^\/+/, '').replace(/\/+$/, '');
     
-    console.log('📸 GALLERY_UPLOAD_DEBUG: Имя файла:', finalFileName);
+
     
     // Если это локальный файл, сначала сжимаем его
     let processedImageUri = imageUri;
     if (imageUri.startsWith('file://') || imageUri.startsWith('content://')) {
-      console.log('🔄 Обрабатываем локальное изображение галереи...');
-      
       try {
         const result = await ImageManipulator.manipulateAsync(
           imageUri,
@@ -235,27 +216,25 @@ export const uploadGalleryPhoto = async (imageUri: string, fileName?: string): P
         );
         
         processedImageUri = result.uri;
-        console.log('✅ Изображение галереи обработано:', processedImageUri);
+
       } catch (manipulatorError) {
         console.error('❌ Ошибка обработки изображения галереи:', manipulatorError);
-        console.log('⚠️ Используем оригинальный URI');
         processedImageUri = imageUri;
       }
     }
     
-    // Конвертируем изображение в blob
-    console.log('📤 Конвертируем в blob:', processedImageUri);
+
     let blob;
     
     if (processedImageUri.startsWith('file://')) {
       // Для локальных файлов используем expo-file-system
-      console.log('📸 GALLERY_UPLOAD_DEBUG: Используем expo-file-system для локального файла');
+
       try {
         const base64 = await FileSystem.readAsStringAsync(processedImageUri, {
           encoding: FileSystem.EncodingType.Base64,
         });
         
-        console.log('📸 GALLERY_UPLOAD_DEBUG: Base64 получен, длина:', base64.length);
+
         
         // Создаем FormData с base64
         const formData = new FormData();
@@ -265,8 +244,7 @@ export const uploadGalleryPhoto = async (imageUri: string, fileName?: string): P
           name: finalFileName,
         } as any);
         
-        // Используем FormData для загрузки в bucket avatars (можно изменить на отдельный bucket)
-        console.log('📸 GALLERY_UPLOAD_DEBUG: FormData создан, используем для загрузки');
+
         
         // Загружаем напрямую через FormData
         const { data, error } = await supabase.storage
@@ -277,11 +255,11 @@ export const uploadGalleryPhoto = async (imageUri: string, fileName?: string): P
           });
         
         if (error) {
-          console.error('📸 GALLERY_UPLOAD_DEBUG: Ошибка загрузки через FormData:', error);
+          console.error('❌ Ошибка загрузки через FormData:', error);
           return null;
         }
         
-        console.log('📸 GALLERY_UPLOAD_DEBUG: Файл загружен через FormData:', data.path);
+
         
         // Получаем публичный URL
         const { data: urlData } = supabase.storage
@@ -289,7 +267,7 @@ export const uploadGalleryPhoto = async (imageUri: string, fileName?: string): P
           .getPublicUrl(data.path);
         
         const publicUrl = urlData.publicUrl;
-        console.log('📸 GALLERY_UPLOAD_DEBUG: Публичный URL получен:', publicUrl);
+
         
         // Проверяем, нет ли двойных слешей в URL
         if (publicUrl.includes('avatars//')) {
@@ -298,11 +276,11 @@ export const uploadGalleryPhoto = async (imageUri: string, fileName?: string): P
           return null;
         }
         
-        console.log('📸 GALLERY_UPLOAD_DEBUG: Возвращаем URL:', publicUrl);
+
         return publicUrl;
         
       } catch (fileSystemError) {
-        console.error('📸 GALLERY_UPLOAD_DEBUG: Ошибка FileSystem:', fileSystemError);
+        console.error('❌ Ошибка FileSystem:', fileSystemError);
         return null;
       }
     } else {
@@ -314,14 +292,11 @@ export const uploadGalleryPhoto = async (imageUri: string, fileName?: string): P
           return null;
         }
         blob = await response.blob();
-        console.log('📸 GALLERY_UPLOAD_DEBUG: Blob создан через fetch, размер:', blob.size, 'байт');
+
         
         if (blob.size === 0) {
-          console.error('📸 GALLERY_UPLOAD_DEBUG: Blob пустой!');
           return null;
         }
-        
-        console.log('📤 Загружаем в Supabase Storage...');
         
         // Загружаем в Supabase Storage
         const { data, error } = await supabase.storage
@@ -336,8 +311,6 @@ export const uploadGalleryPhoto = async (imageUri: string, fileName?: string): P
           return null;
         }
         
-        console.log('✅ Файл загружен в Storage:', data.path);
-        
         // Получаем публичный URL
         const { data: urlData } = supabase.storage
           .from('avatars')
@@ -349,7 +322,6 @@ export const uploadGalleryPhoto = async (imageUri: string, fileName?: string): P
         }
         
         const publicUrl = urlData.publicUrl;
-        console.log('📸 GALLERY_UPLOAD_DEBUG: Изображение загружено:', publicUrl);
         
         // Проверяем, нет ли двойных слешей в URL
         if (publicUrl.includes('avatars//')) {
@@ -358,7 +330,6 @@ export const uploadGalleryPhoto = async (imageUri: string, fileName?: string): P
           return null;
         }
         
-        console.log('📸 GALLERY_UPLOAD_DEBUG: Возвращаем URL:', publicUrl);
         return publicUrl;
         
       } catch (fetchError) {
@@ -385,8 +356,6 @@ export const deleteImageFromStorage = async (imageUrl: string): Promise<boolean>
       return false;
     }
     
-    console.log('🗑️ Удаляем изображение:', fileName);
-    
     const { error } = await supabase.storage
       .from('avatars')
       .remove([fileName]);
@@ -396,7 +365,6 @@ export const deleteImageFromStorage = async (imageUrl: string): Promise<boolean>
       return false;
     }
     
-    console.log('✅ Изображение удалено');
     return true;
   } catch (error) {
     console.error('❌ Ошибка удаления изображения:', error);
@@ -417,7 +385,6 @@ export const migrateLocalImageToStorage = async (imageUrl: string): Promise<stri
     return imageUrl; // Уже в Storage
   }
   
-  console.log('🔄 Мигрируем локальное изображение в Storage...');
   return await uploadImageToStorage(imageUrl);
 };
 
@@ -427,7 +394,6 @@ export const checkImageAvailability = async (imageUrl: string): Promise<boolean>
     const response = await fetch(imageUrl, { method: 'HEAD' });
     return response.ok;
   } catch (error) {
-    console.log('❌ Изображение недоступно:', imageUrl, error);
     return false;
   }
 };
@@ -449,7 +415,6 @@ export const getWorkingImageUrl = async (imageUrl: string, fallbackUrl?: string)
   if (isAvailable) {
     return imageUrl;
   } else {
-    console.log('⚠️ Изображение недоступно, используем fallback:', imageUrl);
     return fallbackUrl || imageUrl; // Возвращаем fallback или оригинальный URL
   }
 }; 

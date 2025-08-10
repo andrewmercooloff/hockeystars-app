@@ -469,15 +469,14 @@ export default function ExerciseDetailsScreen() {
       >
         <View style={styles.overlay}>
           {/* Заголовок с кнопкой назад */}
-          <View style={styles.header}>
+          <View style={styles.pageHeader}>
             <TouchableOpacity
               style={styles.backButton}
               onPress={() => router.push('/exercises')}
             >
               <Ionicons name="arrow-back" size={24} color="#fff" />
             </TouchableOpacity>
-            <Text style={styles.headerTitle}>{exercise.title}</Text>
-            <View style={styles.placeholder} />
+            <Text style={styles.pageTitle}>{exercise.title}</Text>
           </View>
 
           <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
@@ -581,32 +580,25 @@ const styles = StyleSheet.create({
   },
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)', // Восстанавливаем полупрозрачный фон для читаемости
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  pageHeader: {
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
     paddingHorizontal: 20,
     paddingVertical: 16,
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 68, 68, 0.3)',
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   backButton: {
-    padding: 10,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 20,
+    marginRight: 16,
   },
-  headerTitle: {
+  pageTitle: {
     color: '#fff',
     fontSize: 24,
     fontFamily: 'Gilroy-Bold',
     flex: 1,
-    textAlign: 'center',
-  },
-  placeholder: {
-    width: 50, // Для баланса с кнопкой назад
   },
   content: {
     flex: 1,

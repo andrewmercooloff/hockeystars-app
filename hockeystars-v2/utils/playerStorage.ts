@@ -79,10 +79,10 @@ export const loadPlayers = async (): Promise<Player[]> => {
       players.push({ id: doc.id, ...doc.data() } as Player);
     });
     
-    console.log(`[Firebase] Загружено ${players.length} игроков.`);
+
     return players;
   } catch (error) {
-    console.log("[Firebase] Ошибка загрузки игроков (возможно, нет подключения к интернету): ", error);
+    
     return [];
   }
 };
@@ -96,11 +96,11 @@ export const getPlayerById = async (id: string): Promise<Player | null> => {
     if (docSnap.exists()) {
       return { id: docSnap.id, ...docSnap.data() } as Player;
     } else {
-      console.log("[Firebase] Игрок с ID", id, "не найден.");
+
       return null;
     }
   } catch (error) {
-    console.log("[Firebase] Ошибка получения игрока по ID (возможно, нет подключения к интернету): ", error);
+    
     return null;
   }
 };
@@ -112,7 +112,7 @@ export const addPlayer = async (playerData: Omit<Player, 'id'>): Promise<Player 
       ...playerData,
       createdAt: Timestamp.now()
     });
-    console.log("[Firebase] Новый игрок добавлен с ID: ", docRef.id);
+    
     const newPlayer = { id: docRef.id, ...playerData };
     
     // Если это текущий пользователь, сохраняем в кэш
@@ -122,7 +122,7 @@ export const addPlayer = async (playerData: Omit<Player, 'id'>): Promise<Player 
     
     return newPlayer as Player;
   } catch (error) {
-    console.log("[Firebase] Ошибка добавления игрока (возможно, нет подключения к интернету): ", error);
+    
     return null;
   }
 };
@@ -131,7 +131,7 @@ export const updatePlayer = async (updatedPlayer: Player): Promise<boolean> => {
   try {
     const playerDocRef = doc(firestore, PLAYERS_COLLECTION, updatedPlayer.id);
     await updateDoc(playerDocRef, { ...updatedPlayer });
-    console.log(`[Firebase] Данные игрока ${updatedPlayer.id} обновлены.`);
+    
     
     // Обновляем кэш, если это текущий пользователь
     const currentUser = await loadCurrentUser();

@@ -192,6 +192,14 @@ export default function ExercisesScreen() {
         resizeMode="cover"
       >
         <View style={styles.overlay}>
+          {/* Заголовок страницы */}
+          <View style={styles.pageHeader}>
+            <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+              <Ionicons name="arrow-back" size={24} color="#fff" />
+            </TouchableOpacity>
+            <Text style={styles.pageTitle}>Упражнения</Text>
+          </View>
+          
           {/* Фильтры по категориям */}
           <View style={styles.categoriesContainer}>
             <View style={styles.categoriesContent}>
@@ -285,6 +293,24 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontFamily: 'Gilroy-Bold',
     marginBottom: 4,
+  },
+  pageHeader: {
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 68, 68, 0.3)',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  backButton: {
+    marginRight: 16,
+  },
+  pageTitle: {
+    color: '#fff',
+    fontSize: 24,
+    fontFamily: 'Gilroy-Bold',
+    flex: 1,
   },
   categoriesContainer: {
     marginTop: 20, // Добавляем отступ сверху от заголовка

@@ -81,7 +81,6 @@ export const getPlayers = async (): Promise<Player[]> => {
       return [];
     }
 
-    console.log('✅ Игроки загружены:', data?.length || 0);
     return data || [];
   } catch (error) {
     console.error('❌ Ошибка загрузки игроков:', error);
@@ -122,7 +121,6 @@ export const addPlayer = async (player: Omit<Player, 'id' | 'created_at' | 'upda
       return null;
     }
 
-    console.log('✅ Игрок добавлен:', data.name);
     return data;
   } catch (error) {
     console.error('❌ Ошибка добавления игрока:', error);
@@ -144,7 +142,7 @@ export const updatePlayer = async (id: string, updates: Partial<Player>): Promis
       return null;
     }
 
-    console.log('✅ Игрок обновлен:', data.name);
+
     return data;
   } catch (error) {
     console.error('❌ Ошибка обновления игрока:', error);
@@ -164,7 +162,7 @@ export const deletePlayer = async (id: string): Promise<boolean> => {
       return false;
     }
 
-    console.log('✅ Игрок удален');
+
     return true;
   } catch (error) {
     console.error('❌ Ошибка удаления игрока:', error);
@@ -186,7 +184,7 @@ export const findPlayerByCredentials = async (email: string, password: string): 
       return null;
     }
 
-    console.log('✅ Пользователь найден:', data.name);
+
     return data;
   } catch (error) {
     console.error('❌ Ошибка поиска пользователя:', error);
@@ -228,7 +226,7 @@ export const sendMessage = async (message: Omit<Message, 'id' | 'created_at'>): 
       return null;
     }
 
-    console.log('✅ Сообщение отправлено');
+
     return data;
   } catch (error) {
     console.error('❌ Ошибка отправки сообщения:', error);
@@ -275,7 +273,7 @@ export const sendFriendRequest = async (fromId: string, toId: string): Promise<F
       return null;
     }
 
-    console.log('✅ Запрос дружбы отправлен');
+
     return data;
   } catch (error) {
     console.error('❌ Ошибка отправки запроса дружбы:', error);
@@ -286,7 +284,7 @@ export const sendFriendRequest = async (fromId: string, toId: string): Promise<F
 // Функция для инициализации базы данных
 export const initializeDatabase = async (): Promise<boolean> => {
   try {
-    console.log('🔧 Инициализация базы данных...');
+
     
     // Проверяем подключение
     const { data, error } = await supabase
@@ -299,7 +297,7 @@ export const initializeDatabase = async (): Promise<boolean> => {
       return false;
     }
 
-    console.log('✅ База данных инициализирована');
+    
     return true;
   } catch (error) {
     console.error('❌ Ошибка инициализации базы данных:', error);
@@ -310,7 +308,7 @@ export const initializeDatabase = async (): Promise<boolean> => {
 // Функция для очистки всех данных
 export const clearAllData = async (): Promise<boolean> => {
   try {
-    console.log('🗑️ Очистка всех данных из базы...');
+
     
     // Удаляем все данные из всех таблиц
     const tables = ['players', 'messages', 'friend_requests', 'notifications'];
@@ -324,11 +322,11 @@ export const clearAllData = async (): Promise<boolean> => {
       if (error) {
         console.error(`❌ Ошибка очистки таблицы ${table}:`, error);
       } else {
-        console.log(`✅ Таблица ${table} очищена`);
+
       }
     }
 
-    console.log('✅ Все данные очищены');
+
     return true;
   } catch (error) {
     console.error('❌ Ошибка очистки данных:', error);

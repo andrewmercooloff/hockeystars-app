@@ -18,15 +18,15 @@ const TeamSelector = React.memo(({ selectedTeams, onTeamsChange, placeholder = "
 
   // Удаление команды
   const removeTeam = (teamId: string) => {
-    console.log('🗑️ removeTeam вызвана с teamId:', teamId);
+
     const newTeams = selectedTeams.filter(t => t.id !== teamId);
-    console.log('Новый список команд после удаления:', newTeams);
+    
     onTeamsChange(newTeams);
   };
 
   // Обработка изменения порядка команд
   const handleDragEnd = ({ data }: { data: Team[] }) => {
-    console.log('🔄 Порядок команд изменен:', data);
+    
     onTeamsChange(data);
   };
 

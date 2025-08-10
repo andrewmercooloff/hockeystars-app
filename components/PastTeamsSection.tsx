@@ -125,10 +125,10 @@ export default function PastTeamsSection({
     if (existingTeam) {
       // Используем существующую команду
       teamId = existingTeam.id;
-      console.log('✅ Используем существующую команду:', existingTeam.name);
+      
     } else {
       // Создаем новую команду в базе данных
-      console.log('🆕 Создаем новую команду в базе данных:', newTeam.teamName.trim());
+      
       const createdTeam = await createTeam({
         name: newTeam.teamName.trim(),
         type: 'club', // По умолчанию тип "клуб"
@@ -138,7 +138,7 @@ export default function PastTeamsSection({
 
       if (createdTeam) {
         teamId = createdTeam.id;
-        console.log('✅ Команда успешно создана в базе данных:', createdTeam.name);
+
       } else {
         Alert.alert('Ошибка', 'Не удалось создать команду в базе данных');
         return;
@@ -196,10 +196,10 @@ export default function PastTeamsSection({
     let teamId: string;
     if (existingTeam) {
       teamId = existingTeam.id;
-      console.log('✅ Используем существующую команду из поиска при редактировании:', existingTeam.name);
+      
     } else {
       // Создаем новую команду в базе данных
-      console.log('🆕 Создаем новую команду в базе данных (редактирование):', editingTeam.teamName.trim());
+      
       const createdTeam = await createTeam({
         name: editingTeam.teamName.trim(),
         type: 'club', // По умолчанию тип "клуб"
@@ -213,7 +213,7 @@ export default function PastTeamsSection({
       }
       
       teamId = createdTeam.id;
-      console.log('✅ Команда успешно создана в базе данных (редактирование):', createdTeam.name, 'с ID:', createdTeam.id);
+
     }
 
     // Обновляем команду с правильным ID (всегда остается прошлой)
@@ -259,7 +259,7 @@ export default function PastTeamsSection({
 
   // Обработка изменения порядка прошлых команд
   const handleDragEnd = ({ data }: { data: PastTeam[] }) => {
-    console.log('🔄 Порядок прошлых команд изменен:', data);
+
     onPastTeamsChange?.(data);
   };
 

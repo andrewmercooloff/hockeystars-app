@@ -327,10 +327,10 @@ export const getPlayerTeams = async (playerId: string): Promise<PlayerTeam[]> =>
       return [];
     }
     
-    console.log('📊 getPlayerTeams: сырые данные из БД:', data);
+    
     
     const teams = (data || []).map((team: any) => {
-      console.log('📊 getPlayerTeams: команда из БД:', team);
+      
       return {
         teamId: team.team_id,
         teamName: team.team_name,
@@ -371,7 +371,7 @@ export const addPlayerTeam = async (playerId: string, teamId: string, isPrimary:
     }
     
     // Сначала проверяем, существует ли команда в таблице teams
-    console.log('🔍 Проверяем существование команды', teamId, 'в таблице teams...');
+
     const { data: teamExists, error: teamCheckError } = await supabase
       .from('teams')
       .select('id')
@@ -394,7 +394,7 @@ export const addPlayerTeam = async (playerId: string, teamId: string, isPrimary:
       return false;
     }
     
-    console.log('✅ Команда', teamId, 'существует в таблице teams');
+    
     
     // Сначала проверяем, существует ли уже такая запись
     const { data: existingTeam, error: checkError } = await supabase
