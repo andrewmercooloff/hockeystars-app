@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Image, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import Animated from 'react-native-reanimated';
+import Animated, { Easing, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
 
 interface PuckProps {
   avatar?: string | null;
@@ -24,6 +24,21 @@ const Puck: React.FC<PuckProps> = ({
 }) => {
   const [imageError, setImageError] = useState(false);
   
+  // Анимация для тени на льду
+  const shadowOpacity = useSharedValue(0.4);
+  
+  useEffect(() => {
+    shadowOpacity.value = withRepeat(
+      withTiming(0.6, { duration: 2000, easing: Easing.inOut(Easing.ease) }),
+      -1,
+      true
+    );
+  }, [shadowOpacity]);
+  
+  const animatedShadowStyle = useAnimatedStyle(() => ({
+    opacity: shadowOpacity.value,
+  }));
+  
   const dimensions = useMemo(() => {
     const avatarSize = size * 0.86;
     const borderRadius = size / 2;
@@ -40,11 +55,11 @@ const Puck: React.FC<PuckProps> = ({
 
   const avatarBorderColor = useMemo(() => {
     switch (status) {
-      case 'star': return '#FFD700';
-      case 'coach': return '#FF4444';
-      case 'scout': return '#888888';
-      case 'admin': return '#8A2BE2';
-      default: return '#FFFFFF';
+      case 'star': return '#FFD700'; // Золотистый для звезд
+      case 'coach': return '#FF4444'; // Красный для тренеров
+      case 'scout': return '#FF4444'; // Красный для скаутов
+      case 'admin': return '#000000'; // Черный для админов
+      default: return '#FFFFFF'; // Белый для обычных игроков
     }
   }, [status]);
 
@@ -110,6 +125,16 @@ const Puck: React.FC<PuckProps> = ({
       },
       animatedStyle
     ]}>
+      {/* Дополнительная тень на льду */}
+      <Animated.View style={[
+        styles.iceShadow,
+        {
+          width: size * 0.8,
+          left: size * 0.1,
+        },
+        animatedShadowStyle
+      ]} />
+      
       <TouchableOpacity onPress={onPress} activeOpacity={0.8}>
         {imageSource ? (
           <Image 
@@ -120,7 +145,7 @@ const Puck: React.FC<PuckProps> = ({
                 width: dimensions.avatarSize,
                 height: dimensions.avatarSize,
                 borderRadius: dimensions.avatarBorderRadius,
-                borderWidth: 2,
+                borderWidth: status === 'star' || status === 'coach' || status === 'scout' || status === 'admin' ? 3 : 2,
                 borderColor: avatarBorderColor
               }
             ]}
@@ -134,7 +159,7 @@ const Puck: React.FC<PuckProps> = ({
               width: dimensions.avatarSize,
               height: dimensions.avatarSize,
               borderRadius: dimensions.avatarBorderRadius,
-              borderWidth: 2,
+              borderWidth: status === 'star' || status === 'coach' || status === 'scout' || status === 'admin' ? 3 : 2,
               borderColor: avatarBorderColor,
               backgroundColor: '#2C3E50'
             }
@@ -168,16 +193,16 @@ const styles = StyleSheet.create({
         shadowColor: '#000',
         shadowOffset: {
           width: 0,
-          height: 4,
+          height: 6,
         },
-        shadowOpacity: 0.3,
-        shadowRadius: 4.65,
+        shadowOpacity: 0.5,
+        shadowRadius: 8,
       },
       android: {
-        elevation: 8,
+        elevation: 12,
       },
       web: {
-        boxShadow: '0 4px 4.65px rgba(0, 0, 0, 0.3)',
+        boxShadow: '0 6px 8px rgba(0, 0, 0, 0.5)',
       },
     }),
     borderWidth: 2,
@@ -193,16 +218,16 @@ const styles = StyleSheet.create({
         shadowColor: '#000',
         shadowOffset: {
           width: 0,
-          height: 4,
+          height: 6,
         },
-        shadowOpacity: 0.3,
-        shadowRadius: 4.65,
+        shadowOpacity: 0.5,
+        shadowRadius: 8,
       },
       android: {
-        elevation: 8,
+        elevation: 12,
       },
       web: {
-        boxShadow: '0 4px 4.65px rgba(0, 0, 0, 0.3)',
+        boxShadow: '0 6px 8px rgba(0, 0, 0, 0.5)',
       },
     }),
     borderWidth: 2,
@@ -210,6 +235,23 @@ const styles = StyleSheet.create({
   },
   avatar: {
     // Базовый стиль для аватара
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: {
+          width: 0,
+          height: 1,
+        },
+        shadowOpacity: 0.3,
+        shadowRadius: 2,
+      },
+      android: {
+        elevation: 4,
+      },
+      web: {
+        boxShadow: '0 1px 2px rgba(0, 0, 0, 0.3)',
+      },
+    }),
   },
   avatarPlaceholder: {
     justifyContent: 'center',
@@ -217,20 +259,23 @@ const styles = StyleSheet.create({
   },
   pointsContainer: {
     position: 'absolute',
-    backgroundColor: 'rgba(255, 68, 68, 0.9)',
-    borderRadius: 12,
-    paddingHorizontal: 6,
-    paddingVertical: 4,
+    backgroundColor: '#000000',
+    borderRadius: 6,
+    paddingHorizontal: 3,
+    paddingVertical: 1,
     borderWidth: 1,
-    borderColor: '#FF4444',
-    bottom: -4,
-    right: 10,
+    borderColor: '#333333',
+    bottom: -2,
+    right: 8,
+    minWidth: 18,
+    minHeight: 14,
   },
   pointsText: {
     color: '#FFFFFF',
-    fontSize: 12,
+    fontSize: 9,
     fontWeight: 'bold',
     textAlign: 'center',
+    lineHeight: 12,
   },
   starContainer: {
     position: 'absolute',
@@ -238,6 +283,33 @@ const styles = StyleSheet.create({
   },
   starText: {
     textAlign: 'center',
+  },
+  // Дополнительная тень для эффекта "лежания на льду"
+  iceShadow: {
+    position: 'absolute',
+    bottom: -8,
+    left: '50%',
+    width: '80%',
+    height: 8,
+    backgroundColor: 'transparent',
+    borderRadius: 50,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: {
+          width: 0,
+          height: 2,
+        },
+        shadowOpacity: 0.4,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 6,
+      },
+      web: {
+        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.4)',
+      },
+    }),
   },
 });
 

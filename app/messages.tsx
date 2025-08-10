@@ -157,16 +157,6 @@ export default function MessagesScreen() {
     <View style={styles.container}>
       <ImageBackground source={iceBg} style={styles.background} resizeMode="cover">
         <View style={styles.overlay}>
-          {/* Заголовок */}
-          <View style={styles.header}>
-            <Text style={styles.headerTitle}>Сообщения</Text>
-            {currentUser && (
-              <Text style={styles.headerSubtitle}>
-                {currentUser.name}
-              </Text>
-            )}
-          </View>
-
           {/* Список чатов */}
           <ScrollView 
             style={styles.chatsContainer}
@@ -304,7 +294,7 @@ const styles = StyleSheet.create({
   emptyContent: {
     backgroundColor: 'rgba(0, 0, 0, 0.8)',
     borderRadius: 15,
-    padding: 40,
+    padding: 20, // Уменьшили с 40 до 20 (в 2 раза)
     alignItems: 'center',
     borderWidth: 1,
     borderColor: 'rgba(255, 68, 68, 0.3)',
@@ -316,20 +306,21 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     elevation: 5,
+    marginHorizontal: 16, // Такая же ширина как у элементов чатов
   },
   emptyTitle: {
-    color: '#FF4444',
+    color: '#FFFFFF', // Изменили с #FF4444 на #FFFFFF (белый)
     fontSize: 20,
     fontFamily: 'Gilroy-Bold',
     marginTop: 16,
     marginBottom: 8,
   },
   emptySubtitle: {
-    color: '#FF4444',
+    color: '#FFFFFF', // Изменили с #FF4444 на #FFFFFF (белый)
     fontSize: 16,
     fontFamily: 'Gilroy-Regular',
     textAlign: 'center',
-    paddingHorizontal: 40,
+    paddingHorizontal: 20, // Уменьшили с 40 до 20 (в 2 раза)
   },
   chatItem: {
     flexDirection: 'row',

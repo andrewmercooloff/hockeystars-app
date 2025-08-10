@@ -3,6 +3,7 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import {
     Alert,
+    Animated,
     BackHandler,
     Image,
     ImageBackground,
@@ -36,6 +37,7 @@ export default function ChatScreen() {
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const scrollViewRef = useRef<ScrollView>(null);
+  const [messageAnimations, setMessageAnimations] = useState<{ [key: string]: Animated.Value }>({});
 
   useEffect(() => {
     // Очищаем сообщения при смене чата
@@ -53,8 +55,16 @@ export default function ChatScreen() {
       }
     }, 5000);
 
-    return () => clearInterval(interval);
-  }, [currentUser, otherPlayer, id]);
+    return () => {
+      clearInterval(interval);
+      // Очищаем все анимации при размонтировании
+      Object.values(messageAnimations).forEach(animation => {
+        if (animation) {
+          animation.stopAnimation();
+        }
+      });
+    };
+  }, [currentUser, otherPlayer, id, messageAnimations]);
 
   // Обработка системной кнопки "назад"
   useFocusEffect(
@@ -90,6 +100,13 @@ export default function ChatScreen() {
           const conversation = await getConversation(userData.id, otherPlayerData.id);
           setMessages(conversation);
           
+          // Создаем анимацию для всех сообщений при загрузке
+          setTimeout(() => {
+            conversation.forEach(message => {
+              createMessageAnimation(message.id);
+            });
+          }, 300);
+          
           // Отмечаем сообщения как прочитанные
           await markMessagesAsRead(userData.id, otherPlayerData.id);
         }
@@ -106,7 +123,19 @@ export default function ChatScreen() {
     if (currentUser && otherPlayer && otherPlayer.id === id) {
       try {
         const conversation = await getConversation(currentUser.id, otherPlayer.id);
+        
+        // Проверяем, есть ли новые сообщения
+        const previousMessageIds = new Set(messages.map(m => m.id));
+        const newMessages = conversation.filter(m => !previousMessageIds.has(m.id));
+        
         setMessages(conversation);
+        
+        // Создаем анимацию для новых сообщений
+        newMessages.forEach(message => {
+          if (message.senderId !== currentUser.id) { // Только для сообщений от других
+            createMessageAnimation(message.id);
+          }
+        });
       } catch (error) {
         console.error('Ошибка загрузки сообщений:', error);
       }
@@ -123,6 +152,15 @@ export default function ChatScreen() {
       if (success) {
         setNewMessage('');
         await loadMessages();
+        
+        // Создаем анимацию для отправленного сообщения
+        setTimeout(() => {
+          const lastMessage = messages[messages.length - 1];
+          if (lastMessage && lastMessage.senderId === currentUser.id) {
+            createMessageAnimation(lastMessage.id);
+          }
+        }, 100);
+        
         // Прокручиваем к последнему сообщению
         setTimeout(() => {
           scrollViewRef.current?.scrollToEnd({ animated: true });
@@ -142,6 +180,35 @@ export default function ChatScreen() {
       hour: '2-digit', 
       minute: '2-digit' 
     });
+  };
+
+  const createMessageAnimation = (messageId: string) => {
+    const animation = new Animated.Value(0);
+    setMessageAnimations(prev => ({ ...prev, [messageId]: animation }));
+    
+    // Запускаем анимацию появления с эффектом пульсации
+    Animated.sequence([
+      Animated.spring(animation, {
+        toValue: 1,
+        tension: 100,
+        friction: 8,
+        useNativeDriver: true,
+      }),
+      Animated.sequence([
+        Animated.timing(animation, {
+          toValue: 1.05,
+          duration: 150,
+          useNativeDriver: true,
+        }),
+        Animated.timing(animation, {
+          toValue: 1,
+          duration: 150,
+          useNativeDriver: true,
+        })
+      ])
+    ]).start();
+    
+    return animation;
   };
 
   if (loading) {
@@ -218,12 +285,26 @@ export default function ChatScreen() {
               ) : !loading ? (
                 messages.map((message) => {
                   const isMyMessage = message.senderId === currentUser.id;
+                  
+                  // Создаем анимацию для нового сообщения, если её еще нет
+                  if (!messageAnimations[message.id]) {
+                    createMessageAnimation(message.id);
+                  }
+                  
+                  const animation = messageAnimations[message.id];
+                  
                   return (
-                    <View 
+                    <Animated.View 
                       key={message.id} 
                       style={[
                         styles.messageContainer,
-                        isMyMessage ? styles.myMessage : styles.otherMessage
+                        isMyMessage ? styles.myMessage : styles.otherMessage,
+                        {
+                          opacity: animation || 1,
+                          transform: [{
+                            scale: animation || 1
+                          }]
+                        }
                       ]}
                     >
                       <View style={[
@@ -243,7 +324,7 @@ export default function ChatScreen() {
                           {formatTime(message.timestamp)}
                         </Text>
                       </View>
-                    </View>
+                    </Animated.View>
                   );
                 })
               ) : null}

@@ -16,8 +16,7 @@ import {
     View
 } from 'react-native';
 import CustomAlert from '../components/CustomAlert';
-import TeamSelector from '../components/TeamSelector';
-import { addPlayer, addPlayerTeam, saveCurrentUser, Team } from '../utils/playerStorage';
+import { addPlayer, saveCurrentUser, Team } from '../utils/playerStorage';
 
 const iceBg = require('../assets/images/led.jpg');
 
@@ -27,7 +26,7 @@ export default function RegisterScreen() {
     username: '',
     password: '',
     name: '',
-    status: '' as 'player' | 'coach' | 'scout' | '',
+    status: '' as 'player' | 'coach' | 'scout' | 'star' | '',
     birthDate: '',
     country: 'Беларусь', // По умолчанию
     team: '', // основная команда (для обратной совместимости)
@@ -185,12 +184,13 @@ export default function RegisterScreen() {
     }
 
     // Дополнительные проверки в зависимости от статуса
-    if (formData.status === 'player' && (!formData.birthDate || selectedTeams.length === 0 || !formData.position)) {
-      showAlert('Ошибка', 'Для игрока заполните дату рождения, выберите хотя бы одну команду и позицию', 'error');
+    if (formData.status === 'player' && (!formData.birthDate || !formData.position)) {
+      showAlert('Ошибка', 'Для игрока заполните дату рождения и позицию', 'error');
       return;
     }
-    if (formData.status === 'coach' && selectedTeams.length === 0) {
-      showAlert('Ошибка', 'Для тренера выберите хотя бы одну команду', 'error');
+
+    if (formData.status === 'star' && (!formData.birthDate || !formData.position)) {
+      showAlert('Ошибка', 'Для звезды заполните дату рождения и позицию', 'error');
       return;
     }
 
@@ -201,30 +201,19 @@ export default function RegisterScreen() {
         password: formData.password,
         name: formData.name,
         status: formData.status,
-        birthDate: formData.birthDate,
+        birthDate: formData.birthDate || '', // Делаем необязательным
         country: formData.country,
-        team: selectedTeams.length > 0 ? selectedTeams[0].name : '', // Используем первую команду как основную
-        position: formData.position,
-        grip: formData.grip,
-        height: formData.height,
-        weight: formData.weight,
-        number: formData.number, // Добавляем номер игрока
+        team: '', // Команды будут добавляться в профиле
+        position: formData.position || '', // Делаем необязательным
+        grip: formData.grip || '',
+        height: formData.height || '',
+        weight: formData.weight || '',
+        number: formData.number || '', // Добавляем номер игрока
         avatar: formData.avatar || 'new_player', // Используем avatar для профиля
         age: 0, // Добавляем возраст по умолчанию
       };
       
       const newPlayer = await addPlayer(playerData);
-      
-      // Добавляем все выбранные команды для игрока
-      if (selectedTeams.length > 0) {
-        for (const team of selectedTeams) {
-          try {
-            await addPlayerTeam(newPlayer.id, team.id);
-          } catch (error) {
-            console.error(`❌ Ошибка добавления команды "${team.name}":`, error);
-          }
-        }
-      }
       
       // Автоматически входим в систему
       await saveCurrentUser(newPlayer);
@@ -247,7 +236,7 @@ export default function RegisterScreen() {
     }
   };
 
-  const positions = ['Нападающий', 'Защитник', 'Вратарь'];
+  const positions = ['Центральный нападающий', 'Крайний нападающий', 'Защитник', 'Вратарь'];
   const countries = ['Беларусь', 'Россия', 'Канада', 'США', 'Финляндия', 'Швеция', 'Литва', 'Латвия', 'Польша'];
 
   return (
@@ -307,6 +296,20 @@ export default function RegisterScreen() {
                   Скаут
                 </Text>
               </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.pickerOption,
+                  formData.status === 'star' && styles.pickerOptionSelected
+                ]}
+                onPress={() => setFormData({...formData, status: 'star'})}
+              >
+                <Text style={[
+                  styles.pickerOptionText,
+                  formData.status === 'star' && styles.pickerOptionTextSelected
+                ]}>
+                  Звезда
+                </Text>
+              </TouchableOpacity>
             </View>
           </View>
           
@@ -355,8 +358,8 @@ export default function RegisterScreen() {
             />
           </View>
 
-          {/* Дата рождения - только для игроков */}
-          {formData.status === 'player' && (
+          {/* Дата рождения - для игроков и звезд */}
+          {(formData.status === 'player' || formData.status === 'star') && (
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Дата рождения</Text>
               <TouchableOpacity style={styles.dateInput} onPress={showDatePickerModal}>
@@ -395,20 +398,10 @@ export default function RegisterScreen() {
             </View>
           </View>
 
-          {/* Команды - только для игроков и тренеров */}
-          {(formData.status === 'player' || formData.status === 'coach') && (
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Команды</Text>
-              <TeamSelector
-                selectedTeams={selectedTeams}
-                onTeamsChange={setSelectedTeams}
-                placeholder="Выберите команды"
-              />
-            </View>
-          )}
 
-          {/* Позиция - только для игроков */}
-          {formData.status === 'player' && (
+
+          {/* Позиция - для игроков и звезд */}
+          {(formData.status === 'player' || formData.status === 'star') && (
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Позиция</Text>
               <View style={styles.pickerContainer}>

@@ -1,132 +1,23 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
-import { SplashScreen, Tabs, useLocalSearchParams, useRouter } from 'expo-router';
+import { SplashScreen, Tabs } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Image, LogBox, Text, TouchableOpacity, View } from 'react-native';
+import { LogBox, Text, TouchableOpacity, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import LogoHeader from '../components/LogoHeader';
+import { CountryFilterProvider, useCountryFilter } from '../utils/CountryFilterContext';
 import { initializeStorage, loadCurrentUser, loadNotifications, markNotificationAsRead, Player } from '../utils/playerStorage';
 
 // Отключаем все предупреждения
 LogBox.ignoreAllLogs();
 
-const logo = require('../assets/images/logo.png');
 
 
 
-const LogoHeader = () => {
-  const router = useRouter();
-  const params = useLocalSearchParams();
-  const [currentUser, setCurrentUser] = useState<Player | null>(null);
 
-  const loadUser = async () => {
-    try {
-      const user = await loadCurrentUser();
-      setCurrentUser(user);
-    } catch (error) {
-      console.error('Ошибка загрузки текущего пользователя:', error);
-    }
-  };
 
-  useEffect(() => {
-    loadUser();
-  }, []);
 
-  // Обновляем данные при возврате на экран
-  useFocusEffect(
-    React.useCallback(() => {
-      loadUser();
-    }, [])
-  );
 
-  // Обновляем данные при изменении параметров
-  useEffect(() => {
-    if (params.refresh) {
-      loadUser();
-    }
-  }, [params.refresh]);
-
-  return (
-    <View style={{ 
-      height: 128, 
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      paddingHorizontal: 20,
-      gap: 40
-    }}>
-      <Image source={logo} style={{ width: 180, height: 60, resizeMode: 'contain' }} />
-      
-      <TouchableOpacity 
-        style={{ alignItems: 'center', marginTop: -8 }}
-        onPress={() => {
-          if (currentUser) {
-            router.push(`/player/${currentUser.id}`);
-          } else {
-            router.push('/login');
-          }
-        }}
-      >
-        <View style={{
-          width: 51,
-          height: 51,
-          borderRadius: 25.5,
-          backgroundColor: '#333',
-          justifyContent: 'center',
-          alignItems: 'center',
-          borderWidth: 2,
-          borderColor: '#fff',
-        }}>
-          {(() => {
-            return currentUser?.avatar ? (
-              <Image
-                source={{ uri: currentUser.avatar }}
-                style={{
-                  width: 45,
-                  height: 45,
-                  borderRadius: 22.5,
-                  resizeMode: 'cover'
-                }}
-                onError={(error) => {
-                  // Ошибка загрузки изображения - логируем только в development
-                  if (__DEV__) {
-                    console.error('❌ Заголовок - Ошибка загрузки изображения:', error);
-                  }
-                }}
-              />
-            ) : (
-              <Ionicons name="person" size={25} color="#fff" />
-            );
-          })()}
-        </View>
-        {currentUser && currentUser.name && currentUser.name.trim() !== '' && (
-          <Text style={{
-            color: '#fff',
-            fontSize: 12,
-            fontFamily: 'Gilroy-Regular',
-            marginTop: 2,
-          }}>
-            {currentUser?.name || 'Пользователь'}
-          </Text>
-        )}
-        <Text style={{
-          color: '#fff',
-          fontSize: 10,
-          fontFamily: 'Gilroy-Bold',
-          marginTop: 1,
-        }}>
-          {currentUser && currentUser.status ? (
-            currentUser?.status === 'player' ? 'Игрок' : 
-            currentUser?.status === 'coach' ? 'Тренер' : 
-            currentUser?.status === 'scout' ? 'Скаут' : 
-            currentUser?.status === 'star' ? 'Звезда' : 
-            currentUser?.status === 'admin' ? 'Техподдержка' : 'Пользователь'
-          ) : 'Гость'}
-        </Text>
-      </TouchableOpacity>
-    </View>
-  );
-};
 
 export default function RootLayout() {
   const [loaded, error] = useFonts({
@@ -134,6 +25,35 @@ export default function RootLayout() {
     'Gilroy-Bold': require('../assets/fonts/gilroy-bold.ttf'),
     'SpaceMono': require('../assets/fonts/SpaceMono-Regular.ttf'),
   });
+
+  // Компонент для фильтра стран (должен быть внутри CountryFilterProvider)
+  const CountryFilterToggle = ({ size }: { size: number }) => {
+    const { showCountryFilter, setShowCountryFilter } = useCountryFilter();
+    
+    return (
+      <TouchableOpacity 
+        onPress={() => setShowCountryFilter(!showCountryFilter)}
+        style={{ 
+          marginLeft: 8,
+          justifyContent: 'center',
+          alignItems: 'center',
+          width: size + 4,
+          height: size + 4,
+          backgroundColor: '#000',
+          borderRadius: 20,
+          padding: 2,
+        }}
+      >
+        <Ionicons 
+          name="globe-outline" 
+          size={size - 2} 
+          color="#FF4444" 
+        />
+      </TouchableOpacity>
+    );
+  };
+
+
 
   const [currentUser, setCurrentUser] = useState<Player | null>(null);
 
@@ -213,29 +133,26 @@ export default function RootLayout() {
   }, []);
 
   // Обновляем счетчик уведомлений при фокусе
-  useFocusEffect(
-    React.useCallback(() => {
-      if (currentUser) {
-        loadUser();
-      }
-    }, [currentUser?.id])
-  );
+  useEffect(() => {
+    if (currentUser) {
+      loadUser();
+    }
+  }, [currentUser?.id]);
 
   // Обновляем счетчики при фокусе на экране сообщений
-  useFocusEffect(
-    React.useCallback(() => {
-              // Главный экран получил фокус
-      refreshCounters();
-    }, [])
-  );
+  useEffect(() => {
+    // Главный экран получил фокус
+    refreshCounters();
+  }, []);
 
   if (!loaded) {
     return null;
   }
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <Tabs
+    <CountryFilterProvider>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <Tabs
         screenOptions={{
           headerStyle: { backgroundColor: '#000', height: 128 },
           headerTitleAlign: 'center',
@@ -248,6 +165,7 @@ export default function RootLayout() {
       <Tabs.Screen
         name="index"
         options={{
+          headerTitle: () => <LogoHeader />,
           tabBarIcon: ({ size }) => (
             <View style={{
               backgroundColor: '#FF4444',
@@ -260,24 +178,28 @@ export default function RootLayout() {
               <Ionicons name="home" size={size - 2} color="#fff" />
             </View>
           ),
-          headerTitle: () => <LogoHeader />,
         }}
       />
       <Tabs.Screen
         name="messages"
         options={{
-          tabBarIcon: ({ size }) => {
+          headerTitle: () => <LogoHeader />,
+          tabBarIcon: ({ size, focused }) => {
             // Рендерим иконку сообщений
             return (
               <View style={{
                 position: 'relative',
+                justifyContent: 'center',
+                alignItems: 'center',
+                width: size + 4,
+                height: size + 4,
               }}>
-                <Ionicons name="chatbubble-outline" size={size} color="#fff" />
+                <Ionicons name="chatbubble-outline" size={size - 2} color={focused ? '#eee' : '#aaa'} />
                 {currentUser && currentUser.unreadMessagesCount && currentUser.unreadMessagesCount > 0 && (
                   <View style={{
                     position: 'absolute',
-                    top: -5,
-                    right: -5,
+                    top: -8,
+                    right: -8,
                     backgroundColor: '#FF4444',
                     borderRadius: 10,
                     width: 20,
@@ -297,24 +219,28 @@ export default function RootLayout() {
               </View>
             );
           },
-          headerTitle: () => <LogoHeader />,
         }}
       />
       <Tabs.Screen
         name="notifications"
         options={{
-          tabBarIcon: ({ size }) => {
-            // Рендерим иконку уведомлений
+          headerTitle: () => <LogoHeader />,
+          tabBarIcon: ({ size, focused }) => {
+            // Рендерим только иконку уведомлений
             return (
               <View style={{
                 position: 'relative',
+                justifyContent: 'center',
+                alignItems: 'center',
+                width: size + 4,
+                height: size + 4,
               }}>
-                <Ionicons name="notifications-outline" size={size} color="#fff" />
+                <Ionicons name="notifications-outline" size={size - 2} color={focused ? '#eee' : '#aaa'} />
                 {currentUser && currentUser.unreadNotificationsCount && currentUser.unreadNotificationsCount > 0 && (
                   <View style={{
                     position: 'absolute',
-                    top: -5,
-                    right: -5,
+                    top: -8,
+                    right: -8,
                     backgroundColor: '#FF4444',
                     borderRadius: 10,
                     width: 20,
@@ -334,27 +260,27 @@ export default function RootLayout() {
               </View>
             );
           },
-          headerTitle: () => <LogoHeader />,
         }}
       />
-      <Tabs.Screen
-        name="country"
-        options={{
-          tabBarIcon: ({ size }) => (
-            <Ionicons name="flag" size={size} color="#fff" />
-          ),
-          headerTitle: () => <LogoHeader />,
-        }}
-      />
+
       <Tabs.Screen
         name="exercises"
         options={{
-          tabBarIcon: ({ size }) => (
-            <Ionicons name="fitness" size={size} color="#fff" />
+          headerTitle: () => <LogoHeader />,
+          tabBarIcon: ({ size, focused }) => (
+            <Ionicons name="barbell-outline" size={size - 2} color={focused ? '#eee' : '#aaa'} />
           ),
+        }}
+      />
+
+      <Tabs.Screen
+        name="exercise-details"
+        options={{
+          href: null,
           headerTitle: () => <LogoHeader />,
         }}
       />
+
       <Tabs.Screen
         name="login"
         options={{
@@ -368,7 +294,8 @@ export default function RootLayout() {
           href: null,
           headerTitle: () => <LogoHeader />,
         }}
-      />
+              />
+
 
       <Tabs.Screen
         name="chat/[id]"
@@ -391,13 +318,7 @@ export default function RootLayout() {
           headerTitle: () => <LogoHeader />,
         }}
       />
-      <Tabs.Screen
-        name="sync"
-        options={{
-          href: null,
-          headerTitle: () => <LogoHeader />,
-        }}
-      />
+
       
       {/* <Tabs.Screen
         name="(tabs)"
@@ -421,7 +342,8 @@ export default function RootLayout() {
         }}
       />
 
-      </Tabs>
-    </GestureHandlerRootView>
+        </Tabs>
+      </GestureHandlerRootView>
+    </CountryFilterProvider>
   );
 }

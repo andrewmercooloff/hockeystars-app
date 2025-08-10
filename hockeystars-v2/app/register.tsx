@@ -29,9 +29,14 @@ export default function RegisterScreen() {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showPositionPicker, setShowPositionPicker] = useState(false);
+  const [showCountryPicker, setShowCountryPicker] = useState(false);
   const [loading, setLoading] = useState(false);
   const [alertVisible, setAlertVisible] = useState(false);
   const [alertMessage, setAlertMessage] = useState('');
+
+  const countries = ['Беларусь', 'Россия', 'Украина', 'Казахстан', 'Латвия', 'Литва', 'Эстония', 'Польша', 'Чехия', 'Словакия', 'Финляндия', 'Швеция', 'Норвегия', 'Дания', 'Германия', 'Австрия', 'Швейцария', 'Франция', 'Италия', 'Испания', 'Великобритания', 'США', 'Канада'];
+  const positions = ['Центральный нападающий', 'Крайний нападающий', 'Защитник', 'Вратарь'];
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -187,13 +192,15 @@ export default function RegisterScreen() {
 
               <View style={styles.inputContainer}>
                 <Ionicons name="shirt" size={20} color="#ccc" style={styles.inputIcon} />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Позиция"
-                  placeholderTextColor="#ccc"
-                  value={formData.position}
-                  onChangeText={(value) => handleInputChange('position', value)}
-                />
+                <TouchableOpacity
+                  style={styles.positionButton}
+                  onPress={() => setShowPositionPicker(true)}
+                >
+                  <Text style={[styles.positionButtonText, !formData.position && styles.placeholderText]}>
+                    {formData.position || 'Выберите позицию'}
+                  </Text>
+                  <Ionicons name="chevron-down" size={20} color="#ccc" />
+                </TouchableOpacity>
               </View>
 
               <View style={styles.inputContainer}>
@@ -221,13 +228,15 @@ export default function RegisterScreen() {
 
               <View style={styles.inputContainer}>
                 <Ionicons name="flag" size={20} color="#ccc" style={styles.inputIcon} />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Страна"
-                  placeholderTextColor="#ccc"
-                  value={formData.country}
-                  onChangeText={(value) => handleInputChange('country', value)}
-                />
+                <TouchableOpacity
+                  style={styles.positionButton}
+                  onPress={() => setShowCountryPicker(true)}
+                >
+                  <Text style={[styles.positionButtonText, !formData.country && styles.placeholderText]}>
+                    {formData.country || 'Выберите страну'}
+                  </Text>
+                  <Ionicons name="chevron-down" size={20} color="#ccc" />
+                </TouchableOpacity>
               </View>
 
               <TouchableOpacity 
@@ -257,6 +266,60 @@ export default function RegisterScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Модальное окно выбора позиции */}
+      {showPositionPicker && (
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Выберите позицию</Text>
+            {positions.map((position) => (
+              <TouchableOpacity
+                key={position}
+                style={styles.modalItem}
+                onPress={() => {
+                  handleInputChange('position', position);
+                  setShowPositionPicker(false);
+                }}
+              >
+                <Text style={styles.modalItemText}>{position}</Text>
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity
+              style={styles.modalCancelButton}
+              onPress={() => setShowPositionPicker(false)}
+            >
+              <Text style={styles.modalCancelText}>Отмена</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
+      {/* Модальное окно выбора страны */}
+      {showCountryPicker && (
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Выберите страну</Text>
+            {countries.map((country) => (
+              <TouchableOpacity
+                key={country}
+                style={styles.modalItem}
+                onPress={() => {
+                  handleInputChange('country', country);
+                  setShowCountryPicker(false);
+                }}
+              >
+                <Text style={styles.modalItemText}>{country}</Text>
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity
+              style={styles.modalCancelButton}
+              onPress={() => setShowCountryPicker(false)}
+            >
+              <Text style={styles.modalCancelText}>Отмена</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
 
       <CustomAlert
         visible={alertVisible}
@@ -361,6 +424,68 @@ const styles = StyleSheet.create({
   },
   loginTextBold: {
     color: '#FF4444',
+    fontFamily: 'Gilroy-Bold',
+  },
+  positionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flex: 1,
+  },
+  positionButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontFamily: 'Gilroy-Regular',
+  },
+  placeholderText: {
+    color: '#ccc',
+  },
+  modalOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 15,
+    padding: 20,
+    width: '80%',
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontFamily: 'Gilroy-Bold',
+    marginBottom: 15,
+    color: '#333',
+  },
+  modalItem: {
+    width: '100%',
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  modalItemText: {
+    fontSize: 16,
+    fontFamily: 'Gilroy-Regular',
+    color: '#333',
+  },
+  modalCancelButton: {
+    marginTop: 15,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    backgroundColor: '#FF4444',
+    borderRadius: 10,
+  },
+  modalCancelText: {
+    color: '#fff',
+    fontSize: 16,
     fontFamily: 'Gilroy-Bold',
   },
 }); 

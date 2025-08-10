@@ -2,7 +2,7 @@
 import { Ionicons } from '@expo/vector-icons';
 
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
     Dimensions,
     ImageBackground,
@@ -16,7 +16,9 @@ import {
 import Animated, {
     useAnimatedStyle
 } from 'react-native-reanimated';
+import CountryFilter from '../components/CountryFilter';
 import Puck from '../components/Puck';
+import { useCountryFilter } from '../utils/CountryFilterContext';
 import { Player, fixCorruptedData, initializeStorage, loadCurrentUser, loadPlayers } from '../utils/playerStorage';
 
 const { width, height } = Dimensions.get('window');
@@ -250,8 +252,15 @@ export default function HomeScreen() {
   const [currentUser, setCurrentUser] = useState<Player | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const { selectedCountry, setSelectedCountry, showCountryFilter, setShowCountryFilter } = useCountryFilter();
 
-  const { puckPositions = [] } = usePuckCollisionSystem(players);
+  // Фильтруем игроков по выбранной стране
+  const filteredPlayers = useMemo(() => {
+    if (!selectedCountry) return players;
+    return players.filter(player => player.country === selectedCountry);
+  }, [players, selectedCountry]);
+
+  const { puckPositions = [] } = usePuckCollisionSystem(filteredPlayers);
 
 
 
@@ -371,9 +380,31 @@ export default function HomeScreen() {
       >
         {imageLoaded && <View style={styles.innerBorder} />}
         
+        {/* Иконка глобуса для фильтра стран в правом верхнем углу */}
+        <TouchableOpacity
+          style={styles.globeButton}
+          onPress={() => setShowCountryFilter(!showCountryFilter)}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="globe-outline" size={28} color="#fff" />
+        </TouchableOpacity>
+
+
+
+        {/* Показываем сообщение, если нет игроков из выбранной страны */}
+        {selectedCountry && filteredPlayers.length === 0 && (
+          <View style={styles.noPlayersContainer}>
+            <Text style={styles.noPlayersText}>
+              Нет игроков из {selectedCountry}
+            </Text>
+            <Text style={styles.noPlayersSubtext}>
+              Лед пуст. Выберите другую страну или сбросьте фильтр.
+            </Text>
+          </View>
+        )}
 
         {puckPositions.map((position) => {
-          const player = players.find(p => p.id === position.id);
+          const player = filteredPlayers.find(p => p.id === position.id);
           if (!player) return null;
           
           return (
@@ -392,8 +423,8 @@ export default function HomeScreen() {
           );
         })}
 
-        
-
+        {/* Компонент фильтра стран */}
+        <CountryFilter players={players} />
 
         <Modal
           visible={showAuthModal}
@@ -564,5 +595,41 @@ const styles = StyleSheet.create({
   },
   modalButtonTextSecondary: {
     color: '#FF4444',
+  },
+
+
+  noPlayersContainer: {
+    position: 'absolute',
+    top: '50%',
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    zIndex: 5,
+  },
+  noPlayersText: {
+    color: '#fff',
+    fontSize: 20,
+    fontFamily: 'Gilroy-Bold',
+    marginBottom: 10,
+  },
+  noPlayersSubtext: {
+    color: '#ccc',
+    fontSize: 16,
+    fontFamily: 'Gilroy-Regular',
+    textAlign: 'center',
+  },
+  globeButton: {
+    position: 'absolute',
+    top: 20,
+    right: 40,
+    backgroundColor: '#FF4444',
+    borderRadius: 25,
+    width: 50,
+    height: 50,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 15,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
   },
 });

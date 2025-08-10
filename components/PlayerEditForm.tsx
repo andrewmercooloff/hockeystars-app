@@ -30,7 +30,7 @@ const PlayerEditForm: React.FC<PlayerEditFormProps> = ({ player, currentUser, on
   const [showPositionPicker, setShowPositionPicker] = useState(false);
 
   const countries = ['Беларусь', 'Россия', 'Украина', 'Казахстан', 'Латвия', 'Литва', 'Эстония', 'Польша', 'Чехия', 'Словакия', 'Финляндия', 'Швеция', 'Норвегия', 'Дания', 'Германия', 'Австрия', 'Швейцария', 'Франция', 'Италия', 'Испания', 'Великобритания', 'США', 'Канада'];
-  const positions = ['Нападающий', 'Защитник', 'Вратарь'];
+  const positions = ['Центральный нападающий', 'Крайний нападающий', 'Защитник', 'Вратарь'];
 
   const pickImage = async () => {
     Alert.alert(

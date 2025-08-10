@@ -1,287 +1,257 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect, useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import { useRouter } from 'expo-router';
+import React, { useState } from 'react';
 import {
-  ImageBackground,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
+    Dimensions,
+    ImageBackground,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
-import { loadCurrentUser, Player } from '../utils/playerStorage';
 
-const iceBg = require('../assets/images/led.jpg');
+const { width } = Dimensions.get('window');
 
-interface ExerciseComplex {
+// Типы для упражнений
+interface Exercise {
   id: string;
-  name: string;
-  category: string;
-  difficulty: 'beginner' | 'intermediate' | 'advanced';
-  duration: string;
+  title: string;
   description: string;
-  exercises: string[];
-  author: string;
-  authorAvatar?: string;
+  category: string;
+  duration: string;
+  difficulty: 'Начинающий' | 'Средний' | 'Продвинутый';
+  image?: string;
 }
 
-const defaultExercises: ExerciseComplex[] = [
+// Данные упражнений
+const exercisesData: Exercise[] = [
+  // Выносливость
   {
-    id: 'explosive_speed',
-    name: 'Взрывная скорость',
-    category: 'Скорость',
-    difficulty: 'intermediate',
-    duration: '30-45 мин',
-    description: 'Комплекс упражнений для развития взрывной скорости и реакции. Включает плиометрику, спринты и упражнения на координацию.',
-    exercises: [
-      'Прыжки на месте с максимальной высотой',
-      'Берпи с отжиманиями',
-      'Спринты на 20-30 метров',
-      'Прыжки через препятствия',
-      'Быстрые отжимания'
-    ],
-    author: 'Hockeystars',
-    authorAvatar: '🏒'
-  },
-  {
-    id: 'endurance',
-    name: 'Выносливость',
-    category: 'Кардио',
-    difficulty: 'beginner',
-    duration: '45-60 мин',
-    description: 'Тренировка сердечно-сосудистой системы и общей выносливости. Подходит для всех уровней подготовки.',
-    exercises: [
-      'Бег на месте',
-      'Прыжки со скакалкой',
-      'Приседания с собственным весом',
-      'Отжимания от пола',
-      'Планка'
-    ],
-    author: 'Hockeystars',
-    authorAvatar: '🏒'
-  },
-  {
-    id: 'coordination',
-    name: 'Координация',
-    category: 'Баланс',
-    difficulty: 'beginner',
-    duration: '25-35 мин',
-    description: 'Упражнения для улучшения координации движений, баланса и контроля тела.',
-    exercises: [
-      'Стойка на одной ноге',
-      'Ходьба по прямой линии',
-      'Упражнения на балансировочной доске',
-      'Перекрестные движения',
-      'Йога-позы для баланса'
-    ],
-    author: 'Hockeystars',
-    authorAvatar: '🏒'
-  },
-  {
-    id: 'warmup',
-    name: 'Разминка',
-    category: 'Разминка',
-    difficulty: 'beginner',
-    duration: '15-20 мин',
-    description: 'Комплекс упражнений для подготовки мышц и суставов к тренировке. Обязательно выполнять перед любой физической нагрузкой.',
-    exercises: [
-      'Круговые движения головой',
-      'Вращения плечами',
-      'Наклоны туловища',
-      'Круговые движения коленями',
-      'Легкая растяжка'
-    ],
-    author: 'Hockeystars',
-    authorAvatar: '🏒'
-  },
-  {
-    id: 'stretching',
-    name: 'Растяжка',
-    category: 'Гибкость',
-    difficulty: 'beginner',
+    id: '1',
+    title: 'Интервальный бег',
+    description: 'Чередование быстрого бега (30 сек) и медленного (30 сек) в течение 20 минут. Отлично развивает кардио-выносливость для хоккея.',
+    category: 'Выносливость',
     duration: '20-30 мин',
-    description: 'Упражнения на развитие гибкости и эластичности мышц. Помогает предотвратить травмы и улучшить подвижность.',
-    exercises: [
-      'Растяжка мышц бедра',
-      'Наклоны к ногам',
-      'Растяжка спины',
-      'Растяжка плеч',
-      'Растяжка икроножных мышц'
-    ],
-    author: 'Hockeystars',
-    authorAvatar: '🏒'
+    difficulty: 'Средний',
   },
   {
-    id: 'speed',
-    name: 'Скорость',
-    category: 'Скорость',
-    difficulty: 'intermediate',
-    duration: '35-45 мин',
-    description: 'Специальные упражнения для развития скорости и быстроты реакции. Фокус на технике выполнения.',
-    exercises: [
-      'Быстрые приседания',
-      'Альпинист',
-      'Быстрые отжимания',
-      'Прыжки с разведением ног',
-      'Быстрая ходьба на месте'
-    ],
-    author: 'Hockeystars',
-    authorAvatar: '🏒'
+    id: '2',
+    title: 'Берпи с прыжком',
+    description: 'Комплексное упражнение: присед → планка → отжимание → присед → прыжок. Выполнять 3 подхода по 10-15 повторений.',
+    category: 'Выносливость',
+    duration: '15-20 мин',
+    difficulty: 'Продвинутый',
   },
   {
-    id: 'puck_control',
-    name: 'Владение шайбой',
-    category: 'Техника',
-    difficulty: 'advanced',
-    duration: '40-50 мин',
-    description: 'Упражнения для улучшения контроля над предметами и развития мелкой моторики. Можно использовать теннисный мяч или специальные тренажеры.',
-    exercises: [
-      'Жонглирование мячом',
-      'Упражнения с теннисным мячом',
-      'Балансировка на неустойчивых поверхностях',
-      'Упражнения на реакцию',
-      'Координационные упражнения'
-    ],
-    author: 'Hockeystars',
-    authorAvatar: '🏒'
-  }
+    id: '3',
+    title: 'Велосипед',
+    description: 'Интенсивная езда на велосипеде или велотренажере с интервалами высокой нагрузки. 5 минут разминки, 20 минут интервалов.',
+    category: 'Выносливость',
+    duration: '25-30 мин',
+    difficulty: 'Средний',
+  },
+
+  // Взрывная скорость
+  {
+    id: '4',
+    title: 'Плиометрические прыжки',
+    description: 'Прыжки на месте с максимальной высотой, приземление на полусогнутые ноги. 3 подхода по 15-20 прыжков.',
+    category: 'Взрывная скорость',
+    duration: '10-15 мин',
+    difficulty: 'Средний',
+  },
+  {
+    id: '5',
+    title: 'Спринты на короткие дистанции',
+    description: 'Бег на максимальной скорости на дистанции 20-30 метров с отдыхом 30 секунд между забегами. 8-10 забегов.',
+    category: 'Взрывная скорость',
+    duration: '15-20 мин',
+    difficulty: 'Начинающий',
+  },
+  {
+    id: '6',
+    title: 'Броски мяча в стену',
+    description: 'Броски медицинского мяча в стену с максимальной силой, ловля и повторный бросок. 3 подхода по 20 бросков.',
+    category: 'Взрывная скорость',
+    duration: '15 мин',
+    difficulty: 'Средний',
+  },
+
+  // Разминка
+  {
+    id: '7',
+    title: 'Динамическая растяжка ног',
+    description: 'Махи ногами вперед, назад и в стороны, круговые движения в тазобедренных суставах. 10-15 повторений каждой ногой.',
+    category: 'Разминка',
+    duration: '10 мин',
+    difficulty: 'Начинающий',
+  },
+  {
+    id: '8',
+    title: 'Разминка верхней части тела',
+    description: 'Круговые движения руками, наклоны туловища, повороты. Разогрев плечевых суставов и спины.',
+    category: 'Разминка',
+    duration: '8-10 мин',
+    difficulty: 'Начинающий',
+  },
+  {
+    id: '9',
+    title: 'Легкий бег на месте',
+    description: 'Бег на месте с высоким подниманием коленей, постепенное увеличение темпа. 5-7 минут.',
+    category: 'Разминка',
+    duration: '5-7 мин',
+    difficulty: 'Начинающий',
+  },
+
+  // Растяжка
+  {
+    id: '10',
+    title: 'Статическая растяжка мышц ног',
+    description: 'Удержание позиций растяжки для квадрицепсов, икроножных мышц и приводящих мышц. 30 секунд на каждую группу.',
+    category: 'Растяжка',
+    duration: '15 мин',
+    difficulty: 'Начинающий',
+  },
+  {
+    id: '11',
+    title: 'Растяжка спины и плеч',
+    description: 'Наклоны вперед, растяжка грудных мышц, растяжка трицепсов. Удержание каждой позиции 20-30 секунд.',
+    category: 'Растяжка',
+    duration: '12-15 мин',
+    difficulty: 'Начинающий',
+  },
+  {
+    id: '12',
+    title: 'Йога для хоккеистов',
+    description: 'Комплекс асан для развития гибкости и баланса: поза воина, поза дерева, поза собаки мордой вниз.',
+    category: 'Растяжка',
+    duration: '20 мин',
+    difficulty: 'Средний',
+  },
+
+  // Ловкость
+  {
+    id: '13',
+    title: 'Лестница координации',
+    description: 'Быстрые движения ногами через лестницу: боковые шаги, скрестные шаги, прыжки. 3 прохода каждого типа.',
+    category: 'Ловкость',
+    duration: '15 мин',
+    difficulty: 'Средний',
+  },
+  {
+    id: '14',
+    title: 'Жонглирование мячами',
+    description: 'Жонглирование 2-3 теннисными мячами для развития координации рук и глаз. Начинать с 1 мяча.',
+    category: 'Ловкость',
+    duration: '10-15 мин',
+    difficulty: 'Средний',
+  },
+  {
+    id: '15',
+    title: 'Быстрые касания конусов',
+    description: 'Расставить 5-6 конусов и быстро касаться их рукой в случайном порядке. 3 подхода по 30 секунд.',
+    category: 'Ловкость',
+    duration: '12 мин',
+    difficulty: 'Продвинутый',
+  },
 ];
 
+const categories = ['Выносливость', 'Взрывная скорость', 'Разминка', 'Растяжка', 'Ловкость'];
+
 export default function ExercisesScreen() {
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const router = useRouter();
-  const [currentUser, setCurrentUser] = useState<Player | null>(null);
-  const [exercises, setExercises] = useState<ExerciseComplex[]>(defaultExercises);
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
-  useEffect(() => { loadUserData(); }, []);
-  useFocusEffect(useCallback(() => { loadUserData(); }, []));
+  const filteredExercises = selectedCategory
+    ? exercisesData.filter(exercise => exercise.category === selectedCategory)
+    : exercisesData;
 
-  const loadUserData = async () => {
-    try {
-      const user = await loadCurrentUser();
-      if (user) { setCurrentUser(user); }
-    } catch (error) { console.error('Ошибка загрузки пользователя:', error); }
-  };
-
-  const handleExercisePress = (exercise: ExerciseComplex) => {
-    // Здесь будет переход на страницу с подробным описанием упражнения
-    console.log(`Выбрано упражнение: ${exercise.name}`);
-    // TODO: Добавить навигацию на страницу упражнения
-  };
-
-  const getDifficultyText = (difficulty: string) => {
-    switch (difficulty) {
-      case 'beginner': return 'Начинающий';
-      case 'intermediate': return 'Средний';
-      case 'advanced': return 'Продвинутый';
-      default: return difficulty;
-    }
+  const handleExercisePress = (exercise: Exercise) => {
+    // Переходим на страницу с подробным описанием упражнения
+    router.push({
+      pathname: '/exercise-details',
+      params: { exerciseId: exercise.id }
+    });
   };
 
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty) {
-      case 'beginner': return '#FF6B6B';
-      case 'intermediate': return '#FF8E53';
-      case 'advanced': return '#FF4757';
-      default: return '#FF6B6B';
+      case 'Начинающий': return '#4CAF50';
+      case 'Средний': return '#FF9800';
+      case 'Продвинутый': return '#F44336';
+      default: return '#888';
     }
   };
-
-  const getCategoryIcon = (category: string) => {
-    switch (category) {
-      case 'Скорость': return 'flash';
-      case 'Кардио': return 'heart';
-      case 'Баланс': return 'walk';
-      case 'Разминка': return 'sunny';
-      case 'Гибкость': return 'body';
-      case 'Техника': return 'construct';
-      default: return 'fitness';
-    }
-  };
-
-  const filteredExercises = selectedCategory === 'all' ? exercises : exercises.filter(ex => ex.category === selectedCategory);
-  const categories = ['all', ...Array.from(new Set(exercises.map(ex => ex.category)))];
 
   return (
     <View style={styles.container}>
-      <ImageBackground source={iceBg} style={styles.background} resizeMode="cover">
+      <ImageBackground
+        source={require('../assets/images/led.jpg')}
+        style={styles.backgroundImage}
+        resizeMode="cover"
+      >
         <View style={styles.overlay}>
-          <View style={styles.header}>
-            <Text style={styles.title}>Комплексы упражнений</Text>
-            <Text style={styles.subtitle}>Выберите комплекс для ознакомления</Text>
+          {/* Фильтры по категориям */}
+          <View style={styles.categoriesContainer}>
+            <View style={styles.categoriesContent}>
+              {categories.map((category) => (
+                <TouchableOpacity
+                  key={category}
+                  style={[
+                    styles.categoryButton,
+                    selectedCategory === category && styles.categoryButtonActive
+                  ]}
+                  onPress={() => setSelectedCategory(
+                    selectedCategory === category ? null : category
+                  )}
+                >
+                  <Text style={[
+                    styles.categoryText,
+                    selectedCategory === category && styles.categoryTextActive
+                  ]}>
+                    {category}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
-          
-          <ScrollView 
-            horizontal 
-            showsHorizontalScrollIndicator={false} 
-            style={styles.categoriesFilter} 
-            contentContainerStyle={styles.categoriesContainer}
-          >
-            {categories.map((category) => (
-              <TouchableOpacity
-                key={category}
-                style={[
-                  styles.categoryButton,
-                  selectedCategory === category && styles.selectedCategory
-                ]}
-                onPress={() => setSelectedCategory(category)}
-                activeOpacity={0.7}
-              >
-                <Text style={[
-                  styles.categoryButtonText,
-                  selectedCategory === category && styles.selectedCategoryText
-                ]}>
-                  {category === 'all' ? 'Все' : category}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
 
-          <ScrollView style={styles.exercisesList} showsVerticalScrollIndicator={false}>
+          {/* Список упражнений */}
+          <ScrollView style={styles.exercisesContainer}>
             {filteredExercises.map((exercise) => (
               <TouchableOpacity
                 key={exercise.id}
-                style={styles.exerciseItem}
+                style={styles.exerciseCard}
                 onPress={() => handleExercisePress(exercise)}
-                activeOpacity={0.7}
               >
                 <View style={styles.exerciseHeader}>
-                  <View style={styles.exerciseIcon}>
-                    <Ionicons 
-                      name={getCategoryIcon(exercise.category) as any} 
-                      size={24} 
-                      color="#FF4757" 
-                    />
-                  </View>
-                  <View style={styles.exerciseInfo}>
-                    <Text style={styles.exerciseName}>{exercise.name}</Text>
-                    <Text style={styles.exerciseCategory}>{exercise.category}</Text>
-                  </View>
-                  <View style={styles.exerciseMeta}>
-                    <View style={[
-                      styles.difficultyBadge,
-                      { backgroundColor: getDifficultyColor(exercise.difficulty) }
-                    ]}>
-                      <Text style={styles.difficultyText}>
-                        {getDifficultyText(exercise.difficulty)}
-                      </Text>
-                    </View>
-                    <Text style={styles.durationText}>{exercise.duration}</Text>
+                  <Text style={styles.exerciseTitle}>{exercise.title}</Text>
+                  <View style={[
+                    styles.difficultyBadge,
+                    { backgroundColor: getDifficultyColor(exercise.difficulty) }
+                  ]}>
+                    <Text style={styles.difficultyText}>{exercise.difficulty}</Text>
                   </View>
                 </View>
                 
-                <Text style={styles.exerciseDescription}>{exercise.description}</Text>
+                <Text style={styles.exerciseDescription} numberOfLines={2}>
+                  {exercise.description}
+                </Text>
                 
                 <View style={styles.exerciseFooter}>
-                  <View style={styles.authorInfo}>
-                    <Text style={styles.authorAvatar}>{exercise.authorAvatar}</Text>
-                    <Text style={styles.authorName}>{exercise.author}</Text>
+                  <View style={styles.exerciseInfo}>
+                    <Ionicons name="time-outline" size={16} color="#888" />
+                    <Text style={styles.exerciseInfoText}>{exercise.duration}</Text>
                   </View>
-                  <View style={styles.viewButton}>
-                    <Text style={styles.viewButtonText}>Подробнее</Text>
-                    <Ionicons name="arrow-forward" size={16} color="#fff" />
+                  
+                  <View style={styles.exerciseInfo}>
+                    <Ionicons name="fitness-outline" size={16} color="#888" />
+                    <Text style={styles.exerciseInfoText}>{exercise.category}</Text>
                   </View>
                 </View>
+                
+                {/* Убираем красную стрелочку */}
               </TouchableOpacity>
             ))}
           </ScrollView>
@@ -294,155 +264,120 @@ export default function ExercisesScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#000',
   },
-  background: {
+  backgroundImage: {
     flex: 1,
   },
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
-    padding: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
   },
   header: {
-    alignItems: 'center',
-    marginBottom: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 68, 68, 0.3)',
   },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
+  headerTitle: {
     color: '#fff',
-    marginBottom: 10,
-    textAlign: 'center',
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#fff',
-    textAlign: 'center',
-    opacity: 0.9,
-  },
-  categoriesFilter: {
-    marginBottom: 20,
+    fontSize: 24,
+    fontFamily: 'Gilroy-Bold',
+    marginBottom: 4,
   },
   categoriesContainer: {
-    paddingHorizontal: 10,
+    marginTop: 20, // Добавляем отступ сверху от заголовка
+    marginBottom: 15, // Увеличиваем отступ снизу для лучшего разделения
+  },
+  categoriesContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 8, // Увеличиваем отступ снизу
+    flexDirection: 'row', // Горизонтальное расположение
+    flexWrap: 'wrap', // Перенос на новую строку если не помещается
+    gap: 8, // Добавляем отступы между кнопками
   },
   categoryButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    borderRadius: 20,
-    marginHorizontal: 5,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)', // Полупрозрачный черный фон
+    paddingHorizontal: 16, // Увеличиваем горизонтальные отступы
+    paddingVertical: 6, // Увеличиваем вертикальный отступ еще больше
+    height: 36, // Увеличиваем высоту для размещения больших отступов
+    borderRadius: 8, // Увеличиваем радиус скругления
+    marginRight: 0, // Убираем marginRight так как используем gap
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
+    borderColor: 'rgba(255, 255, 255, 0.3)', // Более заметная граница
+    justifyContent: 'center', // Центрируем текст по вертикали
+    alignItems: 'center', // Центрируем текст по горизонтали
   },
-  selectedCategory: {
-    backgroundColor: '#FF4757',
-    borderColor: '#FF4757',
+  categoryButtonActive: {
+    backgroundColor: '#FF4444',
+    borderColor: '#FF4444',
   },
-  categoryButtonText: {
+  categoryText: {
     color: '#fff',
-    fontSize: 14,
-    fontWeight: '500',
+    fontSize: 18, // Увеличиваем размер шрифта
+    fontFamily: 'Gilroy-Regular',
   },
-  selectedCategoryText: {
+  categoryTextActive: {
     color: '#fff',
-    fontWeight: 'bold',
+    fontFamily: 'Gilroy-Bold',
   },
-  exercisesList: {
+  exercisesContainer: {
     flex: 1,
+    paddingHorizontal: 20,
   },
-  exerciseItem: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  exerciseCard: {
+    backgroundColor: 'rgba(0, 0, 0, 0.8)', // Полупрозрачный черный фон для лучшей читаемости
     borderRadius: 15,
     padding: 20,
-    marginBottom: 15,
+    marginBottom: 16,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.2)',
   },
   exerciseHeader: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 15,
+    marginBottom: 12,
   },
-  exerciseIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 15,
-  },
-  exerciseInfo: {
-    flex: 1,
-  },
-  exerciseName: {
+  exerciseTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontFamily: 'Gilroy-Bold',
     color: '#fff',
-    marginBottom: 5,
-  },
-  exerciseCategory: {
-    fontSize: 14,
-    color: '#FF4757',
-    fontWeight: '500',
-  },
-  exerciseMeta: {
-    alignItems: 'flex-end',
+    flex: 1,
+    marginRight: 12,
   },
   difficultyBadge: {
-    paddingHorizontal: 12,
+    paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
-    marginBottom: 5,
   },
   difficultyText: {
     color: '#fff',
     fontSize: 12,
-    fontWeight: 'bold',
-  },
-  durationText: {
-    color: '#fff',
-    fontSize: 12,
-    opacity: 0.8,
+    fontFamily: 'Gilroy-Bold',
   },
   exerciseDescription: {
-    color: '#fff',
     fontSize: 14,
+    fontFamily: 'Gilroy-Regular',
+    color: '#ccc',
     lineHeight: 20,
-    marginBottom: 15,
-    opacity: 0.9,
+    marginBottom: 16,
   },
   exerciseFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  authorInfo: {
+  exerciseInfo: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  authorAvatar: {
-    fontSize: 20,
-    marginRight: 8,
-  },
-  authorName: {
-    color: '#fff',
+  exerciseInfoText: {
+    color: '#888',
     fontSize: 14,
-    opacity: 0.8,
+    fontFamily: 'Gilroy-Regular',
+    marginLeft: 6,
   },
-  viewButton: {
-    backgroundColor: '#FF4757',
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    borderRadius: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  viewButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '500',
-    marginRight: 5,
-  },
+  // Убираем неиспользуемые стили для стрелочки
 });
