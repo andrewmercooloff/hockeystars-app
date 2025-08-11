@@ -4,26 +4,31 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-    Alert,
-    Image,
-    ImageBackground,
-    Linking,
-    Modal,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  Alert,
+  Image,
+  ImageBackground,
+  Linking,
+  Modal,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import Animated from 'react-native-reanimated';
 import AchievementsSection from '../../components/AchievementsSection';
 import CurrentTeamsSection from '../../components/CurrentTeamsSection';
 import CustomAlert from '../../components/CustomAlert';
 import EditablePhotosSection from '../../components/EditablePhotosSection';
+import ItemRequestButtons from '../../components/ItemRequestButtons';
+import ItemRequestNotifications from '../../components/ItemRequestNotifications';
+import ItemRequestsManager from '../../components/ItemRequestsManager';
 import NormativesSection from '../../components/NormativesSection';
 import PastTeamsSection from '../../components/PastTeamsSection';
+import PlayerMuseum from '../../components/PlayerMuseum';
+import StarItemManager from '../../components/StarItemManager';
 import VideoCarousel from '../../components/VideoCarousel';
 import YouTubeVideo from '../../components/YouTubeVideo';
 import { acceptFriendRequest, Achievement, calculateHockeyExperience, cancelFriendRequest, clearAllFriendRequests, createFriendRequestNotification, debugFriendRequests, declineFriendRequest, getFriends, getFriendshipStatus, getPlayerById, loadCurrentUser, PastTeam, Player, removeFriend, sendFriendRequest, updatePlayer } from '../../utils/playerStorage';
@@ -37,7 +42,7 @@ export default function PlayerProfile() {
   const [player, setPlayer] = useState<Player | null>(null);
   const [currentUser, setCurrentUser] = useState<Player | null>(null);
   const [loading, setLoading] = useState(true);
-  const [friendshipStatus, setFriendshipStatus] = useState<'friends' | 'sent_request' | 'received_request' | 'none'>('none');
+  const [friendshipStatus, setFriendshipStatus] = useState<'friends' | 'sent_request' | 'received_request' | 'none' | 'pending'>('none');
   const [friendLoading, setFriendLoading] = useState(false);
   const [friends, setFriends] = useState<Player[]>([]);
   const [selectedVideo, setSelectedVideo] = useState<{ url: string; timeCode?: string } | null>(null);
@@ -411,7 +416,7 @@ export default function PlayerProfile() {
         } else {
           showCustomAlert('Ошибка', 'Не удалось отправить запрос дружбы', 'error');
         }
-      } else if (friendshipStatus === 'sent' || friendshipStatus === 'sent_request' || friendshipStatus === 'pending') {
+      } else if (friendshipStatus === 'sent_request' || friendshipStatus === 'pending') {
         // Отменяем запрос
         const success = await cancelFriendRequest(currentUser.id, player.id);
         if (success) {
@@ -939,7 +944,7 @@ export default function PlayerProfile() {
               {playerTeams.length > 0 && (
                 <View style={styles.playerTeamsContainer}>
                   {playerTeams.map((team, index) => (
-                    <Text key={team.teamId} style={styles.playerTeam}>
+                    <Text key={index} style={styles.playerTeam}>
                       {team.teamName}{index < playerTeams.length - 1 ? ', ' : ''}
                     </Text>
                   ))}
@@ -1021,7 +1026,7 @@ export default function PlayerProfile() {
                       </TouchableOpacity>
                     </View>
                   </>
-                ) : (friendshipStatus === 'sent' || friendshipStatus === 'sent_request' || friendshipStatus === 'pending') ? (
+                ) : (friendshipStatus === 'sent_request' || friendshipStatus === 'pending') ? (
                   // Запрос дружбы отправлен
                   <>
                     <View style={styles.friendRequestHeader}>
@@ -1916,6 +1921,58 @@ export default function PlayerProfile() {
                 </TouchableOpacity>
               )}
             </View>
+
+            {/* Система управления предметами для звезд */}
+            {player.status === 'star' && (
+              <>
+                {/* Кнопки запроса предметов от игроков */}
+                {currentUser && currentUser.id !== player.id && (
+                  <ItemRequestButtons
+                    starId={player.id}
+                    playerId={currentUser.id}
+                    onRequestSent={() => {
+                      showCustomAlert('Успешно', 'Запрос отправлен! Звезда получит уведомление.', 'success');
+                    }}
+                  />
+                )}
+
+                {/* Управление предметами для владельца звезды */}
+                {(currentUser?.id === player.id || currentUser?.status === 'admin') && (
+                  <StarItemManager
+                    playerId={player.id}
+                    onItemsUpdated={() => {
+                      // Обновляем данные при изменении предметов
+                      loadPlayerData();
+                    }}
+                  />
+                )}
+
+                {/* Управление запросами на предметы для владельца звезды */}
+                {(currentUser?.id === player.id || currentUser?.status === 'admin') && (
+                  <ItemRequestsManager
+                    starId={player.id}
+                    onRequestUpdated={() => {
+                      // Обновляем данные при изменении запросов
+                      loadPlayerData();
+                    }}
+                  />
+                )}
+              </>
+            )}
+
+            {/* Уведомления о запросах предметов для игроков */}
+            {currentUser && currentUser.id === player.id && (
+              <ItemRequestNotifications
+                playerId={player.id}
+                onRequestUpdated={() => {
+                  // Обновляем данные при изменении запросов
+                  loadPlayerData();
+                }}
+              />
+            )}
+
+            {/* Музей игрока - полученные предметы */}
+            {player && <PlayerMuseum playerId={player.id} />}
 
           </ScrollView>
         </View>

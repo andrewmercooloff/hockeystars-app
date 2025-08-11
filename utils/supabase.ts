@@ -68,6 +68,41 @@ export interface Notification {
   data?: any;
 }
 
+// Новые интерфейсы для системы предметов
+export interface Item {
+  id: string;
+  owner_id: string;
+  type: 'autograph' | 'stick' | 'puck' | 'jersey';
+  name: string;
+  description?: string;
+  image_url?: string;
+  is_available: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ItemRequest {
+  id: string;
+  requester_id: string;
+  item_owner_id: string;
+  item_type: 'autograph' | 'stick' | 'puck' | 'jersey';
+  status: 'pending' | 'accepted' | 'rejected';
+  message?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MuseumItem {
+  id: string;
+  player_id: string;
+  item_type: 'autograph' | 'stick' | 'puck' | 'jersey';
+  item_name: string;
+  item_description?: string;
+  image_url?: string;
+  received_from_id?: string;
+  received_at: string;
+}
+
 // Функции для работы с игроками
 export const getPlayers = async (): Promise<Player[]> => {
   try {
@@ -331,5 +366,210 @@ export const clearAllData = async (): Promise<boolean> => {
   } catch (error) {
     console.error('❌ Ошибка очистки данных:', error);
     return false;
+  }
+};
+
+// Функции для работы с предметами
+export const getItemsByOwner = async (ownerId: string): Promise<Item[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('items')
+      .select('*')
+      .eq('owner_id', ownerId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('❌ Ошибка загрузки предметов:', error);
+      return [];
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error('❌ Ошибка загрузки предметов:', error);
+    return [];
+  }
+};
+
+export const createItem = async (item: Omit<Item, 'id' | 'created_at' | 'updated_at'>): Promise<Item | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('items')
+      .insert([item])
+      .select()
+      .single();
+
+    if (error) {
+      console.error('❌ Ошибка создания предмета:', error);
+      return null;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('❌ Ошибка создания предмета:', error);
+    return null;
+  }
+};
+
+export const updateItem = async (id: string, updates: Partial<Item>): Promise<Item | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('items')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('❌ Ошибка обновления предмета:', error);
+      return null;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('❌ Ошибка обновления предмета:', error);
+    return null;
+  }
+};
+
+export const deleteItem = async (id: string): Promise<boolean> => {
+  try {
+    const { error } = await supabase
+      .from('items')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('❌ Ошибка удаления предмета:', error);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('❌ Ошибка удаления предмета:', error);
+    return false;
+  }
+};
+
+// Функции для работы с запросами на предметы
+export const createItemRequest = async (request: Omit<ItemRequest, 'id' | 'created_at' | 'updated_at'>): Promise<ItemRequest | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('item_requests')
+      .insert([request])
+      .select()
+      .single();
+
+    if (error) {
+      console.error('❌ Ошибка создания запроса на предмет:', error);
+      return null;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('❌ Ошибка создания запроса на предмет:', error);
+    return null;
+  }
+};
+
+export const getItemRequestsByOwner = async (ownerId: string): Promise<ItemRequest[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('item_requests')
+      .select('*')
+      .eq('item_owner_id', ownerId)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('❌ Ошибка загрузки запросов на предметы:', error);
+      return [];
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error('❌ Ошибка загрузки запросов на предметы:', error);
+    return [];
+  }
+};
+
+export const getItemRequestsByRequester = async (requesterId: string): Promise<ItemRequest[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('item_requests')
+      .select('*')
+      .eq('requester_id', requesterId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('❌ Ошибка загрузки запросов игрока:', error);
+      return [];
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error('❌ Ошибка загрузки запросов игрока:', error);
+    return [];
+  }
+};
+
+export const updateItemRequest = async (id: string, status: 'accepted' | 'rejected'): Promise<ItemRequest | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('item_requests')
+      .update({ status })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('❌ Ошибка обновления запроса на предмет:', error);
+      return null;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('❌ Ошибка обновления запроса на предмет:', error);
+    return null;
+  }
+};
+
+// Функции для работы с музеем
+export const getPlayerMuseum = async (playerId: string): Promise<MuseumItem[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('player_museum')
+      .select('*')
+      .eq('player_id', playerId)
+      .order('received_at', { ascending: false });
+
+    if (error) {
+      console.error('❌ Ошибка загрузки музея игрока:', error);
+      return [];
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error('❌ Ошибка загрузки музея игрока:', error);
+    return [];
+  }
+};
+
+export const addMuseumItem = async (item: Omit<MuseumItem, 'id' | 'received_at'>): Promise<MuseumItem | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('player_museum')
+      .insert([item])
+      .select()
+      .single();
+
+    if (error) {
+      console.error('❌ Ошибка добавления предмета в музей:', error);
+      return null;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('❌ Ошибка добавления предмета в музей:', error);
+    return null;
   }
 }; 
