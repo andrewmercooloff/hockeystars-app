@@ -401,7 +401,7 @@ export default function PlayerProfile() {
           showCustomAlert('Ошибка', 'Не удалось удалить из друзей', 'error');
         }
       } else if (friendshipStatus === 'none') {
-        console.log('🔧 Отправляем запрос дружбы');
+    
         // Отправляем запрос дружбы
         const success = await sendFriendRequest(currentUser.id, player.id);
 

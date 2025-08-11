@@ -18,6 +18,7 @@ import {
     getReceivedFriendRequests,
     loadCurrentUser,
     loadNotifications,
+    markNotificationAsRead,
     Player
 } from '../utils/playerStorage';
 
@@ -135,17 +136,35 @@ export default function NotificationsScreen() {
   };
 
   const handleNotificationPress = async (notification: NotificationItem) => {
-    // Обработка нажатия на уведомление
-    if (notification.type === 'friend_request') {
-      // Для запросов в друзья показываем профиль игрока
-      if (notification.playerId) {
-        router.push(`/player/${notification.playerId}`);
+    try {
+      // Отмечаем уведомление как прочитанное, если оно еще не прочитано
+      if (!notification.isRead) {
+        // Обновляем локальное состояние
+        setNotifications(prev => prev.map(n => 
+          n.id === notification.id ? { ...n, isRead: true } : n
+        ));
+        
+        // Отмечаем как прочитанное в базе данных
+        await markNotificationAsRead(notification.id);
+        
+        // Обновляем счетчик уведомлений в главном layout
+        // Счетчик обновится автоматически через 3 секунды
       }
-    } else if (notification.type === 'autograph_request' || notification.type === 'stick_request') {
-      // Для запросов автографов и клюшек показываем профиль игрока
-      if (notification.playerId) {
-        router.push(`/player/${notification.playerId}`);
+      
+      // Обработка нажатия на уведомление
+      if (notification.type === 'friend_request') {
+        // Для запросов в друзья показываем профиль игрока
+        if (notification.playerId) {
+          router.push(`/player/${notification.playerId}`);
+        }
+      } else if (notification.type === 'autograph_request' || notification.type === 'stick_request') {
+        // Для запросов автографов и клюшек показываем профиль игрока
+        if (notification.playerId) {
+          router.push(`/player/${notification.playerId}`);
+        }
       }
+    } catch (error) {
+      console.error('Ошибка обработки уведомления:', error);
     }
   };
 
@@ -161,6 +180,8 @@ export default function NotificationsScreen() {
       
       // Обновляем список запросов
       setFriendRequests(prev => prev.filter(req => req.id !== request.id));
+      
+      // Счетчик уведомлений обновится автоматически через 3 секунды
     } catch (error) {
       console.error('Ошибка обработки запроса в друзья:', error);
       Alert.alert('Ошибка', 'Не удалось обработать запрос в друзья');

@@ -154,9 +154,9 @@ const styles = StyleSheet.create({
   container: {
     position: 'absolute',
     top: 72,
-    right: 40,
+    left: 40,
     zIndex: 15,
-    alignItems: 'flex-end',
+    alignItems: 'flex-start',
   },
   dropdownMenu: {
     backgroundColor: 'rgba(0, 0, 0, 0.9)',

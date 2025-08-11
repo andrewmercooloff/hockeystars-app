@@ -378,15 +378,13 @@ export default function HomeScreen() {
         resizeMode="cover"
         onLoad={() => setImageLoaded(true)}
       >
-        {imageLoaded && <View style={styles.innerBorder} />}
-        
         {/* Иконка глобуса для фильтра стран в правом верхнем углу */}
         <TouchableOpacity
           style={styles.globeButton}
           onPress={() => setShowCountryFilter(!showCountryFilter)}
           activeOpacity={0.7}
         >
-          <Ionicons name="globe-outline" size={28} color="#fff" />
+          <Ionicons name="earth" size={28} color="#fff" />
         </TouchableOpacity>
 
 
@@ -475,20 +473,10 @@ const styles = StyleSheet.create({
     height: '100%',
     borderRadius: 60,
     overflow: 'hidden',
-    // Убираем внешнюю границу, чтобы избежать дублирования
-    // borderWidth: 4,
-    // borderColor: '#666',
+    borderWidth: 6,
+    borderColor: '#666',
   },
-  innerBorder: {
-    position: 'absolute',
-    top: 5,
-    left: 5,
-    right: 5,
-    bottom: 235,
-    borderWidth: 4,
-    borderColor: 'rgba(255, 255, 255, 0.4)',
-    borderRadius: 50,
-  },
+
   puckContainer: {
     position: 'absolute',
   },
@@ -621,7 +609,7 @@ const styles = StyleSheet.create({
   globeButton: {
     position: 'absolute',
     top: 20,
-    right: 40,
+    left: 40,
     backgroundColor: '#FF4444',
     borderRadius: 25,
     width: 50,
@@ -629,7 +617,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 15,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
   },
 });

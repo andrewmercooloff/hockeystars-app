@@ -6,7 +6,8 @@ import { LogBox, Text, TouchableOpacity, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import LogoHeader from '../components/LogoHeader';
 import { CountryFilterProvider, useCountryFilter } from '../utils/CountryFilterContext';
-import { initializeStorage, loadCurrentUser, loadNotifications, markNotificationAsRead, Player } from '../utils/playerStorage';
+import { initializeStorage, loadCurrentUser, markNotificationAsRead, Player } from '../utils/playerStorage';
+import { supabase } from '../utils/supabase';
 
 // Отключаем все предупреждения
 LogBox.ignoreAllLogs();
@@ -61,8 +62,19 @@ export default function RootLayout() {
     try {
       const user = await loadCurrentUser();
       if (user) {
-        // Загружаем непрочитанные уведомления (без логов)
-        const notifications = await loadNotifications(user.id);
+        // Загружаем уведомления, предназначенные для текущего пользователя (по user_id)
+        const { data: notificationsData, error } = await supabase
+          .from('notifications')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false });
+        
+        if (error) {
+          console.error('Ошибка загрузки уведомлений:', error);
+          return;
+        }
+        
+        const notifications = notificationsData || [];
         
         // Помечаем все уведомления о сообщениях как прочитанные
         const messageNotifications = notifications.filter((n: any) => n.type === 'message' && !n.is_read);
@@ -91,16 +103,23 @@ export default function RootLayout() {
                  n.type === 'system';
         });
         
-        const unreadNotificationsCount = filteredNotifications.filter((n: any) => !n.is_read).length;
+        // Считаем только непрочитанные уведомления (запросы в друзья показываются отдельно)
+        const unreadNotificationsCount = filteredNotifications.filter((n: any) => !n.is_read && n.type !== 'friend_request').length;
         
         // Загружаем непрочитанные сообщения (без логов)
         const { getUnreadMessageCount } = await import('../utils/playerStorage');
         const unreadMessagesCount = await getUnreadMessageCount(user.id);
         
+        // Загружаем запросы в друзья для отдельного счетчика
+        const { getReceivedFriendRequests } = await import('../utils/playerStorage');
+        const receivedFriendRequests = await getReceivedFriendRequests(user.id);
+        const friendRequestsCount = receivedFriendRequests.length;
+        
         setCurrentUser({ 
           ...user, 
           unreadNotificationsCount,
-          unreadMessagesCount 
+          unreadMessagesCount,
+          friendRequestsCount
         });
       } else {
         setCurrentUser(null);
@@ -143,6 +162,12 @@ export default function RootLayout() {
   useEffect(() => {
     // Главный экран получил фокус
     refreshCounters();
+  }, []);
+
+  // Обработчик события для обновления счетчика уведомлений
+  useEffect(() => {
+    // Просто обновляем счетчики каждые 3 секунды
+    // Это уже реализовано в основном useEffect выше
   }, []);
 
   if (!loaded) {
@@ -236,7 +261,7 @@ export default function RootLayout() {
                 height: size + 4,
               }}>
                 <Ionicons name="notifications-outline" size={size - 2} color={focused ? '#eee' : '#aaa'} />
-                {currentUser && currentUser.unreadNotificationsCount && currentUser.unreadNotificationsCount > 0 && (
+                {currentUser && (currentUser.unreadNotificationsCount > 0 || currentUser.friendRequestsCount > 0) && (
                   <View style={{
                     position: 'absolute',
                     top: -8,
@@ -253,7 +278,7 @@ export default function RootLayout() {
                       fontSize: 12,
                       fontFamily: 'Gilroy-Bold',
                     }}>
-                      {currentUser.unreadNotificationsCount}
+                      {(currentUser.unreadNotificationsCount || 0) + (currentUser.friendRequestsCount || 0)}
                     </Text>
                   </View>
                 )}

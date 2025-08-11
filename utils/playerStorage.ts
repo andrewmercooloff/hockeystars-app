@@ -114,6 +114,7 @@ export interface Player {
   number?: string;
   unreadNotificationsCount?: number;
   unreadMessagesCount?: number;
+  friendRequestsCount?: number;
 }
 
 export interface Message {
@@ -215,7 +216,8 @@ const convertSupabaseToPlayer = (supabasePlayer: SupabasePlayer): Player => {
       })() : [],
     number: supabasePlayer.number || '',
     unreadNotificationsCount: 0,
-    unreadMessagesCount: 0
+    unreadMessagesCount: 0,
+    friendRequestsCount: 0
   };
   
   // console.log(`   Результат конвертации:`);
@@ -269,7 +271,7 @@ export const createTeam = async (teamData: Omit<Team, 'id'>): Promise<Team | nul
     }
     
     if (existingTeam) {
-      console.log('✅ createTeam: команда уже существует, возвращаем существующую:', existingTeam);
+
       return {
         id: existingTeam.id,
         name: existingTeam.name,
@@ -301,7 +303,7 @@ export const createTeam = async (teamData: Omit<Team, 'id'>): Promise<Team | nul
       return null;
     }
     
-    console.log('✅ createTeam: команда успешно создана:', data);
+    
     
     return {
       id: data.id,
@@ -436,7 +438,7 @@ export const addPlayerTeam = async (playerId: string, teamId: string, isPrimary:
         return false;
       }
       
-      console.log('✅ Команда успешно обновлена у игрока');
+
       return true;
     } else {
       // Создаем новую запись
@@ -464,7 +466,7 @@ export const addPlayerTeam = async (playerId: string, teamId: string, isPrimary:
         return false;
       }
       
-      console.log('✅ Команда успешно добавлена игроку');
+
       return true;
     }
   } catch (error) {
@@ -489,7 +491,7 @@ export const removePlayerTeam = async (playerId: string, teamId: string): Promis
       return false;
     }
     
-    console.log('✅ Команда успешно удалена у игрока');
+    
     return true;
   } catch (error) {
     console.error('❌ Ошибка удаления команды у игрока:', error);
@@ -703,7 +705,7 @@ const convertPlayerToSupabase = (player: Omit<Player, 'id' | 'unreadNotification
 // Инициализация хранилища
 export const initializeStorage = async (): Promise<void> => {
   try {
-    console.log('🔧 Инициализация Supabase хранилища...');
+
     const { data, error } = await supabase
       .from('players')
       .select('count')
@@ -1167,7 +1169,7 @@ export const getUserConversations = async (userId: string): Promise<Record<strin
 // Отправка запроса дружбы
 export const sendFriendRequest = async (fromId: string, toId: string): Promise<boolean> => {
   try {
-    console.log('🔔 Отправка запроса дружбы от', fromId, 'к', toId);
+
     
     // Получаем данные отправителя для уведомления
     const { data: senderData } = await supabase
@@ -1208,14 +1210,14 @@ export const sendFriendRequest = async (fromId: string, toId: string): Promise<b
         if (notificationError) {
           console.error('❌ Ошибка создания уведомления:', notificationError);
         } else {
-          console.log('✅ Уведомление о запросе дружбы создано');
+    
         }
       } catch (notificationError) {
         console.error('❌ Ошибка создания уведомления:', notificationError);
       }
     }
     
-    console.log('✅ Запрос дружбы отправлен успешно');
+
     return true;
   } catch (error) {
     console.error('❌ Ошибка отправки запроса дружбы:', error);
@@ -1379,7 +1381,7 @@ export const getFriends = async (userId: string): Promise<Player[]> => {
 // Проверка статуса дружбы
 export const getFriendshipStatus = async (userId1: string, userId2: string): Promise<string> => {
   try {
-    console.log('🔍 getFriendshipStatus вызвана для:', userId1, 'и', userId2);
+  
     
     // Сначала проверяем, есть ли принятый запрос дружбы (друзья)
     const { data: friendsData, error: friendsError } = await supabase
@@ -1389,7 +1391,7 @@ export const getFriendshipStatus = async (userId1: string, userId2: string): Pro
       .maybeSingle();
     
     if (friendsData) {
-      console.log('🔍 Найдены друзья:', friendsData);
+
       return 'friends';
     }
     
@@ -1403,7 +1405,7 @@ export const getFriendshipStatus = async (userId1: string, userId2: string): Pro
       .maybeSingle();
     
     if (sentData) {
-      console.log('🔍 userId1 отправил запрос userId2:', sentData);
+
       return 'sent_request';
     }
     
@@ -1421,7 +1423,7 @@ export const getFriendshipStatus = async (userId1: string, userId2: string): Pro
       return 'received_request';
     }
     
-    console.log('🔍 Нет запросов дружбы между пользователями');
+
     return 'none';
   } catch (error) {
     console.error('❌ Ошибка в getFriendshipStatus:', error);
@@ -1440,7 +1442,7 @@ export const clearAllData = async (): Promise<boolean> => {
     await supabase.from('friend_requests').delete().neq('id', '00000000-0000-0000-0000-000000000000');
     await supabase.from('players').delete().neq('id', '00000000-0000-0000-0000-000000000000');
     
-    console.log('✅ Все данные очищены');
+
     return true;
   } catch (error) {
     console.error('❌ Ошибка очистки данных:', error);
@@ -1451,9 +1453,9 @@ export const clearAllData = async (): Promise<boolean> => {
 // Исправление поврежденных данных (заглушка для совместимости)
 export const fixCorruptedData = async (): Promise<void> => {
   try {
-    console.log('🔧 Исправление поврежденных данных...');
+
     // В Supabase версии эта функция не нужна, так как данные хранятся в базе
-    console.log('✅ Данные в Supabase не требуют исправления');
+    
   } catch (error) {
     console.error('❌ Ошибка исправления данных:', error);
   }
@@ -1502,7 +1504,7 @@ export const createNotification = async (notification: any): Promise<any> => {
       return null;
     }
     
-    console.log('✅ Уведомление создано:', data);
+    
     return data;
   } catch (error) {
     console.error('❌ Ошибка создания уведомления:', error);
@@ -1513,8 +1515,6 @@ export const createNotification = async (notification: any): Promise<any> => {
 // Отметка уведомления как прочитанного
 export const markNotificationAsRead = async (notificationId: string): Promise<boolean> => {
   try {
-    console.log('🔔 Отметка уведомления как прочитанного:', notificationId);
-    
     const { error } = await supabase
       .from('notifications')
       .update({ is_read: true })
@@ -1525,7 +1525,6 @@ export const markNotificationAsRead = async (notificationId: string): Promise<bo
       return false;
     }
     
-    console.log('✅ Уведомление отмечено как прочитанное');
     return true;
   } catch (error) {
     console.error('❌ Ошибка отметки уведомления:', error);
@@ -1580,7 +1579,7 @@ export const createAdmin = async (): Promise<Player | null> => {
       return null;
     }
     
-    console.log('✅ Администратор создан:', data.name);
+    
     return convertSupabaseToPlayer(data);
   } catch (error) {
     console.error('❌ Ошибка создания администратора:', error);
@@ -1615,7 +1614,7 @@ export const getReceivedFriendRequests = async (userId: string): Promise<Player[
 // Функция для исправления данных администратора
 export const fixAdminData = async (): Promise<void> => {
   try {
-    console.log('🔧 Исправление данных администратора...');
+
     
     const { data: admins, error } = await supabase
       .from('players')
@@ -1628,7 +1627,7 @@ export const fixAdminData = async (): Promise<void> => {
     }
     
     if (admins && admins.length > 0) {
-      console.log(`✅ Найдено администраторов: ${admins.length}`);
+  
       
       // Исправляем аватар для каждого администратора
       for (const admin of admins) {
