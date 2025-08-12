@@ -97,38 +97,23 @@ const ItemRequestButtons: React.FC<ItemRequestButtonsProps> = ({
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Запросить предмет у звезды</Text>
+      <Text style={styles.title}>Запросить подарок</Text>
       
       <View style={styles.buttonsContainer}>
-        <TouchableOpacity
-          style={styles.requestButton}
-          onPress={() => openRequestModal('autograph')}
-        >
-          <Ionicons name="create" size={24} color="#007AFF" />
+        <TouchableOpacity style={styles.requestButton} onPress={() => openRequestModal('autograph')}>
+          <Ionicons name="create" size={20} color="#ff4444" />
           <Text style={styles.buttonText}>Автограф</Text>
         </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.requestButton}
-          onPress={() => openRequestModal('stick')}
-        >
-          <Ionicons name="fitness" size={24} color="#007AFF" />
+        <TouchableOpacity style={styles.requestButton} onPress={() => openRequestModal('stick')}>
+          <Ionicons name="fitness" size={20} color="#ff6666" />
           <Text style={styles.buttonText}>Клюшка</Text>
         </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.requestButton}
-          onPress={() => openRequestModal('puck')}
-        >
-          <Ionicons name="radio-button-on" size={24} color="#007AFF" />
+        <TouchableOpacity style={styles.requestButton} onPress={() => openRequestModal('puck')}>
+          <Ionicons name="radio-button-on" size={20} color="#ff8888" />
           <Text style={styles.buttonText}>Шайба</Text>
         </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.requestButton}
-          onPress={() => openRequestModal('jersey')}
-        >
-          <Ionicons name="shirt" size={24} color="#007AFF" />
+        <TouchableOpacity style={styles.requestButton} onPress={() => openRequestModal('jersey')}>
+          <Ionicons name="shirt" size={20} color="#ffaaaa" />
           <Text style={styles.buttonText}>Джерси</Text>
         </TouchableOpacity>
       </View>
@@ -148,17 +133,17 @@ const ItemRequestButtons: React.FC<ItemRequestButtonsProps> = ({
               onPress={() => setShowRequestModal(false)}
               style={styles.closeButton}
             >
-              <Ionicons name="close" size={24} color="#007AFF" />
+              <Ionicons name="close" size={20} color="#ff4444" />
             </TouchableOpacity>
           </View>
 
           <ScrollView style={styles.modalContent}>
             <View style={styles.itemTypeDisplay}>
-              <Ionicons 
-                name={getItemTypeIcon(selectedItemType) as any} 
-                size={32} 
-                color="#007AFF" 
-              />
+                             <Ionicons 
+                 name={getItemTypeIcon(selectedItemType) as any} 
+                 size={28} 
+                 color="#ff4444" 
+               />
               <Text style={styles.itemTypeText}>
                 {getItemTypeName(selectedItemType).charAt(0).toUpperCase() + 
                  getItemTypeName(selectedItemType).slice(1)}
@@ -168,14 +153,14 @@ const ItemRequestButtons: React.FC<ItemRequestButtonsProps> = ({
             <View style={styles.formGroup}>
               <Text style={styles.label}>Сообщение к запросу *</Text>
               <Text style={styles.helperText}>
-                Напишите вежливое сообщение, объясняющее, почему вы хотите получить этот предмет
+                                 Напишите вежливое сообщение, объясняющее, почему вы хотите получить этот подарок
               </Text>
               <TextInput
                 style={[styles.input, styles.textArea]}
                 value={requestMessage}
                 onChangeText={setRequestMessage}
                 placeholder="Например: Здравствуйте! Я большой поклонник вашей игры и хотел бы получить автограф для своей коллекции..."
-                placeholderTextColor="#8E8E93"
+                                 placeholderTextColor="#666"
                 multiline
                 numberOfLines={6}
                 maxLength={500}
@@ -198,10 +183,10 @@ const ItemRequestButtons: React.FC<ItemRequestButtonsProps> = ({
             </View>
 
             <View style={styles.infoBox}>
-              <Ionicons name="information-circle" size={20} color="#007AFF" />
+                             <Ionicons name="information-circle" size={18} color="#87ceeb" />
               <Text style={styles.infoText}>
-                После отправки запроса звезда получит уведомление и сможет принять или отклонить ваш запрос. 
-                Если запрос будет принят, предмет появится в вашем Музее.
+                                 После отправки запроса звезда получит уведомление и сможет принять или отклонить ваш запрос. 
+                 Если запрос будет принят, подарок появится в вашем Музее подарков.
               </Text>
             </View>
           </ScrollView>
@@ -213,145 +198,143 @@ const ItemRequestButtons: React.FC<ItemRequestButtonsProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 16,
+    backgroundColor: '#000',
+    borderRadius: 8,
+    padding: 12,
     marginHorizontal: 16,
     marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    borderWidth: 1,
+    borderColor: '#333',
   },
   title: {
-    fontSize: 18,
+    fontSize: 14,
     fontWeight: '600',
-    color: '#1C1C1E',
+    color: '#fff',
     textAlign: 'center',
-    marginBottom: 16,
+    marginBottom: 8,
   },
   buttonsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    gap: 12,
+    gap: 6,
   },
   requestButton: {
     flex: 1,
     minWidth: '45%',
-    backgroundColor: '#F2F2F7',
-    borderRadius: 12,
-    padding: 16,
+    backgroundColor: '#1a1a1a',
+    borderRadius: 6,
+    padding: 8,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#E5E5EA',
+    borderColor: '#333',
   },
   buttonText: {
-    marginTop: 8,
-    fontSize: 14,
+    marginTop: 4,
+    fontSize: 11,
     fontWeight: '500',
-    color: '#1C1C1E',
+    color: '#fff',
     textAlign: 'center',
   },
   modalContainer: {
     flex: 1,
-    backgroundColor: '#F2F2F7',
+    backgroundColor: '#000',
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
-    backgroundColor: 'white',
+    padding: 12,
+    backgroundColor: '#1a1a1a',
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E5EA',
+    borderBottomColor: '#333',
   },
   modalTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600',
-    color: '#1C1C1E',
+    color: '#fff',
   },
   closeButton: {
-    padding: 8,
+    padding: 6,
   },
   modalContent: {
     flex: 1,
-    padding: 16,
+    padding: 12,
   },
   itemTypeDisplay: {
     alignItems: 'center',
-    paddingVertical: 24,
-    backgroundColor: 'white',
-    borderRadius: 12,
-    marginBottom: 20,
+    paddingVertical: 16,
+    backgroundColor: '#1a1a1a',
+    borderRadius: 8,
+    marginBottom: 16,
   },
   itemTypeText: {
-    marginTop: 8,
-    fontSize: 18,
+    marginTop: 6,
+    fontSize: 16,
     fontWeight: '600',
-    color: '#1C1C1E',
+    color: '#fff',
   },
   formGroup: {
-    marginBottom: 20,
+    marginBottom: 16,
   },
   label: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '500',
-    color: '#1C1C1E',
-    marginBottom: 8,
+    color: '#fff',
+    marginBottom: 6,
   },
   helperText: {
-    fontSize: 14,
-    color: '#8E8E93',
-    marginBottom: 12,
-    lineHeight: 20,
+    fontSize: 12,
+    color: '#999',
+    marginBottom: 8,
+    lineHeight: 16,
   },
   input: {
-    backgroundColor: 'white',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
+    backgroundColor: '#1a1a1a',
+    borderRadius: 6,
+    padding: 10,
+    fontSize: 14,
     borderWidth: 1,
-    borderColor: '#E5E5EA',
+    borderColor: '#333',
+    color: '#fff',
   },
   textArea: {
-    height: 120,
+    height: 100,
     textAlignVertical: 'top',
   },
   characterCount: {
-    fontSize: 12,
-    color: '#8E8E93',
+    fontSize: 11,
+    color: '#999',
     textAlign: 'right',
     marginTop: 4,
   },
   submitButton: {
-    backgroundColor: '#007AFF',
-    borderRadius: 8,
-    padding: 16,
+    backgroundColor: '#ff4444',
+    borderRadius: 6,
+    padding: 12,
     alignItems: 'center',
   },
   submitButtonDisabled: {
-    backgroundColor: '#8E8E93',
+    backgroundColor: '#666',
   },
   submitButtonText: {
     color: 'white',
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
   },
   infoBox: {
     flexDirection: 'row',
-    backgroundColor: '#E3F2FD',
-    borderRadius: 8,
-    padding: 16,
-    marginTop: 20,
+    backgroundColor: '#1a3a5a',
+    borderRadius: 6,
+    padding: 12,
+    marginTop: 16,
   },
   infoText: {
     flex: 1,
-    marginLeft: 12,
-    fontSize: 14,
-    color: '#0277BD',
-    lineHeight: 20,
+    marginLeft: 10,
+    fontSize: 12,
+    color: '#87ceeb',
+    lineHeight: 16,
   },
 });
 

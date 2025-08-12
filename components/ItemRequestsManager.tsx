@@ -77,7 +77,7 @@ const ItemRequestsManager: React.FC<ItemRequestsManagerProps> = ({ starId, onReq
 
   const handleAcceptRequest = async (requestId: string, requesterId: string, itemType: string) => {
     try {
-      // Проверяем, есть ли у звезды доступный предмет данного типа
+      // Проверяем, есть ли у звезды доступный подарок данного типа
       const { data: availableItems, error: itemsError } = await supabase
         .from('items')
         .select('*')
@@ -87,15 +87,15 @@ const ItemRequestsManager: React.FC<ItemRequestsManagerProps> = ({ starId, onReq
         .limit(1);
 
       if (itemsError) {
-        console.error('Ошибка проверки доступности предмета:', itemsError);
-        Alert.alert('Ошибка', 'Не удалось проверить доступность предмета');
+        console.error('Ошибка проверки доступности подарка:', itemsError);
+        Alert.alert('Ошибка', 'Не удалось проверить доступность подарка');
         return;
       }
 
       if (!availableItems || availableItems.length === 0) {
         Alert.alert(
-          'Предмет недоступен', 
-          `У вас нет доступных ${getItemTypeName(itemType)} для отправки. Сначала добавьте предмет в свой инвентарь.`
+          'Подарок недоступен', 
+          `У вас нет доступных ${getItemTypeName(itemType)} для отправки. Сначала добавьте подарок в свой инвентарь.`
         );
         return;
       }
@@ -114,17 +114,17 @@ const ItemRequestsManager: React.FC<ItemRequestsManagerProps> = ({ starId, onReq
         return;
       }
 
-      // Делаем предмет недоступным
+              // Делаем подарок недоступным
       const { error: itemUpdateError } = await supabase
         .from('items')
         .update({ is_available: false })
         .eq('id', selectedItem.id);
 
       if (itemUpdateError) {
-        console.error('Ошибка обновления статуса предмета:', itemUpdateError);
+        console.error('Ошибка обновления статуса подарка:', itemUpdateError);
       }
 
-      // Добавляем предмет в музей игрока
+              // Добавляем подарок в музей игрока
       const { error: museumError } = await supabase
         .from('player_museum')
         .insert([{
@@ -136,7 +136,7 @@ const ItemRequestsManager: React.FC<ItemRequestsManagerProps> = ({ starId, onReq
 
       if (museumError) {
         console.error('Ошибка добавления в музей:', museumError);
-        Alert.alert('Предупреждение', 'Запрос принят, но не удалось добавить предмет в музей игрока');
+        Alert.alert('Предупреждение', 'Запрос принят, но не удалось добавить подарок в музей игрока');
         return;
       }
 
@@ -150,7 +150,7 @@ const ItemRequestsManager: React.FC<ItemRequestsManagerProps> = ({ starId, onReq
       }
       Alert.alert(
         'Запрос принят!', 
-        `Предмет ${getItemTypeName(itemType)} отправлен игроку и добавлен в его музей.`
+        `Подарок ${getItemTypeName(itemType)} отправлен игроку и добавлен в его музей.`
       );
     } catch (error) {
       console.error('Ошибка принятия запроса:', error);
@@ -253,9 +253,9 @@ const ItemRequestsManager: React.FC<ItemRequestsManagerProps> = ({ starId, onReq
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Запросы на предметы</Text>
+                  <Text style={styles.title}>Запросы на подарки</Text>
         <TouchableOpacity onPress={onRefresh} style={styles.refreshButton}>
-          <Ionicons name="refresh" size={20} color="#007AFF" />
+                     <Ionicons name="refresh" size={18} color="#ff4444" />
         </TouchableOpacity>
       </View>
 
@@ -381,7 +381,7 @@ const ItemRequestsManager: React.FC<ItemRequestsManagerProps> = ({ starId, onReq
             <Ionicons name="mail-outline" size={48} color="#8E8E93" />
             <Text style={styles.emptyStateText}>У вас пока нет запросов</Text>
             <Text style={styles.emptyStateSubtext}>
-              Когда игроки будут запрашивать у вас предметы, они появятся здесь
+              Когда игроки будут запрашивать у вас подарки, они появятся здесь
             </Text>
           </View>
         )}
@@ -393,54 +393,51 @@ const ItemRequestsManager: React.FC<ItemRequestsManagerProps> = ({ starId, onReq
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F2F2F7',
+    backgroundColor: '#000',
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
-    backgroundColor: 'white',
+    padding: 12,
+    backgroundColor: '#1a1a1a',
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E5EA',
+    borderBottomColor: '#333',
   },
   title: {
-    fontSize: 20,
+    fontSize: 16,
     fontWeight: '600',
-    color: '#1C1C1E',
+    color: '#fff',
   },
   refreshButton: {
-    padding: 8,
+    padding: 6,
   },
   requestsList: {
     flex: 1,
-    padding: 16,
+    padding: 12,
   },
   section: {
-    marginBottom: 24,
+    marginBottom: 16,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 14,
     fontWeight: '600',
-    color: '#1C1C1E',
-    marginBottom: 12,
+    color: '#fff',
+    marginBottom: 8,
   },
   requestCard: {
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    backgroundColor: '#1a1a1a',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#333',
   },
   requestHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 12,
+    marginBottom: 8,
   },
   requesterInfo: {
     flexDirection: 'row',
@@ -452,7 +449,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#F2F2F7',
+    backgroundColor: '#333',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -461,33 +458,33 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   requesterName: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
-    color: '#1C1C1E',
+    color: '#fff',
     marginBottom: 2,
   },
   requestDate: {
-    fontSize: 12,
-    color: '#8E8E93',
+    fontSize: 11,
+    color: '#999',
   },
   itemTypeContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F2F2F7',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
+    backgroundColor: '#333',
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 8,
   },
   itemType: {
     marginLeft: 6,
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '500',
-    color: '#007AFF',
+    color: '#ff4444',
   },
   itemTypeSmall: {
     marginLeft: 6,
-    fontSize: 11,
-    color: '#8E8E93',
+    fontSize: 10,
+    color: '#999',
   },
   statusContainer: {
     flexDirection: 'row',
@@ -504,52 +501,52 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   requestMessage: {
-    fontSize: 14,
-    color: '#1C1C1E',
-    lineHeight: 20,
-    marginBottom: 16,
+    fontSize: 12,
+    color: '#fff',
+    lineHeight: 16,
+    marginBottom: 12,
   },
   requestActions: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 8,
   },
   actionButton: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 6,
   },
   acceptButton: {
-    backgroundColor: '#34C759',
+    backgroundColor: '#ff4444',
   },
   rejectButton: {
-    backgroundColor: '#FF3B30',
+    backgroundColor: '#333',
   },
   actionButtonText: {
     color: 'white',
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '500',
     marginLeft: 6,
   },
   emptyState: {
     alignItems: 'center',
-    paddingVertical: 48,
+    paddingVertical: 32,
   },
   emptyStateText: {
-    fontSize: 18,
+    fontSize: 14,
     fontWeight: '600',
-    color: '#8E8E93',
-    marginTop: 16,
-    marginBottom: 8,
+    color: '#999',
+    marginTop: 12,
+    marginBottom: 6,
   },
   emptyStateSubtext: {
-    fontSize: 14,
-    color: '#8E8E93',
+    fontSize: 11,
+    color: '#999',
     textAlign: 'center',
-    lineHeight: 20,
+    lineHeight: 16,
   },
 });
 

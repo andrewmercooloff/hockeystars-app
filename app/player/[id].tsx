@@ -22,9 +22,9 @@ import AchievementsSection from '../../components/AchievementsSection';
 import CurrentTeamsSection from '../../components/CurrentTeamsSection';
 import CustomAlert from '../../components/CustomAlert';
 import EditablePhotosSection from '../../components/EditablePhotosSection';
-import ItemRequestButtons from '../../components/ItemRequestButtons';
-import ItemRequestNotifications from '../../components/ItemRequestNotifications';
-import ItemRequestsManager from '../../components/ItemRequestsManager';
+
+
+
 import NormativesSection from '../../components/NormativesSection';
 import PastTeamsSection from '../../components/PastTeamsSection';
 import PlayerMuseum from '../../components/PlayerMuseum';
@@ -805,25 +805,7 @@ export default function PlayerProfile() {
         <View style={styles.overlay}>
           <ScrollView contentContainerStyle={styles.scrollContainer}>
             
-            {/* Кнопка редактирования в самом верху */}
-            {(currentUser?.status === 'admin' || currentUser?.id === player.id) && (
-              <View style={styles.editButtonContainer}>
-                <TouchableOpacity 
-                  style={styles.editButton} 
-                  onPress={() => {
-                
-                    if (isEditing) {
-                      handleSave();
-                    } else {
-                      setEditData(player);
-                      setIsEditing(true);
-                    }
-                  }}
-                >
-                  <Ionicons name={isEditing ? "checkmark" : "create"} size={40} color="#fff" />
-                </TouchableOpacity>
-              </View>
-            )}
+
 
             {/* Фото и основная информация */}
             <View style={styles.profileSection}>
@@ -1753,56 +1735,9 @@ export default function PlayerProfile() {
               )}
             </View>
 
-            {/* Кнопки действий */}
+            {/* Кнопки действий для взаимодействия с профилем */}
             <View style={styles.actionsSection}>
-              {currentUser && currentUser.id === player.id ? (
-                // Если пользователь смотрит свой профиль
-                isEditing ? (
-                  // Кнопки для режима редактирования
-                  <>
-                    <TouchableOpacity 
-                      style={[styles.actionButton, { backgroundColor: '#4CAF50' }]} 
-                      onPress={handleSave}
-                    >
-                      <Ionicons name="checkmark-outline" size={20} color="#fff" />
-                      <Text style={styles.actionButtonText}>Сохранить</Text>
-                    </TouchableOpacity>
-                    
-                    <TouchableOpacity 
-                      style={[styles.actionButton, { backgroundColor: '#f44336' }]} 
-                      onPress={() => {
-                        setIsEditing(false);
-                        setEditData({});
-                      }}
-                    >
-                      <Ionicons name="close-outline" size={20} color="#fff" />
-                      <Text style={styles.actionButtonText}>Отмена</Text>
-                    </TouchableOpacity>
-                  </>
-                ) : (
-                  // Кнопки для владельца профиля
-                  <>
-                <TouchableOpacity 
-                  style={styles.actionButton} 
-                      onPress={() => {
-                        setEditData(player);
-                        setIsEditing(true);
-                      }}
-                >
-                  <Ionicons name="create-outline" size={20} color="#fff" />
-                  <Text style={styles.actionButtonText}>Редактировать профиль</Text>
-                </TouchableOpacity>
-                    
-                    <TouchableOpacity 
-                      style={[styles.actionButton, { backgroundColor: '#000000' }]} 
-                      onPress={handleLogout}
-                    >
-                      <Ionicons name="log-out-outline" size={20} color="#fff" />
-                      <Text style={styles.actionButtonText}>Выйти из профиля</Text>
-                    </TouchableOpacity>
-                  </>
-                )
-              ) : currentUser ? (
+              {currentUser && currentUser.id !== player.id ? (
                 // Если пользователь авторизован и смотрит чужой профиль - показываем кнопки взаимодействия
                 <>
                   {/* Кнопки для администратора */}
@@ -1873,44 +1808,9 @@ export default function PlayerProfile() {
                         <Text style={styles.starButtonText}>Попросить клюшку</Text>
                       </TouchableOpacity>
                     </>
-                  ) : (
-                    // Обычные кнопки для обычных игроков
-                    <>
-                      <TouchableOpacity 
-                        style={styles.actionButton} 
-                        onPress={handleSendMessage}
-                      >
-                        <Ionicons name="chatbubble-outline" size={20} color="#fff" />
-                        <Text style={styles.actionButtonText}>Написать сообщение</Text>
-                      </TouchableOpacity>
-                      
-                      {/* Кнопки для владельца профиля */}
-                      {currentUser?.id === player.id && (
-                        <>
-                          <TouchableOpacity 
-                            style={[styles.actionButton, { backgroundColor: '#FF4444' }]} 
-                            onPress={() => {
-                              setEditData(player);
-                              setIsEditing(true);
-                            }}
-                          >
-                            <Ionicons name="create-outline" size={20} color="#fff" />
-                            <Text style={styles.actionButtonText}>Редактировать профиль</Text>
-                          </TouchableOpacity>
-                          
-                          <TouchableOpacity 
-                            style={[styles.actionButton, { backgroundColor: '#000000' }]} 
-                            onPress={handleLogout}
-                          >
-                            <Ionicons name="log-out-outline" size={20} color="#fff" />
-                            <Text style={styles.actionButtonText}>Выйти из профиля</Text>
-                      </TouchableOpacity>
-                        </>
-                      )}
-                    </>
-                  )}
+                  ) : null}
                 </>
-              ) : (
+              ) : !currentUser ? (
                 // Если пользователь не авторизован - показываем кнопку входа
                 <TouchableOpacity 
                   style={styles.actionButton} 
@@ -1919,60 +1819,94 @@ export default function PlayerProfile() {
                   <Ionicons name="log-in-outline" size={20} color="#fff" />
                   <Text style={styles.actionButtonText}>Войти для взаимодействия</Text>
                 </TouchableOpacity>
-              )}
+              ) : null}
             </View>
+
+            {/* Музей игрока - полученные предметы */}
+            {player && <PlayerMuseum playerId={player.id} />}
 
             {/* Система управления предметами для звезд */}
             {player.status === 'star' && (
               <>
-                {/* Кнопки запроса предметов от игроков */}
-                {currentUser && currentUser.id !== player.id && (
-                  <ItemRequestButtons
-                    starId={player.id}
-                    playerId={currentUser.id}
-                    onRequestSent={() => {
-                      showCustomAlert('Успешно', 'Запрос отправлен! Звезда получит уведомление.', 'success');
-                    }}
-                  />
-                )}
-
                 {/* Управление предметами для владельца звезды */}
                 {(currentUser?.id === player.id || currentUser?.status === 'admin') && (
-                  <StarItemManager
-                    playerId={player.id}
-                    onItemsUpdated={() => {
-                      // Обновляем данные при изменении предметов
-                      loadPlayerData();
-                    }}
-                  />
-                )}
-
-                {/* Управление запросами на предметы для владельца звезды */}
-                {(currentUser?.id === player.id || currentUser?.status === 'admin') && (
-                  <ItemRequestsManager
-                    starId={player.id}
-                    onRequestUpdated={() => {
-                      // Обновляем данные при изменении запросов
-                      loadPlayerData();
-                    }}
-                  />
+                  <View style={styles.section}>
+                    <StarItemManager
+                      playerId={player.id}
+                      isEditing={isEditing}
+                      onItemsUpdated={() => {
+                        // Обновляем данные при изменении предметов
+                        loadPlayerData();
+                      }}
+                    />
+                  </View>
                 )}
               </>
             )}
 
-            {/* Уведомления о запросах предметов для игроков */}
+            {/* Основные кнопки управления профилем */}
             {currentUser && currentUser.id === player.id && (
-              <ItemRequestNotifications
-                playerId={player.id}
-                onRequestUpdated={() => {
-                  // Обновляем данные при изменении запросов
-                  loadPlayerData();
-                }}
-              />
+              <>
+                {isEditing ? (
+                  // Кнопки для режима редактирования
+                  <View style={{ gap: 15, marginTop: 20, marginBottom: 20 }}>
+                    <TouchableOpacity 
+                      style={[styles.actionButton, { backgroundColor: '#4CAF50' }]} 
+                      onPress={handleSave}
+                    >
+                      <Ionicons name="checkmark-outline" size={20} color="#fff" />
+                      <Text style={styles.actionButtonText}>Сохранить</Text>
+                    </TouchableOpacity>
+                    
+                    <TouchableOpacity 
+                      style={[styles.actionButton, { backgroundColor: '#f44336' }]} 
+                      onPress={() => {
+                        setIsEditing(false);
+                        setEditData({});
+                      }}
+                    >
+                      <Ionicons name="close-outline" size={20} color="#fff" />
+                      <Text style={styles.actionButtonText}>Отмена</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  // Кнопки для обычного режима
+                  <View style={{ gap: 15, marginTop: 20, marginBottom: 20 }}>
+                    <TouchableOpacity 
+                      style={[styles.actionButton, { backgroundColor: '#FF4444' }]} 
+                      onPress={() => {
+                        setEditData(player);
+                        setIsEditing(true);
+                      }}
+                    >
+                      <Ionicons name="create-outline" size={20} color="#fff" />
+                      <Text style={styles.actionButtonText}>Редактировать профиль</Text>
+                    </TouchableOpacity>
+                    
+                    <TouchableOpacity 
+                      style={[styles.actionButton, { backgroundColor: '#000000' }]} 
+                      onPress={handleLogout}
+                    >
+                      <Ionicons name="log-out-outline" size={20} color="#fff" />
+                      <Text style={styles.actionButtonText}>Выйти из профиля</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </>
             )}
 
-            {/* Музей игрока - полученные предметы */}
-            {player && <PlayerMuseum playerId={player.id} />}
+            {/* Кнопка "написать сообщение" в самом конце */}
+            {currentUser && currentUser.id !== player.id && player.status !== 'star' && (
+              <View style={{ marginTop: 10, marginBottom: 20 }}>
+                <TouchableOpacity 
+                  style={styles.actionButton} 
+                  onPress={handleSendMessage}
+                >
+                  <Ionicons name="chatbubble-outline" size={20} color="#fff" />
+                  <Text style={styles.actionButtonText}>Написать сообщение</Text>
+                </TouchableOpacity>
+              </View>
+            )}
 
           </ScrollView>
         </View>
@@ -2819,18 +2753,6 @@ const styles = StyleSheet.create({
     fontFamily: 'Gilroy-Bold',
     color: '#FF4444',
     marginBottom: 5,
-  },
-  editInput: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    fontSize: 16,
-    fontFamily: 'Gilroy-Regular',
-    color: '#fff',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-    minHeight: 40,
   },
   editOverlay: {
     position: 'absolute',

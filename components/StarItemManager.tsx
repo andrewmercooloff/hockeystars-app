@@ -9,7 +9,7 @@ import {
     StyleSheet,
     Text,
     TouchableOpacity,
-    View,
+    View
 } from 'react-native';
 import { loadCurrentUser } from '../utils/playerStorage';
 import { supabase } from '../utils/supabase';
@@ -26,10 +26,11 @@ interface Item {
 
 interface StarItemManagerProps {
   playerId: string;
+  isEditing?: boolean;
   onItemsUpdated?: () => void;
 }
 
-export default function StarItemManager({ playerId, onItemsUpdated }: StarItemManagerProps) {
+export default function StarItemManager({ playerId, isEditing = false, onItemsUpdated }: StarItemManagerProps) {
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -63,14 +64,16 @@ export default function StarItemManager({ playerId, onItemsUpdated }: StarItemMa
     setRefreshing(false);
   };
 
-  const pickImage = async (itemType: 'autograph' | 'stick' | 'puck' | 'jersey') => {
+  const pickImage = async (itemType: 'autograph' | 'stick' | 'puck' | 'jersey', existingItemId?: string) => {
     try {
       // Проверяем авторизацию перед выбором изображения
       const currentUser = await loadCurrentUser();
       console.log('Auth check before image pick:', { 
         hasUser: !!currentUser, 
         userId: currentUser?.id,
-        playerId 
+        playerId,
+        existingItemId,
+        isEditing: !!existingItemId
       });
       
       if (!currentUser) {
@@ -101,7 +104,13 @@ export default function StarItemManager({ playerId, onItemsUpdated }: StarItemMa
         });
         
         if (result.assets[0].uri) {
-          await uploadItem(result.assets[0].uri, itemType);
+          if (existingItemId) {
+            // Редактируем существующий подарок
+            await updateItemImage(existingItemId, result.assets[0].uri);
+          } else {
+            // Создаем новый подарок
+            await uploadItem(result.assets[0].uri, itemType);
+          }
         } else {
           Alert.alert('Ошибка', 'Не удалось получить URI изображения');
         }
@@ -222,14 +231,13 @@ export default function StarItemManager({ playerId, onItemsUpdated }: StarItemMa
       console.log('Public URL generated:', urlData.publicUrl);
 
              // Создаем запись в базе данных
-       const itemData = {
-         owner_id: playerId,
-         item_type: itemType,
-         name: getItemTypeName(itemType), // Добавляем название
-         description: `${getItemTypeName(itemType)} от игрока`, // Добавляем описание
-         image_url: urlData.publicUrl,
-         is_available: true,
-       };
+               const itemData = {
+          owner_id: playerId,
+          item_type: itemType,
+          name: getItemTypeName(itemType),
+          description: `${getItemTypeName(itemType)} от игрока`,
+          image_url: urlData.publicUrl,
+        };
        
        console.log('Attempting to insert into items table with:', itemData);
        
@@ -287,29 +295,150 @@ export default function StarItemManager({ playerId, onItemsUpdated }: StarItemMa
     return names[type as keyof typeof names] || type;
   };
 
-  const toggleItemAvailability = async (itemId: string, currentStatus: boolean) => {
+  const updateItemImage = async (itemId: string, imageUri: string) => {
     try {
-      const { error } = await supabase
+      setLoading(true);
+
+      // Проверяем авторизацию
+      const currentUser = await loadCurrentUser();
+      if (!currentUser) {
+        throw new Error('Пользователь не авторизован');
+      }
+      
+      if (currentUser.id !== playerId) {
+        throw new Error('Нет прав для редактирования предметов за другого пользователя');
+      }
+
+      // Находим существующий подарок
+      const existingItem = items.find(item => item.id === itemId);
+      if (!existingItem) {
+        throw new Error('Подарок не найден');
+      }
+
+      // Загружаем новое изображение в Supabase Storage
+      const fileName = `${Date.now()}_${existingItem.item_type}_updated.jpg`;
+      
+      let uploadData;
+      
+      if (imageUri.startsWith('file://')) {
+        // Для локальных файлов используем FormData
+        const formData = new FormData();
+        formData.append('file', {
+          uri: imageUri,
+          type: 'image/jpeg',
+          name: fileName,
+        } as any);
+        
+        const { data, error } = await supabase.storage
+          .from('items')
+          .upload(fileName, formData, {
+            contentType: 'image/jpeg',
+            upsert: true
+          });
+        
+        if (error) {
+          throw new Error('Ошибка загрузки нового изображения');
+        }
+        
+        uploadData = data;
+      } else {
+        // Для других URI используем fetch + blob
+        const response = await fetch(imageUri);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const blob = await response.blob();
+        if (blob.size === 0) {
+          throw new Error('Изображение пустое (0 байт)');
+        }
+        
+        const { data, error: uploadError } = await supabase.storage
+          .from('items')
+          .upload(fileName, blob, {
+            contentType: blob.type || 'image/jpeg',
+            cacheControl: '3600'
+          });
+        
+        if (uploadError) {
+          throw new Error('Ошибка загрузки нового изображения');
+        }
+        
+        uploadData = data;
+      }
+
+      // Получаем публичный URL для нового изображения
+      const { data: urlData } = supabase.storage
         .from('items')
-        .update({ is_available: !currentStatus })
+        .getPublicUrl(uploadData.path);
+
+      // Обновляем запись в базе данных
+      const { error: updateError } = await supabase
+        .from('items')
+        .update({ image_url: urlData.publicUrl })
         .eq('id', itemId);
 
-      if (error) throw error;
+      if (updateError) {
+        throw new Error('Ошибка обновления записи в базе данных');
+      }
 
-      setItems(items.map(item =>
-        item.id === itemId ? { ...item, is_available: !currentStatus } : item
-      ));
+      Alert.alert('Успех', 'Изображение подарка обновлено!');
+      
+      // Обновляем локальное состояние
+      setItems(prevItems => 
+        prevItems.map(item => 
+          item.id === itemId 
+            ? { ...item, image_url: urlData.publicUrl }
+            : item
+        )
+      );
+      
       onItemsUpdated?.();
     } catch (error) {
-      console.error('Error toggling availability:', error);
-      Alert.alert('Ошибка', 'Не удалось изменить статус');
+      console.error('Error updating item image:', error);
+      Alert.alert('Ошибка', 'Не удалось обновить изображение подарка');
+    } finally {
+      setLoading(false);
     }
+  };
+
+
+
+  const showAddMenu = () => {
+    const existingTypes = items.map(item => item.item_type);
+    const availableTypes = [];
+    
+    if (!existingTypes.includes('autograph')) {
+      availableTypes.push({ text: 'Автограф', onPress: () => pickImage('autograph') });
+    }
+    if (!existingTypes.includes('stick')) {
+      availableTypes.push({ text: 'Клюшка', onPress: () => pickImage('stick') });
+    }
+    if (!existingTypes.includes('puck')) {
+      availableTypes.push({ text: 'Шайба', onPress: () => pickImage('puck') });
+    }
+    if (!existingTypes.includes('jersey')) {
+      availableTypes.push({ text: 'Джерси', onPress: () => pickImage('jersey') });
+    }
+    
+    if (availableTypes.length === 0) {
+      Alert.alert('Все подарки добавлены', 'У вас уже есть все типы подарков');
+      return;
+    }
+    
+    availableTypes.push({ text: 'Отмена', style: 'cancel' });
+    
+    Alert.alert(
+      'Добавить подарок',
+      'Выберите тип подарка',
+      availableTypes
+    );
   };
 
   const deleteItem = async (itemId: string) => {
     Alert.alert(
       'Удаление',
-      'Вы уверены, что хотите удалить этот предмет?',
+      'Удалить подарок?',
       [
         { text: 'Отмена', style: 'cancel' },
         {
@@ -326,10 +455,10 @@ export default function StarItemManager({ playerId, onItemsUpdated }: StarItemMa
 
               setItems(items.filter(item => item.id !== itemId));
               onItemsUpdated?.();
-              Alert.alert('Успех', 'Предмет удален');
+              Alert.alert('Успех', 'Подарок удален');
             } catch (error) {
               console.error('Error deleting item:', error);
-              Alert.alert('Ошибка', 'Не удалось удалить предмет');
+              Alert.alert('Ошибка', 'Не удалось удалить подарок');
             }
           },
         },
@@ -339,93 +468,42 @@ export default function StarItemManager({ playerId, onItemsUpdated }: StarItemMa
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Управление предметами</Text>
+      <Text style={styles.title}>Подарки</Text>
       
-      {/* Простые кнопки для загрузки */}
-      <View style={styles.uploadButtons}>
-        <TouchableOpacity
-          style={[styles.uploadButton, styles.autographButton]}
-          onPress={() => pickImage('autograph')}
-          disabled={loading}
-        >
-          <Ionicons name="create-outline" size={24} color="white" />
-          <Text style={styles.uploadButtonText}>Загрузить автограф</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.uploadButton, styles.stickButton]}
-          onPress={() => pickImage('stick')}
-          disabled={loading}
-        >
-          <Ionicons name="fitness-outline" size={24} color="white" />
-          <Text style={styles.uploadButtonText}>Загрузить клюшку</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.uploadButton, styles.puckButton]}
-          onPress={() => pickImage('puck')}
-          disabled={loading}
-        >
-          <Ionicons name="ellipse-outline" size={24} color="white" />
-          <Text style={styles.uploadButtonText}>Загрузить шайбу</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.uploadButton, styles.jerseyButton]}
-          onPress={() => pickImage('jersey')}
-          disabled={loading}
-        >
-          <Ionicons name="shirt-outline" size={24} color="white" />
-          <Text style={styles.uploadButtonText}>Загрузить джерси</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Список загруженных предметов */}
-      <Text style={styles.subtitle}>Загруженные предметы</Text>
-      
-      <ScrollView
-        style={styles.itemsList}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-      >
+      <ScrollView style={styles.itemsList} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
         {items.length === 0 ? (
-          <Text style={styles.noItems}>Пока нет загруженных предметов</Text>
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyText}>Нет подарков</Text>
+            <Text style={styles.emptySubtext}>Нажмите + чтобы добавить</Text>
+          </View>
         ) : (
           items.map((item) => (
             <View key={item.id} style={styles.itemCard}>
               <Image source={{ uri: item.image_url }} style={styles.itemImage} />
-                             <View style={styles.itemInfo}>
-                 <Text style={styles.itemType}>{item.name}</Text>
-                 <Text style={styles.itemStatus}>
-                   {item.is_available ? 'Доступен' : 'Недоступен'}
-                 </Text>
-               </View>
-              <View style={styles.itemActions}>
-                <TouchableOpacity
-                  style={[
-                    styles.toggleButton,
-                    item.is_available ? styles.availableButton : styles.unavailableButton
-                  ]}
-                  onPress={() => toggleItemAvailability(item.id, item.is_available)}
-                >
-                  <Ionicons
-                    name={item.is_available ? 'eye-off' : 'eye'}
-                    size={20}
-                    color="white"
-                  />
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.deleteButton}
-                  onPress={() => deleteItem(item.id)}
-                >
-                  <Ionicons name="trash" size={20} color="white" />
-                </TouchableOpacity>
+              <View style={styles.itemInfo}>
+                <Text style={styles.itemName}>{item.name}</Text>
               </View>
+              {isEditing && (
+                <View style={styles.itemActions}>
+                  <TouchableOpacity style={styles.editButton} onPress={() => pickImage(item.item_type, item.id)}>
+                    <Ionicons name="create-outline" size={16} color="#ff4444" />
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.deleteButton} onPress={() => deleteItem(item.id)}>
+                    <Ionicons name="trash" size={16} color="white" />
+                  </TouchableOpacity>
+                </View>
+              )}
             </View>
           ))
         )}
-      </ScrollView>
+        
+        {isEditing && items.length < 4 && (
+          <TouchableOpacity style={styles.addButton} onPress={() => showAddMenu()}>
+            <Ionicons name="add" size={24} color="#fff" />
+            <Text style={styles.addButtonText}>Добавить подарок</Text>
+          </TouchableOpacity>
+        )}
+          </ScrollView>
     </View>
   );
 }
@@ -434,114 +512,98 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 16,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    borderRadius: 12,
+    marginVertical: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   title: {
     fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 16,
-    textAlign: 'center',
-    color: '#333',
+    fontFamily: 'Gilroy-Bold',
+    marginBottom: 20,
+    textAlign: 'left',
+    color: '#FF4444',
   },
-  uploadButtons: {
-    marginBottom: 24,
-  },
-  uploadButton: {
-    flexDirection: 'row',
+  itemsList: { flex: 1 },
+  emptyState: {
     alignItems: 'center',
-    justifyContent: 'center',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 12,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    marginTop: 40,
   },
-  autographButton: {
-    backgroundColor: '#FF6B6B',
-  },
-  stickButton: {
-    backgroundColor: '#4ECDC4',
-  },
-  puckButton: {
-    backgroundColor: '#45B7D1',
-  },
-  jerseyButton: {
-    backgroundColor: '#96CEB4',
-  },
-  uploadButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-    marginLeft: 8,
-  },
-  subtitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 16,
-    color: '#333',
-  },
-  itemsList: {
-    flex: 1,
-  },
-  noItems: {
+  emptyText: {
     textAlign: 'center',
     color: '#666',
     fontSize: 16,
-    marginTop: 40,
+    marginBottom: 8,
+  },
+  emptySubtext: {
+    textAlign: 'center',
+    color: '#999',
+    fontSize: 14,
   },
   itemCard: {
     flexDirection: 'row',
-    backgroundColor: 'white',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 12,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 68, 68, 0.3)',
   },
   itemImage: {
-    width: 60,
-    height: 60,
-    borderRadius: 8,
-    marginRight: 16,
+    width: 50,
+    height: 50,
+    borderRadius: 6,
+    marginRight: 12,
   },
   itemInfo: {
     flex: 1,
     justifyContent: 'center',
   },
-  itemType: {
+  itemName: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#333',
+    color: '#fff',
     marginBottom: 4,
-  },
-  itemStatus: {
-    fontSize: 14,
-    color: '#666',
   },
   itemActions: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  toggleButton: {
+  editButton: {
+    backgroundColor: '#333',
     padding: 8,
-    borderRadius: 6,
-    marginRight: 8,
-  },
-  availableButton: {
-    backgroundColor: '#4CAF50',
-  },
-  unavailableButton: {
-    backgroundColor: '#FF9800',
+    borderRadius: 4,
+    marginRight: 6,
   },
   deleteButton: {
-    backgroundColor: '#F44336',
-    padding: 8,
-    borderRadius: 6,
+    backgroundColor: '#333',
+    padding: 6,
+    borderRadius: 4,
+  },
+  addButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#ff4444',
+    padding: 16,
+    borderRadius: 12,
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 68, 68, 0.3)',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  addButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
   },
 });

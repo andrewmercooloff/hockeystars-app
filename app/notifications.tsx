@@ -21,12 +21,13 @@ import {
     markNotificationAsRead,
     Player
 } from '../utils/playerStorage';
+import { supabase } from '../utils/supabase';
 
 const iceBg = require('../assets/images/led.jpg');
 
 interface NotificationItem {
   id: string;
-  type: 'friend_request' | 'autograph_request' | 'stick_request' | 'system' | 'achievement' | 'team_invite';
+  type: 'friend_request' | 'autograph_request' | 'stick_request' | 'gift_request' | 'system' | 'achievement' | 'team_invite';
   title: string;
   message: string;
   timestamp: number;
@@ -50,11 +51,27 @@ interface FriendRequestItem {
   receiverId: string;
 }
 
+interface GiftRequestItem {
+  id: string;
+  type: 'gift_request';
+  title: string;
+  message: string;
+  timestamp: number;
+  isRead: boolean;
+  playerId: string;
+  playerName: string;
+  playerAvatar?: string;
+  receiverId: string;
+  itemType: 'autograph' | 'stick' | 'puck' | 'jersey';
+  requestMessage: string;
+}
+
 export default function NotificationsScreen() {
   const router = useRouter();
   const [currentUser, setCurrentUser] = useState<Player | null>(null);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [friendRequests, setFriendRequests] = useState<FriendRequestItem[]>([]);
+  const [giftRequests, setGiftRequests] = useState<GiftRequestItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -119,20 +136,61 @@ export default function NotificationsScreen() {
         receiverId: user.id
       }));
       
+      // Загружаем запросы на подарки (только для звезд)
+      let giftRequestItems: GiftRequestItem[] = [];
+      if (user.status === 'star') {
+        try {
+          const { data: giftRequestsData, error: giftRequestsError } = await supabase
+            .from('item_requests')
+            .select(`
+              *,
+              requester:players!item_requests_requester_id_fkey(
+                name,
+                avatar_url
+              )
+            `)
+            .eq('owner_id', user.id)
+            .eq('status', 'pending')
+            .order('created_at', { ascending: false });
+
+          if (giftRequestsError) {
+            console.error('Ошибка загрузки запросов на подарки:', giftRequestsError);
+          } else if (giftRequestsData) {
+            giftRequestItems = giftRequestsData.map(request => ({
+              id: `gift_request_${request.id}`,
+              type: 'gift_request',
+              title: 'Запрос на подарок',
+              message: `${request.requester?.name || 'Игрок'} просит ${getItemTypeName(request.item_type)}`,
+              timestamp: new Date(request.created_at).getTime(),
+              isRead: false,
+              playerId: request.requester_id,
+              playerName: request.requester?.name || 'Неизвестный игрок',
+              playerAvatar: request.requester?.avatar_url,
+              receiverId: user.id,
+              itemType: request.item_type,
+              requestMessage: request.message
+            }));
+          }
+        } catch (error) {
+          console.error('Ошибка загрузки запросов на подарки:', error);
+        }
+      }
+      
       setNotifications(userNotifications);
       setFriendRequests(friendRequestItems);
+      setGiftRequests(giftRequestItems);
     } catch (error) {
       console.error('Ошибка загрузки уведомлений:', error);
       Alert.alert('Ошибка', 'Не удалось загрузить уведомления');
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
   };
 
-  const onRefresh = () => {
+  const onRefresh = async () => {
     setRefreshing(true);
-    loadNotificationsData();
+    await loadNotificationsData();
+    setRefreshing(false);
   };
 
   const handleNotificationPress = async (notification: NotificationItem) => {
@@ -188,6 +246,45 @@ export default function NotificationsScreen() {
     }
   };
 
+  const handleGiftRequest = async (request: GiftRequestItem, action: 'accept' | 'decline') => {
+    try {
+      const requestId = request.id.replace('gift_request_', '');
+      
+      if (action === 'accept') {
+        // Принимаем запрос на подарок
+        const { error: updateError } = await supabase
+          .from('item_requests')
+          .update({ status: 'accepted' })
+          .eq('id', requestId);
+
+        if (updateError) {
+          throw updateError;
+        }
+
+        Alert.alert('Успех', 'Запрос на подарок принят!');
+      } else {
+        // Отклоняем запрос на подарок
+        const { error: updateError } = await supabase
+          .from('item_requests')
+          .update({ status: 'rejected' })
+          .eq('id', requestId);
+
+        if (updateError) {
+          throw updateError;
+        }
+
+        Alert.alert('Успех', 'Запрос на подарок отклонен');
+      }
+      
+      // Обновляем список запросов
+      setGiftRequests(prev => prev.filter(req => req.id !== request.id));
+      
+    } catch (error) {
+      console.error('Ошибка обработки запроса на подарок:', error);
+      Alert.alert('Ошибка', 'Не удалось обработать запрос');
+    }
+  };
+
   const formatTime = (timestamp: number) => {
     const date = new Date(timestamp);
     const now = new Date();
@@ -207,10 +304,22 @@ export default function NotificationsScreen() {
     }
   };
 
+  const getItemTypeName = (type: string) => {
+    switch (type) {
+      case 'autograph': return 'автограф';
+      case 'stick': return 'клюшку';
+      case 'puck': return 'шайбу';
+      case 'jersey': return 'джерси';
+      default: return type;
+    }
+  };
+
   const getNotificationIcon = (type: string) => {
     switch (type) {
       case 'friend_request':
         return 'person-add';
+      case 'gift_request':
+        return 'gift';
       case 'autograph_request':
         return 'create';
       case 'stick_request':
@@ -313,9 +422,63 @@ export default function NotificationsScreen() {
                 </View>
               </View>
             ))}
+
+            {/* Запросы на подарки */}
+            {giftRequests.map((request) => (
+              <View key={request.id} style={styles.giftRequestItem}>
+                <View style={styles.notificationIcon}>
+                  <Ionicons name="gift" size={24} color="#ff4444" />
+                </View>
+                
+                <View style={styles.giftRequestContent}>
+                  <View style={styles.giftRequestHeader}>
+                    <Text style={styles.giftRequestTitle} numberOfLines={1} ellipsizeMode="tail">
+                      {request.title}
+                    </Text>
+                    <Text style={styles.giftRequestTime}>
+                      {formatTime(request.timestamp)}
+                    </Text>
+                  </View>
+                  
+                  <View style={styles.giftRequestMessageRow}>
+                    {request.playerAvatar && (
+                      <Image 
+                        source={{ uri: request.playerAvatar }} 
+                        style={styles.giftRequestAvatar}
+                      />
+                    )}
+                    <Text style={styles.giftRequestMessage}>
+                      {request.message}
+                    </Text>
+                  </View>
+                  
+                  <Text style={styles.giftRequestDetails}>
+                    Сообщение: {request.requestMessage}
+                  </Text>
+                  
+                  <View style={styles.giftRequestActions}>
+                    <TouchableOpacity
+                      style={[styles.actionButton, styles.acceptButton]}
+                      onPress={() => handleGiftRequest(request, 'accept')}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.acceptButtonText}>Принять</Text>
+                    </TouchableOpacity>
+                    
+                    <TouchableOpacity
+                      style={[styles.actionButton, styles.declineButton]}
+                      onPress={() => handleGiftRequest(request, 'decline')}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.declineButtonText}>Отклонить</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+            ))}
             
             {/* Обычные уведомления */}
-            {notifications.length > 0 && friendRequests.length > 0 && (
+            {notifications.length > 0 && (friendRequests.length > 0 || giftRequests.length > 0) && (
               <View style={styles.sectionHeader}>
                 <Text style={styles.sectionTitle}>Другие уведомления</Text>
               </View>
@@ -369,14 +532,14 @@ export default function NotificationsScreen() {
               </TouchableOpacity>
             ))}
             
-            {/* Показываем пустое состояние только если нет ни уведомлений, ни запросов в друзья */}
-            {notifications.length === 0 && friendRequests.length === 0 && (
+            {/* Показываем пустое состояние только если нет ни уведомлений, ни запросов в друзья, ни запросов на подарки */}
+            {notifications.length === 0 && friendRequests.length === 0 && giftRequests.length === 0 && (
               <View style={styles.emptyContainer}>
                 <View style={styles.emptyContent}>
                   <Ionicons name="notifications-outline" size={64} color="#FF4444" />
                   <Text style={styles.emptyTitle}>Нет уведомлений</Text>
                   <Text style={styles.emptySubtitle}>
-                    У вас пока нет уведомлений о дружбе, автографах или других действиях
+                    У вас пока нет уведомлений о дружбе, подарках или других действиях
                   </Text>
                 </View>
               </View>
@@ -740,5 +903,87 @@ const styles = StyleSheet.create({
     fontFamily: 'Gilroy-Regular',
     flex: 1,
     flexShrink: 1,
+  },
+  // Стили для запросов на подарки
+  giftRequestItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    marginHorizontal: 16,
+    marginVertical: 6,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 68, 68, 0.3)',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  giftRequestContent: {
+    flex: 1,
+    flexDirection: 'column',
+    paddingRight: 16,
+  },
+  giftRequestHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+  },
+  giftRequestTitle: {
+    color: '#fff',
+    fontSize: 16,
+    fontFamily: 'Gilroy-Bold',
+    flex: 1,
+    marginRight: 8,
+    maxWidth: '70%',
+    flexShrink: 1,
+  },
+  giftRequestTime: {
+    color: '#666',
+    fontSize: 12,
+    fontFamily: 'Gilroy-Regular',
+    marginLeft: 8,
+    flexShrink: 0,
+    textAlign: 'right',
+  },
+  giftRequestMessageRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    flexWrap: 'nowrap',
+  },
+  giftRequestAvatar: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    marginRight: 8,
+    flexShrink: 0,
+  },
+  giftRequestMessage: {
+    color: '#fff',
+    fontSize: 16,
+    fontFamily: 'Gilroy-Regular',
+    flex: 1,
+    flexShrink: 1,
+  },
+  giftRequestDetails: {
+    color: '#ccc',
+    fontSize: 14,
+    fontFamily: 'Gilroy-Regular',
+    marginBottom: 12,
+    fontStyle: 'italic',
+  },
+  giftRequestActions: {
+    flexDirection: 'row',
+    marginTop: 8,
+    justifyContent: 'flex-end',
+    alignSelf: 'stretch',
   },
 }); 

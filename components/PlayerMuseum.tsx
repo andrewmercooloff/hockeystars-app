@@ -121,143 +121,42 @@ const PlayerMuseum: React.FC<PlayerMuseumProps> = ({ playerId }) => {
     );
   }
 
-  const getItemTypeLabel = (type: string) => {
-    switch (type) {
-      case 'autograph':
-        return 'Автограф';
-      case 'stick':
-        return 'Клюшка';
-      case 'puck':
-        return 'Шайба';
-      case 'jersey':
-        return 'Джерси';
-      default:
-        return type;
-    }
-  };
-
-  const getItemTypeColor = (type: string) => {
-    switch (type) {
-      case 'autograph':
-        return '#FFD700';
-      case 'stick':
-        return '#8B4513';
-      case 'puck':
-        return '#000000';
-      case 'jersey':
-        return '#FF4500';
-      default:
-        return '#666';
-    }
-  };
-
-  if (loading) {
-    return (
-      <View style={styles.container}>
-        <Text style={styles.loadingText}>Загрузка музея...</Text>
-      </View>
-    );
-  }
-
-  if (museumItems.length === 0) {
-    return (
-      <View style={styles.container}>
-        <Text style={styles.emptyText}>Музей пуст</Text>
-        <Text style={styles.emptySubtext}>
-          Здесь будут отображаться предметы, полученные от хоккейных звезд
-        </Text>
-      </View>
-    );
-  }
+  if (loading) return <Text style={styles.loadingText}>Загрузка...</Text>;
+  if (museumItems.length === 0) return null;
 
   return (
-    <View style={styles.container}>
+    <View style={styles.section}>
       <Text style={styles.title}>Музей</Text>
-      <Text style={styles.subtitle}>
-        Коллекция предметов от хоккейных звезд
-      </Text>
       
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.itemsGrid}>
-          {museumItems.map((item) => {
-          console.log('Rendering museum item:', {
-            id: item.id,
-            itemId: item.item_id,
-            itemName: item.item?.name,
-            imageUrl: item.item?.image_url,
-            itemType: item.item?.item_type
-          });
-          
-          return (
-            <View key={item.id} style={styles.itemCard}>
-              <View style={styles.itemImageContainer}>
-                                 {item.item.image_url ? (
-                   <Image
-                     source={{ 
-                       uri: item.item.image_url,
-                       headers: {
-                         'Accept': 'image/*',
-                       },
-                       cache: 'force-cache'
-                     }}
-                     style={styles.itemImage}
-                     resizeMode="contain"
-                     onError={(error) => console.error('Image load error for URL:', item.item.image_url, error)}
-                     onLoad={() => console.log('Image loaded successfully:', item.item.image_url)}
-                   />
-                 ) : (
-                  <View style={[styles.itemImage, styles.placeholderImage]}>
-                    <Text style={styles.placeholderText}>
-                      {getItemTypeLabel(item.item.item_type)[0]}
-                    </Text>
-                  </View>
-                )}
-                <View
-                  style={[
-                    styles.itemTypeBadge,
-                    { backgroundColor: getItemTypeColor(item.item.item_type) }
-                  ]}
-                >
-                  <Text style={styles.itemTypeText}>
-                    {getItemTypeLabel(item.item.item_type)}
-                  </Text>
-                </View>
+      <ScrollView style={styles.scrollView} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
+        {museumItems.map((item) => (
+          <View key={item.id} style={styles.itemCard}>
+            {item.item.image_url ? (
+              <Image source={{ uri: item.item.image_url }} style={styles.itemImage} />
+            ) : (
+              <View style={styles.placeholderImage}>
+                <Text style={styles.placeholderText}>?</Text>
               </View>
-              
-              <View style={styles.itemInfo}>
-                <Text style={styles.itemName} numberOfLines={2}>
-                  {item.item.name}
-                </Text>
-                <Text style={styles.itemSource}>
-                  От: {item.received_from.name}
-                </Text>
-                <Text style={styles.itemDate}>
-                  Получен: {new Date(item.received_at).toLocaleDateString('ru-RU')}
-                </Text>
-              </View>
-            </View>
-          );
-        })}
-        </View>
+            )}
+            
+            <Text style={styles.itemSource}>
+              {item.item.name} от {item.received_from.name}
+            </Text>
+          </View>
+        ))}
       </ScrollView>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+  section: {
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
     borderRadius: 15,
     padding: 20,
-    marginVertical: 10,
-    marginHorizontal: 15,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
@@ -267,128 +166,57 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
     elevation: 5,
   },
+  container: {
+    flex: 1,
+  },
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#1a1a1a',
-    textAlign: 'center',
-    marginBottom: 5,
+    fontSize: 20,
+    fontFamily: 'Gilroy-Bold',
+    color: '#FF4444',
+    marginBottom: 15,
+    textAlign: 'left',
   },
-  subtitle: {
-    fontSize: 14,
-    color: '#666',
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  scrollView: {
-    maxHeight: 400,
-  },
-  scrollContent: {
-    paddingBottom: 20,
-  },
-  itemsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
+  scrollView: { 
+    flex: 1 
   },
   itemCard: {
-    width: (width - 80) / 2,
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 15,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.2,
-    shadowRadius: 2.22,
-    elevation: 3,
-  },
-  itemImageContainer: {
-    position: 'relative',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 20,
   },
   itemImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 8,
+    width: width * 0.3, // 30% от ширины экрана
+    height: width * 0.3,
+    borderRadius: 12,
+    marginBottom: 8,
   },
   placeholderImage: {
-    backgroundColor: '#f0f0f0',
+    width: width * 0.3,
+    height: width * 0.3,
+    backgroundColor: '#333',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#ddd',
+    borderRadius: 12,
+    marginBottom: 8,
   },
   placeholderText: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#999',
-  },
-  itemTypeBadge: {
-    position: 'absolute',
-    top: -5,
-    right: -5,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 10,
-    minWidth: 60,
-  },
-  itemTypeText: {
-    color: '#fff',
-    fontSize: 10,
-    fontWeight: 'bold',
-    textAlign: 'center',
-  },
-  itemInfo: {
-    alignItems: 'center',
-  },
-  itemName: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#1a1a1a',
-    textAlign: 'center',
-    marginBottom: 5,
-    lineHeight: 16,
+    fontSize: 48,
+    color: '#666',
   },
   itemSource: {
-    fontSize: 10,
-    color: '#FF4444',
-    textAlign: 'center',
-    marginBottom: 3,
-    fontWeight: '500',
-  },
-  itemDate: {
-    fontSize: 10,
-    color: '#666',
+    fontSize: 14,
+    fontFamily: 'Gilroy-Regular',
+    color: '#fff',
     textAlign: 'center',
   },
   loadingText: {
-    fontSize: 16,
+    fontSize: 12,
     color: '#666',
     textAlign: 'center',
-    fontStyle: 'italic',
   },
   emptyText: {
-    fontSize: 18,
+    fontSize: 14,
     color: '#666',
     textAlign: 'center',
-    marginBottom: 10,
-  },
-  emptySubtext: {
-    fontSize: 14,
-    color: '#999',
-    textAlign: 'center',
-    fontStyle: 'italic',
-  },
-  errorText: {
-    fontSize: 16,
-    color: '#FF4444',
-    textAlign: 'center',
-    fontStyle: 'italic',
   },
 });
 

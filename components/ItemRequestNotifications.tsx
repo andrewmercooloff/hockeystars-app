@@ -142,10 +142,10 @@ const ItemRequestNotifications: React.FC<ItemRequestNotificationsProps> = ({ pla
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Мои запросы</Text>
-        <TouchableOpacity onPress={onRefresh} style={styles.refreshButton}>
-          <Ionicons name="refresh" size={20} color="#007AFF" />
-        </TouchableOpacity>
+        <Text style={styles.title}>Запросы подарков</Text>
+                 <TouchableOpacity onPress={onRefresh} style={styles.refreshButton}>
+           <Ionicons name="refresh" size={18} color="#ff4444" />
+         </TouchableOpacity>
       </View>
 
       <ScrollView 
@@ -214,7 +214,7 @@ const ItemRequestNotifications: React.FC<ItemRequestNotificationsProps> = ({ pla
                 <View style={styles.infoBox}>
                   <Ionicons name="information-circle" size={16} color="#007AFF" />
                   <Text style={styles.infoText}>
-                    Ожидайте ответа от звезды. Если запрос будет принят, предмет появится в вашем Музее.
+                    Ожидайте ответа от звезды. Если запрос будет принят, подарок появится в вашем Музее подарков.
                   </Text>
                 </View>
               </View>
@@ -282,7 +282,7 @@ const ItemRequestNotifications: React.FC<ItemRequestNotificationsProps> = ({ pla
                 <View style={styles.successBox}>
                   <Ionicons name="checkmark-circle" size={16} color="#34C759" />
                   <Text style={styles.successText}>
-                    Поздравляем! Предмет добавлен в ваш Музей. Проверьте раздел "Музей" в профиле.
+                    Поздравляем! Подарок добавлен в ваш Музей подарков. Проверьте раздел "Музей подарков" в профиле.
                   </Text>
                 </View>
               </View>
@@ -350,7 +350,7 @@ const ItemRequestNotifications: React.FC<ItemRequestNotificationsProps> = ({ pla
                 <View style={styles.rejectionBox}>
                   <Ionicons name="close-circle" size={16} color="#FF3B30" />
                   <Text style={styles.rejectionText}>
-                    К сожалению, звезда отклонила ваш запрос. Попробуйте обратиться к другой звезде или попросить другой предмет.
+                                         К сожалению, звезда отклонила ваш запрос. Попробуйте обратиться к другой звезде или попросить другой подарок.
                   </Text>
                 </View>
               </View>
@@ -363,7 +363,7 @@ const ItemRequestNotifications: React.FC<ItemRequestNotificationsProps> = ({ pla
             <Ionicons name="mail-outline" size={48} color="#8E8E93" />
             <Text style={styles.emptyStateText}>У вас пока нет запросов</Text>
             <Text style={styles.emptyStateSubtext}>
-              Отправьте запросы звездам, чтобы получить автографы, клюшки, шайбы или джерси
+                               Отправьте запросы звездам, чтобы получить подарки
             </Text>
           </View>
         )}
@@ -375,48 +375,45 @@ const ItemRequestNotifications: React.FC<ItemRequestNotificationsProps> = ({ pla
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F2F2F7',
+    backgroundColor: '#000',
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
-    backgroundColor: 'white',
+    padding: 12,
+    backgroundColor: '#1a1a1a',
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E5EA',
+    borderBottomColor: '#333',
   },
   title: {
-    fontSize: 20,
+    fontSize: 16,
     fontWeight: '600',
-    color: '#1C1C1E',
+    color: '#fff',
   },
   refreshButton: {
-    padding: 8,
+    padding: 6,
   },
   requestsList: {
     flex: 1,
-    padding: 16,
+    padding: 12,
   },
   section: {
-    marginBottom: 24,
+    marginBottom: 16,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 14,
     fontWeight: '600',
-    color: '#1C1C1E',
-    marginBottom: 12,
+    color: '#fff',
+    marginBottom: 8,
   },
   requestCard: {
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    backgroundColor: '#1a1a1a',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#333',
   },
   requestHeader: {
     flexDirection: 'row',
@@ -448,101 +445,101 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   starName: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
-    color: '#1C1C1E',
+    color: '#fff',
     marginBottom: 2,
   },
   requestDate: {
-    fontSize: 12,
-    color: '#8E8E93',
+    fontSize: 11,
+    color: '#999',
   },
   statusContainer: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   statusText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '500',
     marginLeft: 6,
   },
   itemTypeContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F2F2F7',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
+    backgroundColor: '#333',
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 8,
     alignSelf: 'flex-start',
-    marginBottom: 12,
+    marginBottom: 8,
   },
   itemType: {
     marginLeft: 6,
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '500',
   },
   requestMessage: {
-    fontSize: 14,
-    color: '#1C1C1E',
-    lineHeight: 20,
-    marginBottom: 12,
+    fontSize: 12,
+    color: '#fff',
+    lineHeight: 16,
+    marginBottom: 8,
     fontStyle: 'italic',
   },
   infoBox: {
     flexDirection: 'row',
-    backgroundColor: '#E3F2FD',
-    borderRadius: 8,
-    padding: 12,
+    backgroundColor: '#1a3a5a',
+    borderRadius: 6,
+    padding: 8,
   },
   infoText: {
     flex: 1,
     marginLeft: 8,
-    fontSize: 12,
-    color: '#0277BD',
-    lineHeight: 16,
+    fontSize: 11,
+    color: '#87ceeb',
+    lineHeight: 14,
   },
   successBox: {
     flexDirection: 'row',
-    backgroundColor: '#E8F5E8',
-    borderRadius: 8,
-    padding: 12,
+    backgroundColor: '#1a3a1a',
+    borderRadius: 6,
+    padding: 8,
   },
   successText: {
     flex: 1,
     marginLeft: 8,
-    fontSize: 12,
-    color: '#2E7D32',
-    lineHeight: 16,
+    fontSize: 11,
+    color: '#90ee90',
+    lineHeight: 14,
   },
   rejectionBox: {
     flexDirection: 'row',
-    backgroundColor: '#FFEBEE',
-    borderRadius: 8,
-    padding: 12,
+    backgroundColor: '#3a1a1a',
+    borderRadius: 6,
+    padding: 8,
   },
   rejectionText: {
     flex: 1,
     marginLeft: 8,
-    fontSize: 12,
-    color: '#C62828',
-    lineHeight: 16,
+    fontSize: 11,
+    color: '#ffb6c1',
+    lineHeight: 14,
   },
   emptyState: {
     alignItems: 'center',
-    paddingVertical: 48,
+    paddingVertical: 32,
   },
   emptyStateText: {
-    fontSize: 18,
+    fontSize: 14,
     fontWeight: '600',
-    color: '#8E8E93',
-    marginTop: 16,
-    marginBottom: 8,
+    color: '#999',
+    marginTop: 12,
+    marginBottom: 6,
   },
   emptyStateSubtext: {
-    fontSize: 14,
-    color: '#8E8E93',
+    fontSize: 11,
+    color: '#999',
     textAlign: 'center',
-    lineHeight: 20,
+    lineHeight: 16,
   },
 });
 
