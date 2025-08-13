@@ -115,6 +115,7 @@ export interface Player {
   unreadNotificationsCount?: number;
   unreadMessagesCount?: number;
   friendRequestsCount?: number;
+  giftRequestsCount?: number;
 }
 
 export interface Message {
@@ -217,7 +218,8 @@ const convertSupabaseToPlayer = (supabasePlayer: SupabasePlayer): Player => {
     number: supabasePlayer.number || '',
     unreadNotificationsCount: 0,
     unreadMessagesCount: 0,
-    friendRequestsCount: 0
+    friendRequestsCount: 0,
+    giftRequestsCount: 0
   };
   
   // console.log(`   Результат конвертации:`);
@@ -1465,22 +1467,20 @@ export const fixCorruptedData = async (): Promise<void> => {
 export const loadNotifications = async (userId?: string): Promise<any[]> => {
   try {
     if (!userId) {
-      const currentUser = await loadCurrentUser();
-      if (!currentUser) return [];
-      userId = currentUser.id;
+      return [];
     }
-    
+
     const { data, error } = await supabase
       .from('notifications')
       .select('*')
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
-    
+
     if (error) {
       console.error('❌ Ошибка загрузки уведомлений:', error);
       return [];
     }
-    
+
     return data || [];
   } catch (error) {
     console.error('❌ Ошибка загрузки уведомлений:', error);
@@ -1517,14 +1517,15 @@ export const markNotificationAsRead = async (notificationId: string): Promise<bo
   try {
     const { error } = await supabase
       .from('notifications')
-      .update({ is_read: true })
+      .update({
+        is_read: true
+      })
       .eq('id', notificationId);
-    
+
     if (error) {
       console.error('❌ Ошибка отметки уведомления:', error);
       return false;
     }
-    
     return true;
   } catch (error) {
     console.error('❌ Ошибка отметки уведомления:', error);

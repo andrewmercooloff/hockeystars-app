@@ -2,32 +2,43 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-    Alert,
-    Image,
-    ImageBackground,
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  Alert,
+  Image,
+  ImageBackground,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import {
-    acceptFriendRequest,
-    declineFriendRequest,
-    getReceivedFriendRequests,
-    loadCurrentUser,
-    loadNotifications,
-    markNotificationAsRead,
-    Player
+  acceptFriendRequest,
+  declineFriendRequest,
+  getReceivedFriendRequests,
+  loadCurrentUser,
+  loadNotifications,
+  markNotificationAsRead,
+  Player
 } from '../utils/playerStorage';
 import { supabase } from '../utils/supabase';
 
 const iceBg = require('../assets/images/led.jpg');
 
+// Вспомогательная функция для получения названия типа предмета
+const getItemTypeName = (type: string) => {
+  switch (type) {
+    case 'autograph': return 'автограф';
+    case 'stick': return 'клюшку';
+    case 'puck': return 'шайбу';
+    case 'jersey': return 'джерси';
+    default: return type;
+  }
+};
+
 interface NotificationItem {
   id: string;
-  type: 'friend_request' | 'autograph_request' | 'stick_request' | 'gift_request' | 'system' | 'achievement' | 'team_invite';
+  type: 'friend_request' | 'autograph_request' | 'stick_request' | 'gift_request' | 'gift_accepted' | 'system' | 'achievement' | 'team_invite';
   title: string;
   message: string;
   timestamp: number;
@@ -36,6 +47,8 @@ interface NotificationItem {
   playerName?: string;
   playerAvatar?: string;
   receiverId?: string;
+  data?: any; // Добавляем поле для хранения дополнительных данных
+  isActionable?: boolean; // Добавляем поле для уведомлений, к которым можно применить действие
 }
 
 interface FriendRequestItem {
@@ -76,69 +89,137 @@ export default function NotificationsScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-    loadNotificationsData();
+    const loadUser = async () => {
+      try {
+        const user = await loadCurrentUser();
+        if (user) {
+          setCurrentUser(user);
+        } else {
+          Alert.alert('Ошибка', 'Необходимо войти в профиль');
+          router.push('/login');
+        }
+      } catch (error) {
+        console.error('Ошибка загрузки пользователя:', error);
+        Alert.alert('Ошибка', 'Не удалось загрузить профиль');
+        router.push('/login');
+      }
+    };
+
+    loadUser();
   }, []);
 
-  // Обновляем уведомления при фокусе на экране
+  // Автоматически отмечаем все уведомления как прочитанные при входе в экран
+  useEffect(() => {
+    if (currentUser && notifications.length > 0) {
+      markAllNotificationsAsRead();
+    }
+  }, [currentUser]); // Убрал notifications.length из зависимостей
+
+  // Обновляем уведомления при фокусе на экран
   useFocusEffect(
     useCallback(() => {
       loadNotificationsData();
-    }, [])
+      // Убрали автоматическую отметку - она уже есть в useEffect
+    }, [currentUser])
+  );
+
+  // Обновляем счетчик уведомлений при уходе с экрана
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        // При уходе с экрана обновляем данные пользователя
+        // Это обновит счетчик в _layout.tsx
+        if (currentUser) {
+          // Обновляем данные только один раз для избежания дерганья
+          loadNotificationsData();
+        }
+      };
+    }, [currentUser])
   );
 
   const loadNotificationsData = async () => {
     try {
-      const user = await loadCurrentUser();
-      if (!user) {
-        Alert.alert('Ошибка', 'Необходимо войти в профиль');
-        router.push('/login');
-        return;
-      }
+      setLoading(true);
+      if (!currentUser) return;
 
-      setCurrentUser(user);
-      
       // Загружаем все уведомления из хранилища
-      const storedNotifications = await loadNotifications(user.id);
+      const storedNotifications = await loadNotifications(currentUser.id);
       
       // Фильтруем уведомления, которые относятся к текущему пользователю
-      // Исключаем уведомления о сообщениях
       const userNotifications = storedNotifications.filter(notification => {
         // Уведомления о запросах дружбы показываем только если они предназначены для этого пользователя
         if (notification.type === 'friend_request') {
-          return notification.receiverId === user.id;
+          return notification.receiver_id === currentUser.id;
         }
-        // Уведомления о автографах, клюшках и других действиях
-        if (notification.type === 'autograph_request' || 
-            notification.type === 'stick_request' || 
+        
+        // Уведомления о подарках и других действиях
+        if (notification.type === 'gift_accepted' || 
+            notification.type === 'autograph_request' || 
+            notification.type === 'stick_request' ||
             notification.type === 'achievement' || 
             notification.type === 'team_invite' || 
             notification.type === 'system') {
-          return notification.receiverId === user.id || notification.playerId === user.id;
+          return notification.user_id === currentUser.id;
         }
-        return false; // Исключаем все остальные типы (включая message)
+        
+        return false; // Исключаем все остальные типы
+      }).map(notification => {
+        // Преобразуем timestamp в правильный формат
+        let timestamp: number;
+        if (notification.created_at) {
+          timestamp = new Date(notification.created_at).getTime();
+        } else if (notification.timestamp) {
+          timestamp = typeof notification.timestamp === 'string' 
+            ? new Date(notification.timestamp).getTime() 
+            : notification.timestamp;
+        } else {
+          timestamp = Date.now();
+        }
+        
+        // Правильно маппим поля из Supabase
+        const mappedNotification = {
+          ...notification,
+          id: notification.id,
+          type: notification.type,
+          title: notification.title,
+          message: notification.message,
+          timestamp,
+          isRead: notification.is_read || false,
+          playerId: notification.player_id,
+          playerName: notification.player_name,
+          playerAvatar: notification.player_avatar,
+          receiverId: notification.receiver_id,
+          // Помечаем уведомления как actionable, если они требуют действия
+          isActionable: notification.type === 'gift_accepted' || 
+                       notification.type === 'friend_request' ||
+                       notification.type === 'achievement' ||
+                       notification.type === 'team_invite'
+        };
+        
+        return mappedNotification;
       });
       
       // Сортируем по времени (новые сверху)
       userNotifications.sort((a, b) => b.timestamp - a.timestamp);
       
       // Загружаем запросы в друзья
-      const receivedFriendRequests = await getReceivedFriendRequests(user.id);
+      const receivedFriendRequests = await getReceivedFriendRequests(currentUser.id);
       const friendRequestItems: FriendRequestItem[] = receivedFriendRequests.map(player => ({
         id: `friend_request_${player.id}`,
         type: 'friend_request',
         title: 'Запрос в друзья',
         message: `${player.name} хочет добавить вас в друзья`,
-        timestamp: Date.now(), // Используем текущее время, так как в friend_requests нет timestamp
+        timestamp: Date.now(),
         isRead: false,
         playerId: player.id,
         playerName: player.name,
         playerAvatar: player.avatar,
-        receiverId: user.id
+        receiverId: currentUser.id
       }));
       
       // Загружаем запросы на подарки (только для звезд)
       let giftRequestItems: GiftRequestItem[] = [];
-      if (user.status === 'star') {
+      if (currentUser.status === 'star') {
         try {
           const { data: giftRequestsData, error: giftRequestsError } = await supabase
             .from('item_requests')
@@ -149,7 +230,7 @@ export default function NotificationsScreen() {
                 avatar_url
               )
             `)
-            .eq('owner_id', user.id)
+            .eq('owner_id', currentUser.id)
             .eq('status', 'pending')
             .order('created_at', { ascending: false });
 
@@ -166,7 +247,7 @@ export default function NotificationsScreen() {
               playerId: request.requester_id,
               playerName: request.requester?.name || 'Неизвестный игрок',
               playerAvatar: request.requester?.avatar_url,
-              receiverId: user.id,
+              receiverId: currentUser.id,
               itemType: request.item_type,
               requestMessage: request.message
             }));
@@ -179,8 +260,9 @@ export default function NotificationsScreen() {
       setNotifications(userNotifications);
       setFriendRequests(friendRequestItems);
       setGiftRequests(giftRequestItems);
+      
     } catch (error) {
-      console.error('Ошибка загрузки уведомлений:', error);
+      console.error('❌ Ошибка загрузки уведомлений:', error);
       Alert.alert('Ошибка', 'Не удалось загрузить уведомления');
     } finally {
       setLoading(false);
@@ -193,20 +275,181 @@ export default function NotificationsScreen() {
     setRefreshing(false);
   };
 
-  const handleNotificationPress = async (notification: NotificationItem) => {
+  // Отмечаем все уведомления как прочитанные
+  const markAllNotificationsAsRead = async () => {
     try {
+      if (!currentUser) return;
+      
+      // Получаем все ID уведомлений пользователя, исключая actionable уведомления
+      const { data: notificationIds, error: fetchError } = await supabase
+        .from('notifications')
+        .select('id, type')
+        .eq('user_id', currentUser.id)
+        .eq('is_read', false);
+      
+      if (fetchError) {
+        console.error('❌ Ошибка получения ID уведомлений:', fetchError);
+        return;
+      }
+      
+      if (!notificationIds || notificationIds.length === 0) {
+        return;
+      }
+      
+      // Фильтруем уведомления, исключая actionable уведомления
+      const nonActionableNotifications = notificationIds.filter(notification => {
+        const type = notification.type;
+        return !(type === 'gift_accepted' || 
+                type === 'friend_request' ||
+                type === 'achievement' ||
+                type === 'team_invite');
+      });
+      
+      if (nonActionableNotifications.length === 0) {
+        return;
+      }
+      
+      // Обновляем каждое уведомление по отдельности
+      let successCount = 0;
+      for (const notification of nonActionableNotifications) {
+        try {
+          const { error: updateError } = await supabase
+            .from('notifications')
+            .update({ is_read: true })
+            .eq('id', notification.id);
+          
+          if (updateError) {
+            console.error('❌ Ошибка обновления уведомления', notification.id, ':', updateError);
+          } else {
+            successCount++;
+          }
+        } catch (individualError) {
+          console.error('❌ Ошибка обновления уведомления', notification.id, ':', individualError);
+        }
+      }
+      
+      // Обновляем локальное состояние только для non-actionable уведомлений
+      setNotifications(prev => prev.map(n => {
+        const type = n.type;
+        const isActionable = type === 'gift_accepted' || 
+                           type === 'friend_request' ||
+                           type === 'achievement' ||
+                           type === 'team_invite';
+        
+        // Отмечаем как прочитанные только non-actionable уведомления
+        return isActionable ? n : { ...n, isRead: true };
+      }));
+      
+      // Обновляем данные только один раз для синхронизации счетчика
+      await loadNotificationsData();
+      
+    } catch (error) {
+      console.error('❌ Ошибка в markAllNotificationsAsRead:', error);
+    }
+  };
+
+  const handleClearAllNotifications = async () => {
+    try {
+      Alert.alert(
+        'Очистить все уведомления',
+        'Вы уверены, что хотите удалить все уведомления?',
+        [
+          { text: 'Отмена', style: 'cancel' },
+          {
+            text: 'Очистить',
+            style: 'destructive',
+            onPress: async () => {
+              if (!currentUser) return;
+              
+              try {
+                // Получаем все ID уведомлений пользователя
+                const { data: notificationIds, error: fetchError } = await supabase
+                  .from('notifications')
+                  .select('id')
+                  .eq('user_id', currentUser.id);
+                
+                if (fetchError) {
+                  console.error('❌ Ошибка получения ID уведомлений:', fetchError);
+                  Alert.alert('Ошибка', 'Не удалось получить уведомления');
+                  return;
+                }
+                
+                if (!notificationIds || notificationIds.length === 0) {
+                  setNotifications([]);
+                  setFriendRequests([]);
+                  setGiftRequests([]);
+                  Alert.alert('Успех', 'Все уведомления очищены');
+                  return;
+                }
+                
+                // Удаляем каждое уведомление по отдельности
+                let successCount = 0;
+                for (const notification of notificationIds) {
+                  try {
+                    const { error: deleteError } = await supabase
+                      .from('notifications')
+                      .delete()
+                      .eq('id', notification.id);
+                    
+                    if (deleteError) {
+                      console.error('❌ Ошибка удаления уведомления', notification.id, ':', deleteError);
+                    } else {
+                      successCount++;
+                    }
+                  } catch (individualError) {
+                    console.error('❌ Ошибка удаления уведомления', notification.id, ':', individualError);
+                  }
+                }
+                
+                // Обновляем локальное состояние
+                setNotifications([]);
+                setFriendRequests([]);
+                setGiftRequests([]);
+                
+                // Обновляем данные только один раз для синхронизации счетчика
+                await loadNotificationsData();
+                
+                Alert.alert('Успех', `Удалено ${successCount} уведомлений`);
+              } catch (error) {
+                console.error('❌ Ошибка очистки уведомлений:', error);
+                Alert.alert('Ошибка', 'Не удалось очистить уведомления');
+              }
+            }
+          }
+        ]
+      );
+    } catch (error) {
+      console.error('❌ Ошибка очистки уведомлений:', error);
+    }
+  };
+
+  const handleNotificationPress = async (notification: NotificationItem) => {
+    
+    try {
+      // Для actionable уведомлений не выполняем автоматическую отметку как прочитанное
+      // так как для них есть кнопка "Супер"
+      if (notification.isActionable) {
+        // Просто обрабатываем нажатие без изменения статуса
+        return;
+      }
+      
       // Отмечаем уведомление как прочитанное, если оно еще не прочитано
-      if (!notification.isRead) {
-        // Обновляем локальное состояние
-        setNotifications(prev => prev.map(n => 
-          n.id === notification.id ? { ...n, isRead: true } : n
-        ));
+      if (notification.isRead === false) {
         
         // Отмечаем как прочитанное в базе данных
-        await markNotificationAsRead(notification.id);
+        const success = await markNotificationAsRead(notification.id);
         
-        // Обновляем счетчик уведомлений в главном layout
-        // Счетчик обновится автоматически через 3 секунды
+        if (success) {
+          // Обновляем локальное состояние после успешного обновления в БД
+          setNotifications(prev => prev.map(n => 
+            n.id === notification.id ? { ...n, isRead: true } : n
+          ));
+          
+          // Обновляем данные только один раз для синхронизации счетчика
+          await loadNotificationsData();
+        } else {
+          console.error('❌ Не удалось отметить уведомление как прочитанное');
+        }
       }
       
       // Обработка нажатия на уведомление
@@ -220,9 +463,115 @@ export default function NotificationsScreen() {
         if (notification.playerId) {
           router.push(`/player/${notification.playerId}`);
         }
+      } else if (notification.type === 'gift_accepted') {
+        // Для уведомлений о принятых подарках переходим в свой профиль
+        if (currentUser) {
+          router.push(`/player/${currentUser.id}`);
+        }
       }
+      
     } catch (error) {
-      console.error('Ошибка обработки уведомления:', error);
+      console.error('❌ Ошибка обработки уведомления:', error);
+    }
+  };
+
+  const handleSuperAction = async (notification: NotificationItem) => {
+    try {
+      if (!currentUser || !notification.id) {
+        console.error('❌ Некорректные данные уведомления:', { currentUser: !!currentUser, notificationId: notification.id });
+        Alert.alert('Ошибка', 'Некорректные данные уведомления');
+        return;
+      }
+      
+      console.log('🔔 Обрабатываем уведомление:', { id: notification.id, type: notification.type, title: notification.title });
+      
+      // Проверяем, что уведомление существует в базе данных
+      let notificationExists = false;
+      try {
+        const { data: existingNotification, error: checkError } = await supabase
+          .from('notifications')
+          .select('id, is_read')
+          .eq('id', notification.id)
+          .single();
+        
+        if (!checkError && existingNotification) {
+          notificationExists = true;
+          console.log('✅ Уведомление найдено в БД:', { id: existingNotification.id, isRead: existingNotification.is_read });
+        } else {
+          console.log('⚠️ Уведомление не найдено в БД или уже обработано');
+        }
+      } catch (checkError) {
+        console.log('⚠️ Ошибка при проверке уведомления в БД:', checkError);
+      }
+      
+      // Если уведомление не существует в БД, просто обновляем данные без дерганья
+      if (!notificationExists) {
+        console.log('ℹ️ Уведомление уже обработано, обновляем данные');
+        // Обновляем данные только один раз, без множественных вызовов
+        await loadNotificationsData();
+        Alert.alert('Успех', 'Уведомление обработано!');
+        return;
+      }
+      
+      // Пытаемся удалить уведомление из базы данных
+      let success = false;
+      
+      try {
+        console.log('🗑️ Пытаемся удалить уведомление из БД:', notification.id);
+        const { error: deleteError } = await supabase
+          .from('notifications')
+          .delete()
+          .eq('id', notification.id);
+        
+        if (!deleteError) {
+          success = true;
+          console.log('✅ Уведомление успешно удалено из БД');
+        } else {
+          console.log('⚠️ Не удалось удалить уведомление из БД:', deleteError);
+        }
+      } catch (dbError) {
+        console.log('⚠️ Ошибка при удалении из БД:', dbError);
+      }
+      
+      // Если удаление не удалось, пытаемся отметить как прочитанное
+      if (!success) {
+        try {
+          console.log('📝 Пытаемся отметить уведомление как прочитанное:', notification.id);
+          const markSuccess = await markNotificationAsRead(notification.id);
+          if (markSuccess) {
+            success = true;
+            console.log('✅ Уведомление отмечено как прочитанное');
+          } else {
+            console.log('⚠️ Не удалось отметить уведомление как прочитанное');
+          }
+        } catch (markError) {
+          console.log('⚠️ Ошибка при отметке как прочитанное:', markError);
+        }
+      }
+      
+      // Обновляем данные только один раз для синхронизации счетчика
+      if (success) {
+        try {
+          await loadNotificationsData();
+          console.log('🔄 Данные уведомлений обновлены');
+        } catch (updateError) {
+          console.log('⚠️ Ошибка при обновлении данных:', updateError);
+        }
+        Alert.alert('Успех', 'Уведомление обработано!');
+      } else {
+        // Если ничего не удалось, возвращаем уведомление обратно
+        console.log('⚠️ Возвращаем уведомление обратно в список');
+        setNotifications(prev => [...prev, notification]);
+        Alert.alert('Ошибка', 'Не удалось обработать уведомление. Попробуйте еще раз.');
+      }
+      
+    } catch (error) {
+      console.error('❌ Ошибка обработки уведомления:', error);
+      
+      // В случае ошибки возвращаем уведомление обратно в список
+      setNotifications(prev => [...prev, notification]);
+      
+      Alert.alert('Ошибка', 'Не удалось обработать уведомление. Попробуйте еще раз.');
     }
   };
 
@@ -239,7 +588,9 @@ export default function NotificationsScreen() {
       // Обновляем список запросов
       setFriendRequests(prev => prev.filter(req => req.id !== request.id));
       
-      // Счетчик уведомлений обновится автоматически через 3 секунды
+      // Обновляем данные только один раз для синхронизации счетчика
+      await loadNotificationsData();
+      
     } catch (error) {
       console.error('Ошибка обработки запроса в друзья:', error);
       Alert.alert('Ошибка', 'Не удалось обработать запрос в друзья');
@@ -251,6 +602,7 @@ export default function NotificationsScreen() {
       const requestId = request.id.replace('gift_request_', '');
       
       if (action === 'accept') {
+        
         // Принимаем запрос на подарок
         const { error: updateError } = await supabase
           .from('item_requests')
@@ -260,8 +612,104 @@ export default function NotificationsScreen() {
         if (updateError) {
           throw updateError;
         }
+        
+        // Получаем данные о запросе для создания подарка
+        const { data: requestData, error: requestError } = await supabase
+          .from('item_requests')
+          .select('*')
+          .eq('id', requestId)
+          .single();
 
-        Alert.alert('Успех', 'Запрос на подарок принят!');
+        if (requestError || !requestData) {
+          throw new Error('Не удалось получить данные о запросе');
+        }
+
+        // Сначала проверяем, есть ли у звезды готовый подарок такого типа
+        const { data: existingItems, error: searchError } = await supabase
+          .from('items')
+          .select('*')
+          .eq('owner_id', requestData.owner_id) // У звезды
+          .eq('item_type', requestData.item_type)
+          .eq('is_available', true)
+          .limit(1);
+
+        if (searchError) {
+          console.error('❌ Ошибка поиска существующих подарков:', searchError);
+        }
+
+        let newItem;
+        if (existingItems && existingItems.length > 0) {
+          // Используем существующий подарок звезды
+          newItem = existingItems[0];
+          
+          // Помечаем подарок как недоступный
+          const { error: updateError } = await supabase
+            .from('items')
+            .update({ is_available: false })
+            .eq('id', newItem.id);
+            
+          if (updateError) {
+            console.error('❌ Ошибка обновления доступности подарка:', updateError);
+          }
+        } else {
+          // Создаем новый подарок
+          const { data: createdItem, error: itemError } = await supabase
+            .from('items')
+            .insert([{
+              owner_id: requestData.requester_id, // Владелец - игрок, который просил
+              item_type: requestData.item_type,
+              name: `${getItemTypeName(requestData.item_type)} от ${currentUser?.name || 'Звезды'}`,
+              description: `Подарок, полученный по запросу: ${requestData.message}`,
+              image_url: null, // Пока без изображения
+              is_available: false // Подарок больше не доступен для запросов
+            }])
+            .select()
+            .single();
+
+          if (itemError || !createdItem) {
+            console.error('❌ Ошибка создания подарка:', itemError);
+            throw new Error('Не удалось создать подарок');
+          }
+          
+          newItem = createdItem;
+        }
+
+        // Добавляем подарок в музей игрока
+        const { error: museumError } = await supabase
+          .from('player_museum')
+          .insert([{
+            player_id: requestData.requester_id, // Игрок, который получил подарок
+            item_id: newItem.id, // ID созданного подарка
+            received_from: requestData.owner_id // От кого получен (звезда)
+          }]);
+
+        if (museumError) {
+          console.error('❌ Ошибка добавления в музей:', museumError);
+          throw new Error('Не удалось добавить подарок в музей');
+        }
+        
+        // Создаем уведомление для игрока о том, что его запрос одобрен
+        try {
+          await supabase
+            .from('notifications')
+            .insert([{
+              user_id: requestData.requester_id,
+              type: 'gift_accepted',
+              title: 'Запрос на подарок одобрен!',
+              message: `Ваш запрос на ${getItemTypeName(requestData.item_type)} от ${currentUser?.name || 'Звезды'} был одобрен! Подарок добавлен в ваш музей.`,
+              is_read: false,
+              data: { 
+                item_id: newItem.id, 
+                item_type: requestData.item_type,
+                from_star: currentUser?.name 
+              }
+            }]);
+        } catch (notificationError) {
+          console.error('❌ Ошибка создания уведомления:', notificationError);
+          // Не прерываем выполнение, если уведомление не создалось
+        }
+
+        Alert.alert('Успех', 'Запрос на подарок принят! Подарок добавлен в музей игрока.');
       } else {
         // Отклоняем запрос на подарок
         const { error: updateError } = await supabase
@@ -279,14 +727,30 @@ export default function NotificationsScreen() {
       // Обновляем список запросов
       setGiftRequests(prev => prev.filter(req => req.id !== request.id));
       
+      // Обновляем данные только один раз для синхронизации счетчика
+      await loadNotificationsData();
+      
     } catch (error) {
-      console.error('Ошибка обработки запроса на подарок:', error);
+      console.error('❌ Ошибка обработки запроса на подарок:', error);
       Alert.alert('Ошибка', 'Не удалось обработать запрос');
     }
   };
 
-  const formatTime = (timestamp: number) => {
-    const date = new Date(timestamp);
+  const formatTime = (timestamp: number | string) => {
+    let date: Date;
+    
+    // Обрабатываем разные форматы timestamp
+    if (typeof timestamp === 'string') {
+      date = new Date(timestamp);
+    } else {
+      date = new Date(timestamp);
+    }
+    
+    // Проверяем, что дата валидна
+    if (isNaN(date.getTime())) {
+      return 'Недавно';
+    }
+    
     const now = new Date();
     const diffInMinutes = (now.getTime() - date.getTime()) / (1000 * 60);
     
@@ -304,21 +768,13 @@ export default function NotificationsScreen() {
     }
   };
 
-  const getItemTypeName = (type: string) => {
-    switch (type) {
-      case 'autograph': return 'автограф';
-      case 'stick': return 'клюшку';
-      case 'puck': return 'шайбу';
-      case 'jersey': return 'джерси';
-      default: return type;
-    }
-  };
-
   const getNotificationIcon = (type: string) => {
     switch (type) {
       case 'friend_request':
         return 'person-add';
       case 'gift_request':
+        return 'gift';
+      case 'gift_accepted':
         return 'gift';
       case 'autograph_request':
         return 'create';
@@ -359,6 +815,9 @@ export default function NotificationsScreen() {
               <Ionicons name="arrow-back" size={24} color="#fff" />
             </TouchableOpacity>
             <Text style={styles.pageTitle}>Уведомления</Text>
+            <TouchableOpacity onPress={handleClearAllNotifications} style={styles.clearAllButton}>
+              <Ionicons name="trash-outline" size={24} color="#FF4444" />
+            </TouchableOpacity>
           </View>
           
           {/* Список уведомлений */}
@@ -382,7 +841,7 @@ export default function NotificationsScreen() {
                 
                 <View style={styles.friendRequestContent}>
                   <View style={styles.friendRequestHeader}>
-                    <Text style={styles.friendRequestTitle} numberOfLines={1} ellipsizeMode="tail">
+                    <Text style={styles.friendRequestTitle}>
                       {request.title}
                     </Text>
                     <Text style={styles.friendRequestTime}>
@@ -477,19 +936,17 @@ export default function NotificationsScreen() {
               </View>
             ))}
             
-            {/* Обычные уведомления */}
-            {notifications.length > 0 && (friendRequests.length > 0 || giftRequests.length > 0) && (
-              <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>Другие уведомления</Text>
-              </View>
-            )}
+
             
             {notifications.map((notification) => (
               <TouchableOpacity
                 key={notification.id}
                 style={styles.notificationItem}
-                onPress={() => handleNotificationPress(notification)}
+                onPress={() => {
+                  handleNotificationPress(notification);
+                }}
                 activeOpacity={0.7}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
                 <View style={styles.notificationIcon}>
                   <Ionicons 
@@ -501,7 +958,7 @@ export default function NotificationsScreen() {
                 
                 <View style={styles.notificationContent}>
                   <View style={styles.notificationHeader}>
-                    <Text style={styles.notificationTitle} numberOfLines={1} ellipsizeMode="tail">
+                    <Text style={styles.notificationTitle} numberOfLines={2}>
                       {notification.title}
                     </Text>
                     <Text style={styles.notificationTime}>
@@ -509,7 +966,7 @@ export default function NotificationsScreen() {
                     </Text>
                   </View>
                   
-                  <Text style={styles.notificationMessage} numberOfLines={3} ellipsizeMode="tail">
+                  <Text style={styles.notificationMessage}>
                     {notification.message}
                   </Text>
                   
@@ -524,14 +981,25 @@ export default function NotificationsScreen() {
                       </Text>
                     </View>
                   )}
+                  
+                  {/* Кнопка "Супер" для actionable уведомлений */}
+                  {notification.isActionable && (
+                    <View style={styles.superActionContainer}>
+                      <TouchableOpacity
+                        style={styles.superActionButton}
+                        onPress={() => handleSuperAction(notification)}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={styles.superActionButtonText}>Супер!</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
                 </View>
-                
-                {!notification.isRead && (
-                  <View style={styles.unreadDot} />
-                )}
               </TouchableOpacity>
             ))}
             
+
+
             {/* Показываем пустое состояние только если нет ни уведомлений, ни запросов в друзья, ни запросов на подарки */}
             {notifications.length === 0 && friendRequests.length === 0 && giftRequests.length === 0 && (
               <View style={styles.emptyContainer}>
@@ -620,6 +1088,12 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontFamily: 'Gilroy-Bold',
     flex: 1,
+    textAlign: 'center',
+  },
+  clearAllButton: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255, 68, 68, 0.1)',
   },
   emptyContainer: {
     flex: 1,
@@ -693,7 +1167,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'flex-start',
     minHeight: 60,
-    paddingRight: 120,
     flexShrink: 1,
     flexDirection: 'column',
   },
@@ -702,7 +1175,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     marginBottom: 8,
-    marginRight: 8,
   },
   notificationTitle: {
     color: '#fff',
@@ -710,16 +1182,15 @@ const styles = StyleSheet.create({
     fontFamily: 'Gilroy-Bold',
     flex: 1,
     marginRight: 8,
-    maxWidth: '70%',
     flexShrink: 1,
   },
   notificationTime: {
     color: '#666',
     fontSize: 12,
     fontFamily: 'Gilroy-Regular',
-    marginLeft: 8,
     flexShrink: 0,
     textAlign: 'right',
+    minWidth: 80,
   },
   notificationMessage: {
     color: '#fff',
@@ -728,6 +1199,7 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     marginBottom: 8,
     flexShrink: 1,
+    flex: 1,
   },
   playerInfo: {
     flexDirection: 'row',
@@ -873,16 +1345,15 @@ const styles = StyleSheet.create({
     fontFamily: 'Gilroy-Bold',
     flex: 1,
     marginRight: 8,
-    maxWidth: '70%',
     flexShrink: 1,
   },
   friendRequestTime: {
     color: '#666',
     fontSize: 12,
     fontFamily: 'Gilroy-Regular',
-    marginLeft: 8,
     flexShrink: 0,
     textAlign: 'right',
+    minWidth: 80,
   },
   friendRequestMessageRow: {
     flexDirection: 'row',
@@ -928,7 +1399,6 @@ const styles = StyleSheet.create({
   giftRequestContent: {
     flex: 1,
     flexDirection: 'column',
-    paddingRight: 16,
   },
   giftRequestHeader: {
     flexDirection: 'row',
@@ -942,16 +1412,15 @@ const styles = StyleSheet.create({
     fontFamily: 'Gilroy-Bold',
     flex: 1,
     marginRight: 8,
-    maxWidth: '70%',
     flexShrink: 1,
   },
   giftRequestTime: {
     color: '#666',
     fontSize: 12,
     fontFamily: 'Gilroy-Regular',
-    marginLeft: 8,
     flexShrink: 0,
     textAlign: 'right',
+    minWidth: 80,
   },
   giftRequestMessageRow: {
     flexDirection: 'row',
@@ -985,5 +1454,31 @@ const styles = StyleSheet.create({
     marginTop: 8,
     justifyContent: 'flex-end',
     alignSelf: 'stretch',
+  },
+  superActionContainer: {
+    marginTop: 12,
+    alignSelf: 'flex-start',
+  },
+  superActionButton: {
+    backgroundColor: '#FF4444',
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    borderColor: '#FF4444',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  superActionButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontFamily: 'Gilroy-Bold',
+    textAlign: 'center',
   },
 }); 

@@ -98,6 +98,7 @@ export default function RootLayout() {
           return n.type === 'friend_request' || 
                  n.type === 'autograph_request' || 
                  n.type === 'stick_request' || 
+                 n.type === 'gift_accepted' ||
                  n.type === 'achievement' || 
                  n.type === 'team_invite' || 
                  n.type === 'system';
@@ -115,12 +116,32 @@ export default function RootLayout() {
         const receivedFriendRequests = await getReceivedFriendRequests(user.id);
         const friendRequestsCount = receivedFriendRequests.length;
         
+        // Загружаем запросы на подарки (только для звезд)
+        let giftRequestsCount = 0;
+        if (user.status === 'star') {
+          try {
+            const { data: giftRequestsData, error: giftRequestsError } = await supabase
+              .from('item_requests')
+              .select('id')
+              .eq('owner_id', user.id)
+              .eq('status', 'pending');
+
+            if (!giftRequestsError && giftRequestsData) {
+              giftRequestsCount = giftRequestsData.length;
+            }
+          } catch (error) {
+            console.error('Ошибка загрузки запросов на подарки:', error);
+          }
+        }
+        
         setCurrentUser({ 
           ...user, 
           unreadNotificationsCount,
           unreadMessagesCount,
-          friendRequestsCount
+          friendRequestsCount,
+          giftRequestsCount
         });
+        
       } else {
         setCurrentUser(null);
       }
@@ -131,6 +152,13 @@ export default function RootLayout() {
 
   // Функция для принудительного обновления счетчиков
   const refreshCounters = async () => {
+    if (currentUser) {
+      await loadUser();
+    }
+  };
+
+  // Функция для принудительного обновления счетчика уведомлений
+  const forceRefreshNotifications = async () => {
     if (currentUser) {
       await loadUser();
     }
@@ -155,6 +183,14 @@ export default function RootLayout() {
   useEffect(() => {
     if (currentUser) {
       loadUser();
+      
+      // Принудительно обновляем профиль при смене пользователя
+      // Это поможет решить проблему с необновлением профиля
+      setTimeout(() => {
+        if (currentUser) {
+          loadUser();
+        }
+      }, 500);
     }
   }, [currentUser?.id]);
 
@@ -163,6 +199,21 @@ export default function RootLayout() {
     // Главный экран получил фокус
     refreshCounters();
   }, []);
+
+  // Принудительно обновляем счетчик уведомлений при фокусе на главном экране
+  useEffect(() => {
+    // При фокусе на главном экране обновляем счетчик уведомлений
+    if (currentUser) {
+      loadUser();
+      
+      // Добавляем дополнительную задержку для надежности обновления счетчика
+      setTimeout(() => {
+        if (currentUser) {
+          loadUser();
+        }
+      }, 1000);
+    }
+  }, [currentUser]);
 
   // Обработчик события для обновления счетчика уведомлений
   useEffect(() => {
@@ -261,24 +312,25 @@ export default function RootLayout() {
                 height: size + 4,
               }}>
                 <Ionicons name="notifications-outline" size={size - 2} color={focused ? '#eee' : '#aaa'} />
-                {currentUser && (currentUser.unreadNotificationsCount > 0 || currentUser.friendRequestsCount > 0) && (
+                {currentUser && (currentUser.unreadNotificationsCount > 0 || currentUser.friendRequestsCount > 0 || currentUser.giftRequestsCount > 0) && (
                   <View style={{
                     position: 'absolute',
                     top: -8,
                     right: -8,
                     backgroundColor: '#FF4444',
                     borderRadius: 10,
-                    width: 20,
+                    width: (currentUser.unreadNotificationsCount || 0) + (currentUser.friendRequestsCount || 0) + (currentUser.giftRequestsCount || 0) > 9 ? 24 : 20,
                     height: 20,
                     justifyContent: 'center',
                     alignItems: 'center',
+                    paddingHorizontal: 2,
                   }}>
                     <Text style={{
                       color: '#fff',
-                      fontSize: 12,
+                      fontSize: (currentUser.unreadNotificationsCount || 0) + (currentUser.friendRequestsCount || 0) + (currentUser.giftRequestsCount || 0) > 9 ? 10 : 12,
                       fontFamily: 'Gilroy-Bold',
                     }}>
-                      {(currentUser.unreadNotificationsCount || 0) + (currentUser.friendRequestsCount || 0)}
+                      {(currentUser.unreadNotificationsCount || 0) + (currentUser.friendRequestsCount || 0) + (currentUser.giftRequestsCount || 0)}
                     </Text>
                   </View>
                 )}

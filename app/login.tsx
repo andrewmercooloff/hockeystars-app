@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
     ImageBackground,
     StyleSheet,
@@ -17,6 +17,8 @@ const iceBg = require('../assets/images/led.jpg');
 
 export default function LoginScreen() {
   const router = useRouter();
+  const usernameRef = useRef<TextInput>(null);
+  const passwordRef = useRef<TextInput>(null);
   const [formData, setFormData] = useState({
     username: '',
     password: ''
@@ -40,8 +42,125 @@ export default function LoginScreen() {
     }, 100);
   };
 
+  // Обработчик для улучшения работы с автозаполнением на iOS
+  const handleUsernameChange = (text: string) => {
+    setFormData({...formData, username: text});
+    // Небольшая задержка для стабилизации автозаполнения
+    setTimeout(() => {
+      if (usernameRef.current) {
+        usernameRef.current.setNativeProps({ text: text });
+      }
+    }, 100);
+  };
+
+  // Дополнительная обработка для автозаполнения
+  const handleUsernameChangeText = (text: string) => {
+    setFormData({...formData, username: text});
+    // Синхронизируем состояние с полем
+    setTimeout(() => {
+      if (usernameRef.current) {
+        try {
+          const currentText = usernameRef.current.props?.value || text;
+          if (currentText !== text) {
+            setFormData(prev => ({...prev, username: currentText}));
+          }
+        } catch (error) {
+          console.log('Ошибка синхронизации логина:', error);
+        }
+      }
+    }, 50);
+  };
+
+  const handlePasswordChange = (text: string) => {
+    setFormData({...formData, password: text});
+    // Небольшая задержка для стабилизации автозаполнения
+    setTimeout(() => {
+      if (passwordRef.current) {
+        passwordRef.current.setNativeProps({ text: text });
+      }
+    }, 100);
+  };
+
+  // Дополнительная обработка для автозаполнения пароля
+  const handlePasswordChangeText = (text: string) => {
+    setFormData({...formData, password: text});
+    // Синхронизируем состояние с полем
+    setTimeout(() => {
+      if (passwordRef.current) {
+        try {
+          const currentText = passwordRef.current.props?.value || text;
+          if (currentText !== text) {
+            setFormData(prev => ({...prev, password: currentText}));
+          }
+        } catch (error) {
+          console.log('Ошибка синхронизации пароля:', error);
+        }
+      }
+    }, 50);
+  };
+
+  // Дополнительная стабилизация для iOS автозаполнения
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (formData.username && usernameRef.current) {
+        usernameRef.current.setNativeProps({ text: formData.username });
+      }
+      if (formData.password && passwordRef.current) {
+        passwordRef.current.setNativeProps({ text: formData.password });
+      }
+    }, 200);
+
+    return () => clearTimeout(timer);
+  }, [formData.username, formData.password]);
+
+  // Обработчик для синхронизации состояния с автозаполнением
+  const syncFormDataFromRefs = () => {
+    if (usernameRef.current && passwordRef.current) {
+      try {
+        // Получаем текущие значения из полей более безопасным способом
+        const currentUsername = usernameRef.current.props?.value || formData.username || '';
+        const currentPassword = passwordRef.current.props?.value || formData.password || '';
+        
+        // Обновляем состояние, если значения изменились
+        if (currentUsername !== formData.username || currentPassword !== formData.password) {
+          setFormData({
+            username: currentUsername,
+            password: currentPassword
+          });
+        }
+      } catch (error) {
+        console.log('Ошибка синхронизации состояния:', error);
+      }
+    }
+  };
+
+  // Синхронизируем состояние при фокусе на полях
+  const handleUsernameFocus = () => {
+    setTimeout(syncFormDataFromRefs, 100);
+  };
+
+  const handlePasswordFocus = () => {
+    setTimeout(syncFormDataFromRefs, 100);
+  };
+
   const handleLogin = async () => {
-    if (!formData.username || !formData.password) {
+    // Получаем актуальные значения из полей, если состояние не синхронизировано
+    let username = formData.username;
+    let password = formData.password;
+    
+    if (usernameRef.current && passwordRef.current) {
+      try {
+        const currentUsername = usernameRef.current.props?.value || '';
+        const currentPassword = passwordRef.current.props?.value || '';
+        
+        if (currentUsername && !username) username = currentUsername;
+        if (currentPassword && !password) password = currentPassword;
+      } catch (error) {
+        console.log('Ошибка получения значений из полей:', error);
+      }
+    }
+    
+    if (!username || !password) {
       setAlert({
         visible: true,
         title: 'Ошибка',
@@ -52,7 +171,7 @@ export default function LoginScreen() {
     }
 
     try {
-      const player = await findPlayerByCredentials(formData.username, formData.password);
+      const player = await findPlayerByCredentials(username, password);
       
       if (player) {
         // Сохраняем текущего пользователя
@@ -109,15 +228,23 @@ export default function LoginScreen() {
               <View style={styles.inputContainer}>
                 <Text style={styles.label}>Логин</Text>
                 <TextInput
+                  ref={usernameRef}
                   style={styles.input}
                   value={formData.username}
-                  onChangeText={(text) => setFormData({...formData, username: text})}
+                  onChangeText={handleUsernameChangeText}
+                  onFocus={handleUsernameFocus}
                   placeholder="Введите логин"
                   placeholderTextColor="#888"
                   autoCapitalize="none"
                   autoComplete="username"
                   textContentType="username"
                   autoCorrect={false}
+                  returnKeyType="next"
+                  blurOnSubmit={false}
+                  enablesReturnKeyAutomatically={true}
+                  clearButtonMode="while-editing"
+                  onSubmitEditing={() => passwordRef.current?.focus()}
+
                 />
               </View>
 
@@ -125,15 +252,23 @@ export default function LoginScreen() {
               <View style={styles.inputContainer}>
                 <Text style={styles.label}>Пароль</Text>
                 <TextInput
+                  ref={passwordRef}
                   style={styles.input}
                   value={formData.password}
-                  onChangeText={(text) => setFormData({...formData, password: text})}
+                  onChangeText={handlePasswordChangeText}
+                  onFocus={handlePasswordFocus}
                   placeholder="Введите пароль"
                   placeholderTextColor="#888"
                   secureTextEntry={true}
                   autoComplete="password"
                   textContentType="password"
                   autoCorrect={false}
+                  returnKeyType="done"
+                  blurOnSubmit={true}
+                  enablesReturnKeyAutomatically={true}
+                  clearButtonMode="while-editing"
+                  onSubmitEditing={handleLogin}
+
                 />
               </View>
 

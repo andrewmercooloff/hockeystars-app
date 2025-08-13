@@ -1,11 +1,15 @@
-import React, { useEffect, useState } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
+    Alert,
     Dimensions,
     Image,
     RefreshControl,
     ScrollView,
     StyleSheet,
     Text,
+    TouchableOpacity,
     View,
 } from 'react-native';
 import { supabase } from '../utils/supabase';
@@ -29,14 +33,58 @@ interface MuseumItem {
 
 interface PlayerMuseumProps {
   playerId: string;
+  currentUserId?: string; // ID текущего пользователя для проверки прав
+  isOwner?: boolean; // Является ли текущий пользователь владельцем профиля
+  isAdmin?: boolean; // Является ли текущий пользователь администратором
+  isEditing?: boolean; // Режим редактирования профиля
 }
 
 const { width } = Dimensions.get('window');
 
-const PlayerMuseum: React.FC<PlayerMuseumProps> = ({ playerId }) => {
+const PlayerMuseum: React.FC<PlayerMuseumProps> = ({ 
+  playerId, 
+  currentUserId, 
+  isOwner = false, 
+  isAdmin = false,
+  isEditing = false
+}) => {
   const [museumItems, setMuseumItems] = useState<MuseumItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [isStar, setIsStar] = useState(false);
+
+  // Проверяем, что пользователь не является звездой
+  // У звезд не должно быть музея, так как они не просят подарки у других
+  useEffect(() => {
+    const checkPlayerStatus = async () => {
+      try {
+        const { data: playerData, error } = await supabase
+          .from('players')
+          .select('status')
+          .eq('id', playerId)
+          .single();
+        
+        if (!error && playerData && playerData.status === 'star') {
+          // Если это звезда, не загружаем музей
+          setIsStar(true);
+          setLoading(false);
+          return;
+        }
+        
+        // Если это обычный игрок, загружаем музей
+        setIsStar(false);
+        loadMuseumItems();
+      } catch (error) {
+        console.error('❌ Ошибка проверки статуса игрока:', error);
+        // В случае ошибки все равно загружаем музей
+        setIsStar(false);
+        loadMuseumItems();
+      }
+    };
+    
+    checkPlayerStatus();
+  }, [playerId]);
+
 
   const loadMuseumItems = async () => {
     try {
@@ -64,13 +112,11 @@ const PlayerMuseum: React.FC<PlayerMuseumProps> = ({ playerId }) => {
         .order('received_at', { ascending: false });
 
       if (error) {
-        console.error('Error loading museum items:', error);
+        console.error('❌ Ошибка загрузки музея:', error);
         return;
       }
 
-      console.log('Museum items loaded:', data);
       if (data && data.length > 0) {
-        console.log('First item image_url:', data[0].item?.image_url);
         // Проверяем доступность первого изображения
         if (data[0].item?.image_url) {
           await checkImageAvailability(data[0].item.image_url);
@@ -79,7 +125,7 @@ const PlayerMuseum: React.FC<PlayerMuseumProps> = ({ playerId }) => {
 
       setMuseumItems(data || []);
     } catch (error) {
-      console.error('Error loading museum items:', error);
+      console.error('❌ Ошибка загрузки музея:', error);
     } finally {
       setLoading(false);
     }
@@ -88,14 +134,8 @@ const PlayerMuseum: React.FC<PlayerMuseumProps> = ({ playerId }) => {
   const checkImageAvailability = async (imageUrl: string) => {
     try {
       const response = await fetch(imageUrl, { method: 'HEAD' });
-      console.log('Image availability check:', {
-        url: imageUrl,
-        status: response.status,
-        ok: response.ok
-      });
       return response.ok;
     } catch (error) {
-      console.error('Image availability check error:', error);
       return false;
     }
   };
@@ -106,11 +146,59 @@ const PlayerMuseum: React.FC<PlayerMuseumProps> = ({ playerId }) => {
     setRefreshing(false);
   };
 
+  const deleteMuseumItem = async (museumItemId: string, itemId: string) => {
+    try {
+      // Удаляем запись из музея
+      const { error: museumError } = await supabase
+        .from('player_museum')
+        .delete()
+        .eq('id', museumItemId);
+
+      if (museumError) {
+        console.error('❌ Ошибка удаления из музея:', museumError);
+        throw new Error('Не удалось удалить подарок из музея');
+      }
+
+      // Удаляем сам подарок из таблицы items
+      const { error: itemError } = await supabase
+        .from('items')
+        .delete()
+        .eq('id', itemId);
+
+      if (itemError) {
+        console.error('❌ Ошибка удаления подарка:', itemError);
+        // Не прерываем выполнение, если подарок не удалился
+      }
+      
+      // Обновляем локальное состояние
+      setMuseumItems(prev => prev.filter(item => item.id !== museumItemId));
+      
+      Alert.alert('Успех', 'Подарок удален из музея');
+    } catch (error) {
+      console.error('❌ Ошибка удаления подарка:', error);
+      Alert.alert('Ошибка', 'Не удалось удалить подарок');
+    }
+  };
+
   useEffect(() => {
     if (playerId) {
-      loadMuseumItems();
+      // Добавляем небольшую задержку для стабильности
+      const timer = setTimeout(() => {
+        loadMuseumItems();
+      }, 100);
+      
+      return () => clearTimeout(timer);
     }
-  }, [playerId]);
+  }, [playerId, isOwner, isAdmin, isEditing]);
+
+  // Обновляем музей при фокусе на экране
+  useFocusEffect(
+    useCallback(() => {
+      if (playerId) {
+        loadMuseumItems();
+      }
+    }, [playerId, isOwner, isAdmin, isEditing])
+  );
 
   // Проверяем, что playerId передан
   if (!playerId) {
@@ -121,12 +209,53 @@ const PlayerMuseum: React.FC<PlayerMuseumProps> = ({ playerId }) => {
     );
   }
 
+  // Не показываем музей для звезд
+  if (isStar) {
+    return null;
+  }
+
   if (loading) return <Text style={styles.loadingText}>Загрузка...</Text>;
-  if (museumItems.length === 0) return null;
+  
+  // Показываем музей даже когда пуст, чтобы пользователь видел, что секция есть
+  if (museumItems.length === 0) {
+    return (
+      <View style={styles.section}>
+        <View style={styles.titleContainer}>
+          <Text style={styles.title}>Музей</Text>
+          <TouchableOpacity
+            style={styles.refreshButton}
+            onPress={loadMuseumItems}
+            disabled={loading}
+          >
+            <Ionicons
+              name="refresh"
+              size={20}
+              color={loading ? '#666' : '#FF4444'}
+            />
+          </TouchableOpacity>
+        </View>
+        
+        <Text style={styles.emptyText}>Пока нет полученных подарков</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.section}>
-      <Text style={styles.title}>Музей</Text>
+                  <View style={styles.titleContainer}>
+              <Text style={styles.title}>Музей</Text>
+              <TouchableOpacity
+                style={styles.refreshButton}
+                onPress={loadMuseumItems}
+                disabled={loading}
+              >
+                <Ionicons
+                  name="refresh"
+                  size={20}
+                  color={loading ? '#666' : '#FF4444'}
+                />
+              </TouchableOpacity>
+            </View>
       
       <ScrollView style={styles.scrollView} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
         {museumItems.map((item) => (
@@ -142,6 +271,41 @@ const PlayerMuseum: React.FC<PlayerMuseumProps> = ({ playerId }) => {
             <Text style={styles.itemSource}>
               {item.item.name} от {item.received_from.name}
             </Text>
+            
+            {/* Индикация некорректного подарка */}
+            {!item.item.image_url && (
+              <Text style={styles.warningText}>
+                ⚠️ Некорректный подарок (без изображения)
+              </Text>
+            )}
+            
+            {/* Кнопка удаления для владельца профиля или администратора (только в режиме редактирования) */}
+            {(isOwner || isAdmin) && isEditing && (
+              <TouchableOpacity 
+                style={styles.deleteButton}
+                onPress={() => {
+                  const itemName = item.item.image_url ? 'подарок' : 'некорректный подарок';
+                  Alert.alert(
+                    'Удалить подарок',
+                    `Вы уверены, что хотите удалить этот ${itemName} из музея?`,
+                    [
+                      { text: 'Отмена', style: 'cancel' },
+                      { 
+                        text: 'Удалить', 
+                        style: 'destructive',
+                        onPress: () => deleteMuseumItem(item.id, item.item.id)
+                      }
+                    ]
+                  );
+                }}
+              >
+                <Ionicons 
+                  name="trash-outline" 
+                  size={16} 
+                  color={item.item.image_url ? "#FF4444" : "#FF8800"} 
+                />
+              </TouchableOpacity>
+            )}
           </View>
         ))}
       </ScrollView>
@@ -169,12 +333,22 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  titleContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 15,
+  },
   title: {
     fontSize: 20,
     fontFamily: 'Gilroy-Bold',
     color: '#FF4444',
-    marginBottom: 15,
     textAlign: 'left',
+  },
+  refreshButton: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255, 68, 68, 0.1)',
   },
   scrollView: { 
     flex: 1 
@@ -182,6 +356,7 @@ const styles = StyleSheet.create({
   itemCard: {
     alignItems: 'center',
     marginBottom: 20,
+    position: 'relative', // Для позиционирования кнопки удаления
   },
   itemImage: {
     width: width * 0.3, // 30% от ширины экрана
@@ -192,11 +367,14 @@ const styles = StyleSheet.create({
   placeholderImage: {
     width: width * 0.3,
     height: width * 0.3,
-    backgroundColor: '#333',
+    backgroundColor: '#FF8800',
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: 12,
     marginBottom: 8,
+    borderWidth: 2,
+    borderColor: '#FF4444',
+    borderStyle: 'dashed',
   },
   placeholderText: {
     fontSize: 48,
@@ -217,6 +395,30 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     textAlign: 'center',
+  },
+  deleteButton: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    borderRadius: 12,
+    padding: 6,
+    borderWidth: 1,
+    borderColor: '#FF4444',
+  },
+  warningText: {
+    fontSize: 12,
+    color: '#FF8800',
+    textAlign: 'center',
+    marginTop: 5,
+    fontFamily: 'Gilroy-Medium',
+  },
+
+  debugText: {
+    fontSize: 10,
+    color: '#999',
+    textAlign: 'center',
+    marginTop: 5,
   },
 });
 

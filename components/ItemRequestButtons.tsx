@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
     Alert,
@@ -82,9 +82,9 @@ const ItemRequestButtons: React.FC<ItemRequestButtonsProps> = ({
 
   const getItemTypeIcon = (type: string) => {
     switch (type) {
-      case 'autograph': return 'create';
-      case 'stick': return 'fitness';
-      case 'puck': return 'radio-button-on';
+      case 'autograph': return 'pencil'; // Изменил с 'create' на 'pencil' для автографа
+      case 'stick': return 'sports-hockey'; // Используем MaterialIcons sports-hockey для хоккейной клюшки
+      case 'puck': return 'ellipse'; // Изменил с 'radio-button-on' на 'ellipse' для шайбы
       case 'jersey': return 'shirt';
       default: return 'cube';
     }
@@ -101,19 +101,19 @@ const ItemRequestButtons: React.FC<ItemRequestButtonsProps> = ({
       
       <View style={styles.buttonsContainer}>
         <TouchableOpacity style={styles.requestButton} onPress={() => openRequestModal('autograph')}>
-          <Ionicons name="create" size={20} color="#ff4444" />
+          <Ionicons name="pencil-outline" size={24} color="#ff4444" />
           <Text style={styles.buttonText}>Автограф</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.requestButton} onPress={() => openRequestModal('stick')}>
-          <Ionicons name="fitness" size={20} color="#ff6666" />
+          <MaterialIcons name="sports-hockey" size={24} color="#ff4444" />
           <Text style={styles.buttonText}>Клюшка</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.requestButton} onPress={() => openRequestModal('puck')}>
-          <Ionicons name="radio-button-on" size={20} color="#ff8888" />
+          <Ionicons name="ellipse-outline" size={24} color="#ff4444" />
           <Text style={styles.buttonText}>Шайба</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.requestButton} onPress={() => openRequestModal('jersey')}>
-          <Ionicons name="shirt" size={20} color="#ffaaaa" />
+          <Ionicons name="shirt-outline" size={24} color="#ff4444" />
           <Text style={styles.buttonText}>Джерси</Text>
         </TouchableOpacity>
       </View>
@@ -139,11 +139,15 @@ const ItemRequestButtons: React.FC<ItemRequestButtonsProps> = ({
 
           <ScrollView style={styles.modalContent}>
             <View style={styles.itemTypeDisplay}>
-                             <Ionicons 
-                 name={getItemTypeIcon(selectedItemType) as any} 
-                 size={28} 
-                 color="#ff4444" 
-               />
+              {selectedItemType === 'stick' ? (
+                <MaterialIcons name="sports-hockey" size={28} color="#ff4444" />
+              ) : (
+                <Ionicons 
+                  name={getItemTypeIcon(selectedItemType) as any} 
+                  size={28} 
+                  color="#ff4444" 
+                />
+              )}
               <Text style={styles.itemTypeText}>
                 {getItemTypeName(selectedItemType).charAt(0).toUpperCase() + 
                  getItemTypeName(selectedItemType).slice(1)}
@@ -183,10 +187,10 @@ const ItemRequestButtons: React.FC<ItemRequestButtonsProps> = ({
             </View>
 
             <View style={styles.infoBox}>
-                             <Ionicons name="information-circle" size={18} color="#87ceeb" />
+              <Ionicons name="information-circle" size={18} color="#ff4444" />
               <Text style={styles.infoText}>
-                                 После отправки запроса звезда получит уведомление и сможет принять или отклонить ваш запрос. 
-                 Если запрос будет принят, подарок появится в вашем Музее подарков.
+                После отправки запроса звезда получит уведомление и сможет принять или отклонить ваш запрос. 
+                Если запрос будет принят, подарок появится в вашем Музее подарков.
               </Text>
             </View>
           </ScrollView>
@@ -201,38 +205,33 @@ const styles = StyleSheet.create({
     backgroundColor: '#000',
     borderRadius: 8,
     padding: 12,
-    marginHorizontal: 16,
     marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#333',
   },
   title: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#fff',
-    textAlign: 'center',
-    marginBottom: 8,
+    fontSize: 20,
+    fontFamily: 'Gilroy-Bold',
+    color: '#FF4444',
+    marginBottom: 15,
+    textAlign: 'left',
   },
   buttonsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    gap: 6,
+    gap: 8,
   },
   requestButton: {
-    flex: 1,
-    minWidth: '45%',
+    width: '48%',
     backgroundColor: '#1a1a1a',
-    borderRadius: 6,
-    padding: 8,
+    borderRadius: 8,
+    padding: 12,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#333',
+    minHeight: 60,
   },
   buttonText: {
-    marginTop: 4,
-    fontSize: 11,
-    fontWeight: '500',
+    marginTop: 6,
+    fontSize: 12,
+    fontFamily: 'Gilroy-Medium',
     color: '#fff',
     textAlign: 'center',
   },
@@ -246,8 +245,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 12,
     backgroundColor: '#1a1a1a',
-    borderBottomWidth: 1,
-    borderBottomColor: '#333',
   },
   modalTitle: {
     fontSize: 16,
@@ -294,8 +291,6 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     padding: 10,
     fontSize: 14,
-    borderWidth: 1,
-    borderColor: '#333',
     color: '#fff',
   },
   textArea: {
@@ -324,7 +319,7 @@ const styles = StyleSheet.create({
   },
   infoBox: {
     flexDirection: 'row',
-    backgroundColor: '#1a3a5a',
+    backgroundColor: '#1a1a1a',
     borderRadius: 6,
     padding: 12,
     marginTop: 16,
@@ -333,7 +328,7 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: 10,
     fontSize: 12,
-    color: '#87ceeb',
+    color: '#fff',
     lineHeight: 16,
   },
 });

@@ -4,18 +4,18 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  Alert,
-  Image,
-  ImageBackground,
-  Linking,
-  Modal,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View
+    Alert,
+    Image,
+    ImageBackground,
+    Linking,
+    Modal,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import Animated from 'react-native-reanimated';
 import AchievementsSection from '../../components/AchievementsSection';
@@ -25,6 +25,7 @@ import EditablePhotosSection from '../../components/EditablePhotosSection';
 
 
 
+import ItemRequestButtons from '../../components/ItemRequestButtons';
 import NormativesSection from '../../components/NormativesSection';
 import PastTeamsSection from '../../components/PastTeamsSection';
 import PlayerMuseum from '../../components/PlayerMuseum';
@@ -488,29 +489,7 @@ export default function PlayerProfile() {
     }
   };
 
-  const handleRequestAutograph = () => {
-    if (!currentUser || !player) {
-      showCustomAlert('Ошибка', 'Необходимо войти в профиль для отправки запроса', 'error', () => router.push('/login'));
-      return;
-    }
-    showCustomAlert(
-      'Запрос автографа', 
-      `Ваш запрос автографа от ${player.name} отправлен! Звезда получит уведомление.`,
-      'success'
-    );
-  };
 
-  const handleRequestStick = () => {
-    if (!currentUser || !player) {
-      showCustomAlert('Ошибка', 'Необходимо войти в профиль для отправки запроса', 'error', () => router.push('/login'));
-      return;
-    }
-    showCustomAlert(
-      'Запрос клюшки', 
-      `Ваш запрос клюшки от ${player.name} отправлен! Звезда получит уведомление.`,
-      'success'
-    );
-  };
 
   const handleDebugFriendRequests = async () => {
     console.log('🔧 Отладка запросов дружбы...');
@@ -1789,26 +1768,7 @@ export default function PlayerProfile() {
                     </>
                   )}
                   
-                  {player.status === 'star' ? (
-                    // Специальные кнопки для звезд
-                    <>
-                      <TouchableOpacity 
-                        style={[styles.actionButton, styles.starButton]} 
-                        onPress={handleRequestAutograph}
-                      >
-                        <Ionicons name="create-outline" size={20} color="#000" />
-                        <Text style={styles.starButtonText}>Попросить автограф</Text>
-                      </TouchableOpacity>
-                      
-                      <TouchableOpacity 
-                        style={[styles.actionButton, styles.starButton]} 
-                        onPress={handleRequestStick}
-                      >
-                        <Ionicons name="key-outline" size={20} color="#000" />
-                        <Text style={styles.starButtonText}>Попросить клюшку</Text>
-                      </TouchableOpacity>
-                    </>
-                  ) : null}
+
                 </>
               ) : !currentUser ? (
                 // Если пользователь не авторизован - показываем кнопку входа
@@ -1823,7 +1783,30 @@ export default function PlayerProfile() {
             </View>
 
             {/* Музей игрока - полученные предметы */}
-            {player && <PlayerMuseum playerId={player.id} />}
+            {/* Показываем музей только для обычных игроков, у звезд его быть не должно */}
+            {player && player.status !== 'star' && (
+              <PlayerMuseum 
+                playerId={player.id} 
+                currentUserId={currentUser?.id}
+                isOwner={currentUser?.id === player.id}
+                isAdmin={currentUser?.status === 'admin'}
+                isEditing={isEditing}
+              />
+            )}
+
+            {/* Секция запроса подарков у звезды */}
+            {player.status === 'star' && currentUser && currentUser.id !== player.id && (
+              <View style={styles.section}>
+                <ItemRequestButtons
+                  starId={player.id}
+                  playerId={currentUser.id}
+                  onRequestSent={() => {
+                    // Можно добавить логику после отправки запроса
+                    console.log('Запрос подарка отправлен');
+                  }}
+                />
+              </View>
+            )}
 
             {/* Система управления предметами для звезд */}
             {player.status === 'star' && (
@@ -2262,12 +2245,7 @@ const styles = StyleSheet.create({
     color: '#fff',
     marginLeft: 8,
   },
-  starButtonText: {
-    fontSize: 14,
-    fontFamily: 'Gilroy-Bold',
-    color: '#000', // Черный текст для кнопок звезд
-    marginLeft: 8,
-  },
+
   section: {
     backgroundColor: 'rgba(0, 0, 0, 0.9)',
     borderRadius: 15,
@@ -2468,10 +2446,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 5,
   },
-  starButton: {
-    backgroundColor: '#DAA520', // Темнее золотой
-    borderColor: '#B8860B', // Темнее оранжевый
-  },
+
   videoModalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.9)',
