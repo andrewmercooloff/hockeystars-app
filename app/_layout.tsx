@@ -189,17 +189,12 @@ export default function RootLayout() {
     }
   }, [loaded]);
 
-  // Опрос счетчиков только когда пользователь авторизован
+  // Постоянный опрос счетчиков; защита от лишних перерисовок внутри loadUser
   useEffect(() => {
     loadUser();
-    let interval: any;
-    if (currentUser) {
-      interval = setInterval(loadUser, 3000);
-    }
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [currentUser?.id]);
+    const interval = setInterval(loadUser, 3000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Обновляем счетчик уведомлений при фокусе
   useEffect(() => {
@@ -335,7 +330,10 @@ export default function RootLayout() {
               }}>
                 <Ionicons name="notifications-outline" size={size - 2} color={focused ? '#eee' : '#aaa'} />
                 {(() => {
-                  const total = (currentUser?.unreadNotificationsCount ?? 0) + (currentUser?.friendRequestsCount ?? 0) + (currentUser?.giftRequestsCount ?? 0);
+                  const total =
+                    (currentUser?.unreadNotificationsCount ?? 0) +
+                    (currentUser?.friendRequestsCount ?? 0) +
+                    (currentUser?.giftRequestsCount ?? 0);
                   if (!currentUser || total <= 0) return null;
                   const isDouble = total > 9;
                   return (
@@ -345,11 +343,11 @@ export default function RootLayout() {
                     right: -8,
                     backgroundColor: '#FF4444',
                     borderRadius: 10,
-                    width: isDouble ? 24 : 20,
+                    minWidth: isDouble ? 24 : 20,
                     height: 20,
                     justifyContent: 'center',
                     alignItems: 'center',
-                    paddingHorizontal: 2,
+                    paddingHorizontal: 4,
                   }}>
                     <Text style={{
                       color: '#fff',
