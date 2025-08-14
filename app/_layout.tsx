@@ -134,16 +134,33 @@ export default function RootLayout() {
           }
         }
         
-        setCurrentUser({ 
-          ...user, 
+        const nextUser: Player = {
+          ...user,
           unreadNotificationsCount,
           unreadMessagesCount,
           friendRequestsCount,
-          giftRequestsCount
+          giftRequestsCount,
+        };
+
+        // Избегаем лишних перерисовок, если значения не изменились
+        setCurrentUser(prev => {
+          if (
+            prev &&
+            prev.id === nextUser.id &&
+            (prev.unreadNotificationsCount || 0) === (nextUser.unreadNotificationsCount || 0) &&
+            (prev.unreadMessagesCount || 0) === (nextUser.unreadMessagesCount || 0) &&
+            (prev.friendRequestsCount || 0) === (nextUser.friendRequestsCount || 0) &&
+            (prev.giftRequestsCount || 0) === (nextUser.giftRequestsCount || 0)
+          ) {
+            return prev;
+          }
+          return nextUser;
         });
         
       } else {
-        setCurrentUser(null);
+        if (currentUser !== null) {
+          setCurrentUser(null);
+        }
       }
     } catch (error) {
       console.error('Ошибка загрузки текущего пользователя:', error);
@@ -172,12 +189,17 @@ export default function RootLayout() {
     }
   }, [loaded]);
 
+  // Опрос счетчиков только когда пользователь авторизован
   useEffect(() => {
     loadUser();
-    // Уменьшаем интервал до 3 секунд для более частого обновления счетчиков
-    const interval = setInterval(loadUser, 3000);
-    return () => clearInterval(interval);
-  }, []);
+    let interval: any;
+    if (currentUser) {
+      interval = setInterval(loadUser, 3000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [currentUser?.id]);
 
   // Обновляем счетчик уведомлений при фокусе
   useEffect(() => {
@@ -312,14 +334,18 @@ export default function RootLayout() {
                 height: size + 4,
               }}>
                 <Ionicons name="notifications-outline" size={size - 2} color={focused ? '#eee' : '#aaa'} />
-                {currentUser && (currentUser.unreadNotificationsCount > 0 || currentUser.friendRequestsCount > 0 || currentUser.giftRequestsCount > 0) && (
+                {(() => {
+                  const total = (currentUser?.unreadNotificationsCount ?? 0) + (currentUser?.friendRequestsCount ?? 0) + (currentUser?.giftRequestsCount ?? 0);
+                  if (!currentUser || total <= 0) return null;
+                  const isDouble = total > 9;
+                  return (
                   <View style={{
                     position: 'absolute',
                     top: -8,
                     right: -8,
                     backgroundColor: '#FF4444',
                     borderRadius: 10,
-                    width: (currentUser.unreadNotificationsCount || 0) + (currentUser.friendRequestsCount || 0) + (currentUser.giftRequestsCount || 0) > 9 ? 24 : 20,
+                    width: isDouble ? 24 : 20,
                     height: 20,
                     justifyContent: 'center',
                     alignItems: 'center',
@@ -327,13 +353,14 @@ export default function RootLayout() {
                   }}>
                     <Text style={{
                       color: '#fff',
-                      fontSize: (currentUser.unreadNotificationsCount || 0) + (currentUser.friendRequestsCount || 0) + (currentUser.giftRequestsCount || 0) > 9 ? 10 : 12,
+                      fontSize: isDouble ? 10 : 12,
                       fontFamily: 'Gilroy-Bold',
                     }}>
-                      {(currentUser.unreadNotificationsCount || 0) + (currentUser.friendRequestsCount || 0) + (currentUser.giftRequestsCount || 0)}
+                      {total}
                     </Text>
                   </View>
-                )}
+                  );
+                })()}
               </View>
             );
           },
