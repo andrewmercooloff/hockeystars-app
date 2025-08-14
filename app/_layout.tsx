@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
-import { SplashScreen, Tabs } from 'expo-router';
+import { SplashScreen, Tabs, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { LogBox, Text, TouchableOpacity, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -21,6 +21,7 @@ LogBox.ignoreAllLogs();
 
 
 export default function RootLayout() {
+  const router = useRouter();
   const [loaded, error] = useFonts({
     'Gilroy-Regular': require('../assets/fonts/gilroy-regular.ttf'),
     'Gilroy-Bold': require('../assets/fonts/gilroy-bold.ttf'),
@@ -275,6 +276,14 @@ export default function RootLayout() {
       />
       <Tabs.Screen
         name="messages"
+        listeners={{
+          tabPress: (e: any) => {
+            if (!currentUser) {
+              e.preventDefault();
+              router.replace('/login');
+            }
+          },
+        }}
         options={{
           headerTitle: () => <LogoHeader />,
           tabBarIcon: ({ size, focused }) => {
@@ -316,6 +325,14 @@ export default function RootLayout() {
       />
       <Tabs.Screen
         name="notifications"
+        listeners={{
+          tabPress: (e: any) => {
+            if (!currentUser) {
+              e.preventDefault();
+              router.replace('/login');
+            }
+          },
+        }}
         options={{
           headerTitle: () => <LogoHeader />,
           tabBarIcon: ({ size, focused }) => {
@@ -367,6 +384,14 @@ export default function RootLayout() {
 
       <Tabs.Screen
         name="exercises"
+        listeners={{
+          tabPress: (e: any) => {
+            if (!currentUser) {
+              e.preventDefault();
+              router.replace('/login');
+            }
+          },
+        }}
         options={{
           headerTitle: () => <LogoHeader />,
           tabBarIcon: ({ size, focused }) => (

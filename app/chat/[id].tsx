@@ -81,8 +81,7 @@ export default function ChatScreen() {
         const userData = await loadCurrentUser();
         
         if (!userData) {
-          Alert.alert('Ошибка', 'Необходимо войти в профиль');
-          router.push('/login');
+          router.replace('/login');
           return;
         }
 
@@ -182,18 +181,12 @@ export default function ChatScreen() {
     );
   }
 
-  if (!otherPlayer || !currentUser) {
-    return (
-      <View style={styles.container}>
-        <ImageBackground source={iceBg} style={styles.background} resizeMode="cover">
-          <View style={styles.overlay}>
-            <View style={styles.errorContainer}>
-              <Text style={styles.errorText}>Пользователь не найден</Text>
-            </View>
-          </View>
-        </ImageBackground>
-      </View>
-    );
+  if (!currentUser) {
+    return null;
+  }
+
+  if (!otherPlayer) {
+    return null;
   }
 
   return (

@@ -50,8 +50,7 @@ export default function MessagesScreen() {
     try {
       const user = await loadCurrentUser();
       if (!user) {
-        Alert.alert('Ошибка', 'Необходимо войти в профиль');
-        router.push('/login');
+        router.replace('/login');
         return;
       }
 
@@ -151,6 +150,11 @@ export default function MessagesScreen() {
         </ImageBackground>
       </View>
     );
+  }
+
+  // Если пользователь не авторизован, не отображаем контент экрана во время редиректа
+  if (!currentUser) {
+    return null;
   }
 
   return (

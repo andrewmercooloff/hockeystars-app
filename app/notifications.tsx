@@ -95,7 +95,6 @@ export default function NotificationsScreen() {
         if (user) {
           setCurrentUser(user);
         } else {
-          // Убираем дублирующееся сообщение об ошибке - пользователь и так попадает на вход
           router.replace('/login');
           return;
         }
@@ -115,6 +114,37 @@ export default function NotificationsScreen() {
     
     loadUser();
   }, [router]);
+
+  // Дополнительная проверка авторизации при фокусе на экран
+  useFocusEffect(
+    useCallback(() => {
+      let isActive = true;
+      const verifyAuthOnFocus = async () => {
+        try {
+          const user = await loadCurrentUser();
+          if (!user) {
+            if (isActive) {
+              setCurrentUser(null);
+              router.replace('/login');
+            }
+            return;
+          }
+          if (isActive) {
+            setCurrentUser(user);
+          }
+        } catch (e) {
+          if (isActive) {
+            setCurrentUser(null);
+            router.replace('/login');
+          }
+        }
+      };
+      verifyAuthOnFocus();
+      return () => {
+        isActive = false;
+      };
+    }, [router])
+  );
 
   // Автоматически отмечаем все уведомления как прочитанные при входе в экран
   useEffect(() => {
@@ -811,6 +841,11 @@ export default function NotificationsScreen() {
         </ImageBackground>
       </View>
     );
+  }
+
+  // Если пользователь не авторизован, не показываем пустое состояние — скрываем контент
+  if (!currentUser) {
+    return null;
   }
 
   return (

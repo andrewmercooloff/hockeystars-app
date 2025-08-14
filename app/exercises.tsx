@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
     Dimensions,
@@ -188,6 +188,35 @@ export default function ExercisesScreen() {
     
     checkAuth();
   }, [router]);
+
+  // Дополнительная проверка при фокусе на экран
+  useFocusEffect(
+    React.useCallback(() => {
+      let isActive = true;
+      const verifyAuthOnFocus = async () => {
+        try {
+          const user = await loadCurrentUser();
+          if (!user) {
+            if (isActive) {
+              setCurrentUser(null);
+              router.replace('/login');
+            }
+            return;
+          }
+          if (isActive) {
+            setCurrentUser(user);
+          }
+        } catch (e) {
+          if (isActive) {
+            setCurrentUser(null);
+            router.replace('/login');
+          }
+        }
+      };
+      verifyAuthOnFocus();
+      return () => { isActive = false; };
+    }, [router])
+  );
 
   // Показываем загрузку пока проверяем авторизацию
   if (loading) {
