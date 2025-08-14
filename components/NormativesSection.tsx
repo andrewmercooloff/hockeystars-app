@@ -130,7 +130,10 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   normativesGrid: {
-    gap: 15,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    width: '100%',
   },
   normativeItem: {
     flexDirection: 'row',
@@ -140,6 +143,9 @@ const styles = StyleSheet.create({
     padding: 15,
     borderWidth: 1,
     borderColor: 'rgba(255, 68, 68, 0.2)',
+    flexBasis: '48%',
+    maxWidth: '48%',
+    marginBottom: 12,
   },
   normativeIcon: {
     width: 50,
@@ -155,13 +161,13 @@ const styles = StyleSheet.create({
   },
   normativeLabel: {
     color: '#fff',
-    fontSize: 14,
+    fontSize: 12,
     fontFamily: 'Gilroy-Regular',
     marginBottom: 4,
   },
   normativeValue: {
     color: '#FF4444',
-    fontSize: 18,
+    fontSize: 16,
     fontFamily: 'Gilroy-Bold',
   },
 }); 
