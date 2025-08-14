@@ -19,7 +19,7 @@ import Animated, {
 import CountryFilter from '../components/CountryFilter';
 import Puck from '../components/Puck';
 import { useCountryFilter } from '../utils/CountryFilterContext';
-import { Player, fixCorruptedData, initializeStorage, loadCurrentUser, loadPlayers } from '../utils/playerStorage';
+import { Player, checkDatabaseStatus, fixCorruptedData, initializeStorage, loadCurrentUser, loadPlayers } from '../utils/playerStorage';
 
 const { width, height } = Dimensions.get('window');
 
@@ -296,6 +296,9 @@ export default function HomeScreen() {
         setLoading(true);
         await initializeStorage();
         await fixCorruptedData();
+        
+        // Добавляем диагностику базы данных
+        await checkDatabaseStatus();
         
         const [loadedPlayers, user] = await Promise.all([
           loadPlayers(),

@@ -707,20 +707,22 @@ const convertPlayerToSupabase = (player: Omit<Player, 'id' | 'unreadNotification
 // Инициализация хранилища
 export const initializeStorage = async (): Promise<void> => {
   try {
-
+    console.log('🚀 Инициализация Supabase хранилища...');
+    
+    // Проверяем подключение к Supabase
     const { data, error } = await supabase
       .from('players')
       .select('count')
       .limit(1);
     
     if (error) {
-      console.error('❌ Ошибка инициализации Supabase:', error);
+      console.error('❌ Ошибка подключения к Supabase:', error);
       throw error;
     }
     
-    // Supabase хранилище инициализировано
+    console.log('✅ Supabase хранилище инициализировано');
   } catch (error) {
-    console.error('❌ Ошибка инициализации:', error);
+    console.error('❌ Ошибка инициализации Supabase:', error);
     throw error;
   }
 };
@@ -728,40 +730,29 @@ export const initializeStorage = async (): Promise<void> => {
 // Загрузка всех игроков
 export const loadPlayers = async (): Promise<Player[]> => {
   try {
+    console.log('📊 Загружаем игроков из Supabase...');
+    
     const { data, error } = await supabase
       .from('players')
       .select('*')
       .order('created_at', { ascending: false });
     
     if (error) {
-      console.error('❌ Ошибка загрузки игроков:', error);
+      console.error('❌ Ошибка загрузки игроков из Supabase:', error);
       return [];
     }
     
-    // console.log('📊 Загружено игроков из базы:', data?.length || 0);
+    if (data) {
+      console.log('📊 Загружено игроков из Supabase:', data.length);
+      
+      // Преобразуем данные из Supabase в формат приложения
+      const players = data.map(convertSupabaseToPlayer);
+      return players;
+    }
     
-    // Преобразуем данные из Supabase в формат приложения
-    const players = (data || []).map(convertSupabaseToPlayer);
+    console.log('📊 Нет данных в Supabase');
+    return [];
     
-    // Логируем информацию об аватарах и фотографиях
-    // players.forEach(player => {
-    //   console.log(`👤 ${player.name}:`);
-    //   console.log(`   ID: ${player.id}`);
-    //   console.log(`   Аватар: ${player.avatar ? 'есть' : 'нет'} (${player.avatar || 'null'})`);
-    //   
-    //   // Проверяем фотографии
-    //   if (player.photos && player.photos.length > 0) {
-    //     console.log(`   Фотографии: ${player.photos.length} шт.`);
-    //     player.photos.forEach((photo, index) => {
-    //       console.log(`     Фото ${index + 1}: ${photo}`);
-    //     });
-    //   } else {
-    //     console.log(`   Фотографии: нет`);
-    //   }
-    //   console.log('');
-    // });
-    
-    return players;
   } catch (error) {
     console.error('❌ Ошибка загрузки игроков:', error);
     return [];
@@ -940,6 +931,21 @@ export const updatePlayer = async (id: string, updates: Partial<Player>, current
 // Поиск игрока по email и паролю
 export const findPlayerByCredentials = async (email: string, password: string): Promise<Player | null> => {
   try {
+    console.log('🔍 Поиск пользователя по учетным данным:', email);
+    console.log('🔗 Подключение к Supabase:', supabase.supabaseUrl);
+    
+    // Сначала проверим, есть ли вообще пользователи в базе
+    const { data: countData, error: countError } = await supabase
+      .from('players')
+      .select('id', { count: 'exact', head: true });
+    
+    if (countError) {
+      console.error('❌ Ошибка проверки количества пользователей:', countError);
+    } else {
+      console.log('📊 Всего пользователей в базе:', countData?.length || 0);
+    }
+    
+    // Теперь ищем конкретного пользователя
     const { data, error } = await supabase
       .from('players')
       .select('*')
@@ -948,11 +954,45 @@ export const findPlayerByCredentials = async (email: string, password: string): 
       .single();
     
     if (error) {
-      console.error('❌ Ошибка поиска игрока:', error);
+      console.error('❌ Ошибка поиска игрока в Supabase:', error);
+      console.error('❌ Детали ошибки:', {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint
+      });
       return null;
     }
     
-    return convertSupabaseToPlayer(data);
+    if (data) {
+      console.log('✅ Пользователь найден в Supabase:', data.name);
+      console.log('📋 Данные пользователя:', {
+        id: data.id,
+        name: data.name,
+        email: data.email,
+        status: data.status
+      });
+      return convertSupabaseToPlayer(data);
+    }
+    
+    console.log('❌ Пользователь не найден в Supabase');
+    console.log('🔍 Проверяем, есть ли пользователи с таким email...');
+    
+    // Проверим, есть ли пользователи с таким email
+    const { data: emailCheck, error: emailError } = await supabase
+      .from('players')
+      .select('email')
+      .eq('email', email);
+    
+    if (emailError) {
+      console.error('❌ Ошибка проверки email:', emailError);
+    } else if (emailCheck && emailCheck.length > 0) {
+      console.log('⚠️ Пользователь с таким email найден, но пароль неверный');
+    } else {
+      console.log('❌ Пользователь с таким email не найден');
+    }
+    
+    return null;
   } catch (error) {
     console.error('❌ Ошибка поиска игрока:', error);
     return null;
@@ -962,9 +1002,19 @@ export const findPlayerByCredentials = async (email: string, password: string): 
 // Сохранение текущего пользователя (в локальном хранилище для сессии)
 export const saveCurrentUser = async (user: Player): Promise<void> => {
   try {
+    console.log('💾 Сохраняем текущего пользователя в AsyncStorage:', user.name);
+    console.log('📋 Данные для сохранения:', {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      status: user.status
+    });
+    
     // Используем AsyncStorage только для текущей сессии
     const AsyncStorage = require('@react-native-async-storage/async-storage').default;
     await AsyncStorage.setItem('hockeystars_current_user', JSON.stringify(user));
+    
+    console.log('✅ Текущий пользователь успешно сохранен в AsyncStorage');
   } catch (error) {
     console.error('❌ Ошибка сохранения текущего пользователя:', error);
   }
@@ -973,32 +1023,28 @@ export const saveCurrentUser = async (user: Player): Promise<void> => {
 // Загрузка текущего пользователя
 export const loadCurrentUser = async (): Promise<Player | null> => {
   try {
+    console.log('👤 Загружаем текущего пользователя...');
+    
     // Загрузка текущего пользователя
     const AsyncStorage = require('@react-native-async-storage/async-storage').default;
     const userData = await AsyncStorage.getItem('hockeystars_current_user');
     
     if (!userData) {
+      console.log('👤 Текущий пользователь не найден в AsyncStorage');
       return null;
     }
     
     const user = JSON.parse(userData);
+    console.log('✅ Текущий пользователь загружен из AsyncStorage:', user.name);
+    console.log('📋 Данные пользователя:', {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      status: user.status
+    });
     
-    // Загружаем актуальные данные из Supabase
-    if (user && user.id) {
-      // Загружаем актуальные данные из Supabase для пользователя
-      const updatedUser = await getPlayerById(user.id);
-      if (updatedUser) {
-        // Получены актуальные данные из Supabase
-        // Логи нормативов убраны для чистоты консоли
-        // Обновляем данные в AsyncStorage
-        await saveCurrentUser(updatedUser);
-        return updatedUser;
-      } else {
-        // Не удалось получить актуальные данные из Supabase
-      }
-    }
-    
-    // Возвращаем данные из AsyncStorage
+    // Возвращаем данные из AsyncStorage без попытки обновления из Supabase
+    // Это предотвращает проблемы с авторизацией
     return user;
   } catch (error) {
     console.error('❌ Ошибка загрузки текущего пользователя:', error);
@@ -1009,8 +1055,19 @@ export const loadCurrentUser = async (): Promise<Player | null> => {
 // Выход пользователя
 export const logoutUser = async (): Promise<void> => {
   try {
+    console.log('🚪 Выход пользователя из системы...');
+    
     const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+    
+    // Проверим, есть ли данные пользователя перед удалением
+    const userData = await AsyncStorage.getItem('hockeystars_current_user');
+    if (userData) {
+      const user = JSON.parse(userData);
+      console.log('👤 Удаляем данные пользователя:', user.name);
+    }
+    
     await AsyncStorage.removeItem('hockeystars_current_user');
+    console.log('✅ Пользователь вышел из системы');
   } catch (error) {
     console.error('❌ Ошибка выхода:', error);
   }
@@ -1820,401 +1877,55 @@ export const migrateAllImagesToStorage = async (): Promise<void> => {
   } catch (error) {
     console.error('❌ Ошибка миграции изображений:', error);
   }
-}; 
+};
 
-// Функция для диагностики состояния изображений
-export const diagnoseImages = async (): Promise<void> => {
+// Проверка состояния базы данных
+export const checkDatabaseStatus = async (): Promise<void> => {
   try {
-    console.log('🔍 Диагностика состояния изображений...');
+    console.log('🔍 Проверка состояния базы данных Supabase...');
+    console.log('🔗 URL Supabase:', supabase.supabaseUrl);
     
-    // Загружаем всех игроков
-    const players = await loadPlayers();
-    console.log(`📊 Всего игроков: ${players.length}`);
-    
-    let totalAvatars = 0;
-    let localAvatars = 0;
-    let storageAvatars = 0;
-    let nullAvatars = 0;
-    
-    let totalPhotos = 0;
-    let localPhotos = 0;
-    let storagePhotos = 0;
-    
-    for (const player of players) {
-      // Анализируем аватары
-      if (player.avatar) {
-        totalAvatars++;
-        if (player.avatar.startsWith('file://') || player.avatar.startsWith('content://') || player.avatar.startsWith('data:')) {
-          localAvatars++;
-          console.log(`⚠️ Локальный аватар: ${player.name} - ${player.avatar}`);
-        } else if (player.avatar.startsWith('http')) {
-          storageAvatars++;
-          console.log(`✅ Storage аватар: ${player.name} - ${player.avatar}`);
-        }
-      } else {
-        nullAvatars++;
-        console.log(`❌ Нет аватара: ${player.name}`);
-      }
-      
-      // Анализируем фотографии
-      if (player.photos && player.photos.length > 0) {
-        totalPhotos += player.photos.length;
-        for (const photo of player.photos) {
-          if (photo.startsWith('file://') || photo.startsWith('content://') || photo.startsWith('data:')) {
-            localPhotos++;
-            console.log(`⚠️ Локальное фото: ${player.name} - ${photo}`);
-          } else if (photo.startsWith('http')) {
-            storagePhotos++;
-          }
-        }
-      }
-    }
-    
-    console.log('\n📊 Статистика изображений:');
-    console.log(`   Аватары:`);
-    console.log(`     Всего: ${totalAvatars}`);
-    console.log(`     В Storage: ${storageAvatars}`);
-    console.log(`     Локальные: ${localAvatars}`);
-    console.log(`     Отсутствуют: ${nullAvatars}`);
-    console.log(`   Фотографии:`);
-    console.log(`     Всего: ${totalPhotos}`);
-    console.log(`     В Storage: ${storagePhotos}`);
-    console.log(`     Локальные: ${localPhotos}`);
-    
-    if (localAvatars > 0 || localPhotos > 0) {
-      console.log('\n⚠️ Обнаружены локальные изображения, требующие миграции!');
-    } else {
-      console.log('\n✅ Все изображения находятся в Storage');
-    }
-    
-  } catch (error) {
-    console.error('❌ Ошибка диагностики:', error);
-  }
-}; 
-
-// Функция для очистки некорректных данных в базе
-export const cleanupDatabaseData = async (): Promise<void> => {
-  try {
-    console.log('🧹 Начинаем очистку некорректных данных...');
-    
-    // Получаем всех игроков напрямую из Supabase
+    // Проверяем подключение к таблице players
     const { data, error } = await supabase
       .from('players')
-      .select('*');
+      .select('id, name, email, status')
+      .limit(5);
     
     if (error) {
-      console.error('❌ Ошибка получения данных:', error);
-      return;
-    }
-    
-    console.log(`📊 Найдено записей для проверки: ${data?.length || 0}`);
-    
-    let updatedCount = 0;
-    
-    for (const player of data || []) {
-      const updates: any = {};
-      let hasUpdates = false;
+      console.error('❌ Ошибка подключения к таблице players:', error);
+      console.error('❌ Детали ошибки:', {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint
+      });
+    } else {
+      console.log('✅ Подключение к таблице players успешно');
+      console.log('📊 Количество пользователей в базе:', data?.length || 0);
       
-      // Исправляем пустые JSON поля
-      if (player.achievements === 'null' || player.achievements === null) {
-        updates.achievements = '[]';
-        hasUpdates = true;
-        console.log(`🔄 Исправляем achievements для ${player.name}`);
-      }
-      
-      if (player.past_teams === 'null' || player.past_teams === null) {
-        updates.past_teams = '[]';
-        hasUpdates = true;
-        console.log(`🔄 Исправляем past_teams для ${player.name}`);
-      }
-      
-      if (player.photos === 'null' || player.photos === null) {
-        updates.photos = '[]';
-        hasUpdates = true;
-        console.log(`🔄 Исправляем photos для ${player.name}`);
-      }
-      
-      // Обновляем запись, если есть изменения
-      if (hasUpdates) {
-        const { error: updateError } = await supabase
-          .from('players')
-          .update(updates)
-          .eq('id', player.id);
-        
-        if (updateError) {
-          console.error(`❌ Ошибка обновления ${player.name}:`, updateError);
-        } else {
-          updatedCount++;
-          console.log(`✅ ${player.name} обновлен`);
-        }
+      if (data && data.length > 0) {
+        console.log('👥 Первые пользователи в базе:');
+        data.forEach((player, index) => {
+          console.log(`   ${index + 1}. ${player.name} (${player.email}) - ${player.status}`);
+        });
+      } else {
+        console.log('⚠️ В базе данных нет пользователей');
       }
     }
     
-    console.log(`🎉 Очистка завершена! Обновлено записей: ${updatedCount}`);
-  } catch (error) {
-    console.error('❌ Ошибка очистки данных:', error);
-  }
-}; 
-
-// Комбинированная функция для полного исправления проблемы с изображениями
-export const fixAllImageIssues = async (): Promise<void> => {
-  try {
-    console.log('🚀 Начинаем полное исправление проблем с изображениями...');
+    // Проверяем подключение к таблице items
+    const { data: itemsData, error: itemsError } = await supabase
+      .from('items')
+      .select('id, type, owner_id')
+      .limit(1);
     
-    // Шаг 1: Очистка некорректных данных
-    console.log('\n📋 Шаг 1: Очистка некорректных данных...');
-    await cleanupDatabaseData();
-    
-    // Шаг 2: Диагностика текущего состояния
-    console.log('\n📋 Шаг 2: Диагностика текущего состояния...');
-    await diagnoseImages();
-    
-    // Шаг 3: Миграция изображений
-    console.log('\n📋 Шаг 3: Миграция изображений...');
-    await migrateAllImagesToStorage();
-    
-    // Шаг 4: Проверка и исправление URL
-    console.log('\n📋 Шаг 4: Проверка и исправление URL...');
-    await fixImageUrls();
-    
-    // Шаг 5: Обновление на публичные URL
-    console.log('\n📋 Шаг 5: Обновление на публичные URL...');
-    await updateImageUrlsToPublic();
-    
-    // Шаг 6: Финальная диагностика
-    console.log('\n📋 Шаг 6: Финальная диагностика...');
-    await diagnoseImages();
-    
-    console.log('\n🎉 Полное исправление завершено!');
-  } catch (error) {
-    console.error('❌ Ошибка полного исправления:', error);
-  }
-}; 
-
-// Функция для проверки и исправления URL изображений
-export const fixImageUrls = async (): Promise<void> => {
-  try {
-    console.log('🔧 Проверяем и исправляем URL изображений...');
-    
-    // Загружаем всех игроков
-    const players = await loadPlayers();
-    console.log(`📊 Найдено игроков: ${players.length}`);
-    
-    let fixedCount = 0;
-    
-    for (const player of players) {
-      let hasChanges = false;
-      const updates: Partial<Player> = {};
-      
-      // Проверяем аватар
-      if (player.avatar) {
-        // Если это локальный файл, пытаемся загрузить в Storage
-        if (player.avatar.startsWith('file://') || player.avatar.startsWith('content://') || player.avatar.startsWith('data:')) {
-          console.log(`🔄 Исправляем аватар игрока ${player.name}: ${player.avatar}`);
-          
-          try {
-            const { uploadImageToStorage } = await import('./uploadImage');
-            const newUrl = await uploadImageToStorage(player.avatar);
-            
-            if (newUrl) {
-              updates.avatar = newUrl;
-              hasChanges = true;
-              console.log(`✅ Аватар исправлен: ${newUrl}`);
-            } else {
-              console.log(`❌ Не удалось загрузить аватар для ${player.name}`);
-            }
-          } catch (error) {
-            console.error(`❌ Ошибка загрузки аватара для ${player.name}:`, error);
-          }
-        }
-        // Если это URL, проверяем доступность
-        else if (player.avatar.startsWith('http')) {
-          try {
-            const response = await fetch(player.avatar, { method: 'HEAD' });
-            if (!response.ok) {
-              console.log(`⚠️ Аватар недоступен для ${player.name}: ${player.avatar}`);
-              // Можно попробовать загрузить заново или оставить как есть
-            }
-          } catch (error) {
-            console.log(`⚠️ Ошибка проверки аватара для ${player.name}:`, error);
-          }
-        }
-      }
-      
-      // Проверяем фотографии
-      if (player.photos && player.photos.length > 0) {
-        const fixedPhotos = [];
-        let photosChanged = false;
-        
-        for (const photo of player.photos) {
-          if (photo.startsWith('file://') || photo.startsWith('content://') || photo.startsWith('data:')) {
-            console.log(`🔄 Исправляем фото игрока ${player.name}: ${photo}`);
-            
-            try {
-              const { uploadImageToStorage } = await import('./uploadImage');
-              const newUrl = await uploadImageToStorage(photo);
-              
-              if (newUrl) {
-                fixedPhotos.push(newUrl);
-                photosChanged = true;
-                console.log(`✅ Фото исправлено: ${newUrl}`);
-              } else {
-                console.log(`❌ Не удалось загрузить фото для ${player.name}`);
-                fixedPhotos.push(photo); // Оставляем как есть
-              }
-            } catch (error) {
-              console.error(`❌ Ошибка загрузки фото для ${player.name}:`, error);
-              fixedPhotos.push(photo); // Оставляем как есть
-            }
-          } else if (photo.startsWith('http')) {
-            // Проверяем доступность URL
-            try {
-              const response = await fetch(photo, { method: 'HEAD' });
-              if (!response.ok) {
-                console.log(`⚠️ Фото недоступно для ${player.name}: ${photo}`);
-              }
-            } catch (error) {
-              console.log(`⚠️ Ошибка проверки фото для ${player.name}:`, error);
-            }
-            fixedPhotos.push(photo);
-          } else {
-            fixedPhotos.push(photo);
-          }
-        }
-        
-        if (photosChanged) {
-          updates.photos = fixedPhotos;
-          hasChanges = true;
-        }
-      }
-      
-      // Обновляем игрока, если были изменения
-      if (hasChanges) {
-        const updatedPlayer = await updatePlayer(player.id, updates);
-        if (updatedPlayer) {
-          fixedCount++;
-          console.log(`✅ Игрок ${player.name} обновлен`);
-        }
-      }
+    if (itemsError) {
+      console.error('❌ Ошибка подключения к таблице items:', itemsError);
+    } else {
+      console.log('✅ Подключение к таблице items успешно');
     }
     
-    console.log(`🎉 Проверка завершена! Исправлено игроков: ${fixedCount}`);
   } catch (error) {
-    console.error('❌ Ошибка проверки URL изображений:', error);
-  }
-}; 
-
-// Функция для обновления URL изображений на публичные ссылки
-export const updateImageUrlsToPublic = async (): Promise<void> => {
-  try {
-    console.log('🔗 Обновляем URL изображений на публичные ссылки...');
-    
-    // Загружаем всех игроков
-    const players = await loadPlayers();
-    console.log(`📊 Найдено игроков: ${players.length}`);
-    
-    let updatedCount = 0;
-    
-    for (const player of players) {
-      let hasChanges = false;
-      const updates: Partial<Player> = {};
-      
-      // Проверяем аватар
-      if (player.avatar) {
-        // Если это локальный файл, пытаемся получить публичный URL
-        if (player.avatar.startsWith('file://') || player.avatar.startsWith('content://') || player.avatar.startsWith('data:')) {
-          console.log(`🔄 Обрабатываем локальный аватар игрока ${player.name}`);
-          
-          // Извлекаем имя файла из локального пути
-          const fileName = player.avatar.split('/').pop();
-          if (fileName) {
-            // Создаем публичный URL
-            const publicUrl = `https://jvsypfwiajuwsyuzkyda.supabase.co/storage/v1/object/public/avatars/${fileName}`;
-            
-            // Проверяем доступность URL
-            try {
-              const response = await fetch(publicUrl, { method: 'HEAD' });
-              if (response.ok) {
-                updates.avatar = publicUrl;
-                hasChanges = true;
-                console.log(`✅ Аватар обновлен на публичный URL: ${publicUrl}`);
-              } else {
-                console.log(`❌ Публичный URL недоступен для ${fileName}`);
-              }
-            } catch (error) {
-              console.log(`❌ Ошибка проверки публичного URL для ${fileName}:`, error);
-            }
-          }
-        }
-        // Если это уже URL, проверяем, что он публичный
-        else if (player.avatar.startsWith('http')) {
-          if (!player.avatar.includes('/storage/v1/object/public/')) {
-            console.log(`⚠️ Аватар ${player.name} не является публичным URL: ${player.avatar}`);
-          }
-        }
-      }
-      
-      // Проверяем фотографии
-      if (player.photos && player.photos.length > 0) {
-        const updatedPhotos = [];
-        let photosChanged = false;
-        
-        for (const photo of player.photos) {
-          if (photo.startsWith('file://') || photo.startsWith('content://') || photo.startsWith('data:')) {
-            console.log(`🔄 Обрабатываем локальное фото игрока ${player.name}`);
-            
-            // Извлекаем имя файла из локального пути
-            const fileName = photo.split('/').pop();
-            if (fileName) {
-              // Создаем публичный URL
-              const publicUrl = `https://jvsypfwiajuwsyuzkyda.supabase.co/storage/v1/object/public/avatars/${fileName}`;
-              
-              // Проверяем доступность URL
-              try {
-                const response = await fetch(publicUrl, { method: 'HEAD' });
-                if (response.ok) {
-                  updatedPhotos.push(publicUrl);
-                  photosChanged = true;
-                  console.log(`✅ Фото обновлено на публичный URL: ${publicUrl}`);
-                } else {
-                  console.log(`❌ Публичный URL недоступен для ${fileName}`);
-                  updatedPhotos.push(photo); // Оставляем как есть
-                }
-              } catch (error) {
-                console.log(`❌ Ошибка проверки публичного URL для ${fileName}:`, error);
-                updatedPhotos.push(photo); // Оставляем как есть
-              }
-            } else {
-              updatedPhotos.push(photo);
-            }
-          } else if (photo.startsWith('http')) {
-            if (!photo.includes('/storage/v1/object/public/')) {
-              console.log(`⚠️ Фото не является публичным URL: ${photo}`);
-            }
-            updatedPhotos.push(photo);
-          } else {
-            updatedPhotos.push(photo);
-          }
-        }
-        
-        if (photosChanged) {
-          updates.photos = updatedPhotos;
-          hasChanges = true;
-        }
-      }
-      
-      // Обновляем игрока, если были изменения
-      if (hasChanges) {
-        const updatedPlayer = await updatePlayer(player.id, updates);
-        if (updatedPlayer) {
-          updatedCount++;
-          console.log(`✅ Игрок ${player.name} обновлен`);
-        }
-      }
-    }
-    
-    console.log(`🎉 Обновление URL завершено! Обновлено игроков: ${updatedCount}`);
-  } catch (error) {
-    console.error('❌ Ошибка обновления URL изображений:', error);
+    console.error('❌ Ошибка проверки состояния базы данных:', error);
   }
 };

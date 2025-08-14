@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
     Alert,
@@ -31,6 +32,7 @@ interface StarItemManagerProps {
 }
 
 export default function StarItemManager({ playerId, isEditing = false, onItemsUpdated }: StarItemManagerProps) {
+  const router = useRouter();
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -77,7 +79,8 @@ export default function StarItemManager({ playerId, isEditing = false, onItemsUp
       });
       
       if (!currentUser) {
-        Alert.alert('Ошибка авторизации', 'Пожалуйста, войдите в систему');
+        // Убираем дублирующееся сообщение об ошибке - пользователь и так попадает на вход
+        router.replace('/login');
         return;
       }
       
@@ -130,7 +133,9 @@ export default function StarItemManager({ playerId, isEditing = false, onItemsUp
       // Проверяем авторизацию через playerStorage
       const currentUser = await loadCurrentUser();
       if (!currentUser) {
-        throw new Error('Пользователь не авторизован');
+        // Убираем дублирующееся сообщение об ошибке - пользователь и так попадает на вход
+        router.replace('/login');
+        return;
       }
       
       console.log('Current user ID:', currentUser.id);

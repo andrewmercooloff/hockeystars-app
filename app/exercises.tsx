@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
     Dimensions,
     ImageBackground,
@@ -10,6 +10,7 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import { loadCurrentUser } from '../utils/playerStorage';
 
 const { width } = Dimensions.get('window');
 
@@ -161,7 +162,62 @@ const categories = ['Выносливость', 'Взрывная скорост
 
 export default function ExercisesScreen() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [loading, setLoading] = useState(true);
   const router = useRouter();
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const user = await loadCurrentUser();
+        if (user) {
+          setCurrentUser(user);
+        } else {
+          // Убираем дублирующееся сообщение об ошибке - пользователь и так попадает на вход
+          router.replace('/login');
+          return;
+        }
+      } catch (error) {
+        console.error('Ошибка проверки авторизации:', error);
+        router.replace('/login');
+        return;
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    checkAuth();
+  }, [router]);
+
+  // Показываем загрузку пока проверяем авторизацию
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <ImageBackground
+          source={require('../assets/images/led.jpg')}
+          style={styles.backgroundImage}
+          resizeMode="cover"
+        >
+          <View style={styles.overlay}>
+            <View style={styles.pageHeader}>
+              <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+                <Ionicons name="arrow-back" size={24} color="#fff" />
+              </TouchableOpacity>
+              <Text style={styles.pageTitle}>Упражнения</Text>
+            </View>
+            <View style={styles.loadingContainer}>
+              <Text style={styles.loadingText}>Проверка авторизации...</Text>
+            </View>
+          </View>
+        </ImageBackground>
+      </View>
+    );
+  }
+
+  // Если пользователь не авторизован, не показываем контент
+  if (!currentUser) {
+    return null;
+  }
 
   const filteredExercises = selectedCategory
     ? exercisesData.filter(exercise => exercise.category === selectedCategory)
@@ -404,6 +460,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: 'Gilroy-Regular',
     marginLeft: 6,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    borderRadius: 10,
+    padding: 20,
+  },
+  loadingText: {
+    color: '#fff',
+    fontSize: 18,
+    fontFamily: 'Gilroy-Bold',
   },
   // Убираем неиспользуемые стили для стрелочки
 });

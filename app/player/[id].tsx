@@ -108,6 +108,12 @@ export default function PlayerProfile() {
         const playerData = await getPlayerById(id as string);
         const userData = await loadCurrentUser();
         
+        // Если игрок не найден, перенаправляем на главную
+        if (!playerData) {
+          router.replace('/');
+          return;
+        }
+        
         // Загружаем команды игрока
         if (playerData) {
           try {
@@ -267,7 +273,8 @@ export default function PlayerProfile() {
       }
     } catch (error) {
       console.error('Ошибка загрузки данных игрока:', error);
-      showCustomAlert('Ошибка', 'Не удалось загрузить данные игрока', 'error');
+      // Убираем дублирующееся сообщение об ошибке - пользователь и так попадает на главную
+      router.replace('/');
     } finally {
       setLoading(false);
     }

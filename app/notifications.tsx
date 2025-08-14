@@ -2,24 +2,24 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  Alert,
-  Image,
-  ImageBackground,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
+    Alert,
+    Image,
+    ImageBackground,
+    RefreshControl,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import {
-  acceptFriendRequest,
-  declineFriendRequest,
-  getReceivedFriendRequests,
-  loadCurrentUser,
-  loadNotifications,
-  markNotificationAsRead,
-  Player
+    acceptFriendRequest,
+    declineFriendRequest,
+    getReceivedFriendRequests,
+    loadCurrentUser,
+    loadNotifications,
+    markNotificationAsRead,
+    Player
 } from '../utils/playerStorage';
 import { supabase } from '../utils/supabase';
 
@@ -95,18 +95,26 @@ export default function NotificationsScreen() {
         if (user) {
           setCurrentUser(user);
         } else {
-          Alert.alert('Ошибка', 'Необходимо войти в профиль');
-          router.push('/login');
+          // Убираем дублирующееся сообщение об ошибке - пользователь и так попадает на вход
+          router.replace('/login');
+          return;
+        }
+        
+        // Загружаем уведомления только если пользователь авторизован
+        if (user) {
+          await loadNotificationsData();
         }
       } catch (error) {
         console.error('Ошибка загрузки пользователя:', error);
-        Alert.alert('Ошибка', 'Не удалось загрузить профиль');
-        router.push('/login');
+        router.replace('/login');
+        return;
+      } finally {
+        setLoading(false);
       }
     };
-
+    
     loadUser();
-  }, []);
+  }, [router]);
 
   // Автоматически отмечаем все уведомления как прочитанные при входе в экран
   useEffect(() => {

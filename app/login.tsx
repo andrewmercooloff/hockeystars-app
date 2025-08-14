@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 
 import { useRouter } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
     ImageBackground,
     StyleSheet,
@@ -42,124 +42,19 @@ export default function LoginScreen() {
     }, 100);
   };
 
-  // Обработчик для улучшения работы с автозаполнением на iOS
+  // Упрощенные обработчики ввода для кросс-платформенной работы (включая Web)
   const handleUsernameChange = (text: string) => {
-    setFormData({...formData, username: text});
-    // Небольшая задержка для стабилизации автозаполнения
-    setTimeout(() => {
-      if (usernameRef.current) {
-        usernameRef.current.setNativeProps({ text: text });
-      }
-    }, 100);
-  };
-
-  // Дополнительная обработка для автозаполнения
-  const handleUsernameChangeText = (text: string) => {
-    setFormData({...formData, username: text});
-    // Синхронизируем состояние с полем
-    setTimeout(() => {
-      if (usernameRef.current) {
-        try {
-          const currentText = usernameRef.current.props?.value || text;
-          if (currentText !== text) {
-            setFormData(prev => ({...prev, username: currentText}));
-          }
-        } catch (error) {
-          console.log('Ошибка синхронизации логина:', error);
-        }
-      }
-    }, 50);
+    setFormData({ ...formData, username: text });
   };
 
   const handlePasswordChange = (text: string) => {
-    setFormData({...formData, password: text});
-    // Небольшая задержка для стабилизации автозаполнения
-    setTimeout(() => {
-      if (passwordRef.current) {
-        passwordRef.current.setNativeProps({ text: text });
-      }
-    }, 100);
+    setFormData({ ...formData, password: text });
   };
 
-  // Дополнительная обработка для автозаполнения пароля
-  const handlePasswordChangeText = (text: string) => {
-    setFormData({...formData, password: text});
-    // Синхронизируем состояние с полем
-    setTimeout(() => {
-      if (passwordRef.current) {
-        try {
-          const currentText = passwordRef.current.props?.value || text;
-          if (currentText !== text) {
-            setFormData(prev => ({...prev, password: currentText}));
-          }
-        } catch (error) {
-          console.log('Ошибка синхронизации пароля:', error);
-        }
-      }
-    }, 50);
-  };
-
-  // Дополнительная стабилизация для iOS автозаполнения
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (formData.username && usernameRef.current) {
-        usernameRef.current.setNativeProps({ text: formData.username });
-      }
-      if (formData.password && passwordRef.current) {
-        passwordRef.current.setNativeProps({ text: formData.password });
-      }
-    }, 200);
-
-    return () => clearTimeout(timer);
-  }, [formData.username, formData.password]);
-
-  // Обработчик для синхронизации состояния с автозаполнением
-  const syncFormDataFromRefs = () => {
-    if (usernameRef.current && passwordRef.current) {
-      try {
-        // Получаем текущие значения из полей более безопасным способом
-        const currentUsername = usernameRef.current.props?.value || formData.username || '';
-        const currentPassword = passwordRef.current.props?.value || formData.password || '';
-        
-        // Обновляем состояние, если значения изменились
-        if (currentUsername !== formData.username || currentPassword !== formData.password) {
-          setFormData({
-            username: currentUsername,
-            password: currentPassword
-          });
-        }
-      } catch (error) {
-        console.log('Ошибка синхронизации состояния:', error);
-      }
-    }
-  };
-
-  // Синхронизируем состояние при фокусе на полях
-  const handleUsernameFocus = () => {
-    setTimeout(syncFormDataFromRefs, 100);
-  };
-
-  const handlePasswordFocus = () => {
-    setTimeout(syncFormDataFromRefs, 100);
-  };
+  // Убраны дополнительные эффекты/синхронизации, несовместимые с Web
 
   const handleLogin = async () => {
-    // Получаем актуальные значения из полей, если состояние не синхронизировано
-    let username = formData.username;
-    let password = formData.password;
-    
-    if (usernameRef.current && passwordRef.current) {
-      try {
-        const currentUsername = usernameRef.current.props?.value || '';
-        const currentPassword = passwordRef.current.props?.value || '';
-        
-        if (currentUsername && !username) username = currentUsername;
-        if (currentPassword && !password) password = currentPassword;
-      } catch (error) {
-        console.log('Ошибка получения значений из полей:', error);
-      }
-    }
-    
+    const { username, password } = formData;
     if (!username || !password) {
       setAlert({
         visible: true,
@@ -231,8 +126,7 @@ export default function LoginScreen() {
                   ref={usernameRef}
                   style={styles.input}
                   value={formData.username}
-                  onChangeText={handleUsernameChangeText}
-                  onFocus={handleUsernameFocus}
+                  onChangeText={handleUsernameChange}
                   placeholder="Введите логин"
                   placeholderTextColor="#888"
                   autoCapitalize="none"
@@ -244,7 +138,6 @@ export default function LoginScreen() {
                   enablesReturnKeyAutomatically={true}
                   clearButtonMode="while-editing"
                   onSubmitEditing={() => passwordRef.current?.focus()}
-
                 />
               </View>
 
@@ -255,8 +148,7 @@ export default function LoginScreen() {
                   ref={passwordRef}
                   style={styles.input}
                   value={formData.password}
-                  onChangeText={handlePasswordChangeText}
-                  onFocus={handlePasswordFocus}
+                  onChangeText={handlePasswordChange}
                   placeholder="Введите пароль"
                   placeholderTextColor="#888"
                   secureTextEntry={true}
@@ -268,7 +160,6 @@ export default function LoginScreen() {
                   enablesReturnKeyAutomatically={true}
                   clearButtonMode="while-editing"
                   onSubmitEditing={handleLogin}
-
                 />
               </View>
 
