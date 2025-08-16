@@ -1,16 +1,30 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
 import { SplashScreen, Tabs, useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
-import { LogBox, Text, TouchableOpacity, View } from 'react-native';
+import * as React from 'react';
+import { AppState, LogBox, Text, TouchableOpacity, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import LogoHeader from '../components/LogoHeader';
 import { CountryFilterProvider, useCountryFilter } from '../utils/CountryFilterContext';
 import { initializeStorage, loadCurrentUser, markNotificationAsRead, Player } from '../utils/playerStorage';
 import { supabase } from '../utils/supabase';
+// автоопределение включено: будет использоваться в главном экране
 
 // Отключаем все предупреждения
 LogBox.ignoreAllLogs();
+// In production, silence runtime logs to avoid noisy output
+if (typeof __DEV__ !== 'undefined' && !__DEV__) {
+  // @ts-ignore
+  (console as any).log = () => {};
+  // @ts-ignore
+  (console as any).info = () => {};
+  // @ts-ignore
+  (console as any).debug = () => {};
+  // @ts-ignore
+  (console as any).warn = () => {};
+  // @ts-ignore
+  (console as any).error = () => {};
+}
 
 
 
@@ -21,6 +35,14 @@ LogBox.ignoreAllLogs();
 
 
 export default function RootLayout() {
+  const lastUserLoadTime = React.useRef<number>(0);
+  const [appState, setAppState] = React.useState<string>(AppState.currentState);
+  React.useEffect(() => {
+    const subscription = AppState.addEventListener('change', nextAppState => {
+      setAppState(nextAppState);
+    });
+    return () => subscription?.remove();
+  }, []);
   const router = useRouter();
   const [loaded, error] = useFonts({
     'Gilroy-Regular': require('../assets/fonts/gilroy-regular.ttf'),
@@ -28,10 +50,9 @@ export default function RootLayout() {
     'SpaceMono': require('../assets/fonts/SpaceMono-Regular.ttf'),
   });
 
-  // Компонент для фильтра стран (должен быть внутри CountryFilterProvider)
-  const CountryFilterToggle = ({ size }: { size: number }) => {
+  // Компонент для фильтра стран вынесен и мемоизирован внутри функции, чтобы снизить лишние рендеры
+  const CountryFilterToggle = React.memo(({ size }: { size: number }) => {
     const { showCountryFilter, setShowCountryFilter } = useCountryFilter();
-    
     return (
       <TouchableOpacity 
         onPress={() => setShowCountryFilter(!showCountryFilter)}
@@ -53,13 +74,19 @@ export default function RootLayout() {
         />
       </TouchableOpacity>
     );
-  };
+  });
 
 
 
-  const [currentUser, setCurrentUser] = useState<Player | null>(null);
+  const [currentUser, setCurrentUser] = React.useState<Player | null>(null);
+
+  // автоопределение включено: будет использоваться в главном экране
 
   const loadUser = async () => {
+    // throttle frequent loads
+    if (Date.now() - (lastUserLoadTime.current ?? 0) < 1500) {
+      return;
+    }
     try {
       const user = await loadCurrentUser();
       if (user) {
@@ -155,6 +182,7 @@ export default function RootLayout() {
           ) {
             return prev;
           }
+          lastUserLoadTime.current = Date.now();
           return nextUser;
         });
         
@@ -182,7 +210,7 @@ export default function RootLayout() {
     }
   };
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (loaded) {
       SplashScreen.hideAsync();
       // Инициализируем хранилище при загрузке приложения
@@ -191,14 +219,19 @@ export default function RootLayout() {
   }, [loaded]);
 
   // Постоянный опрос счетчиков; защита от лишних перерисовок внутри loadUser
-  useEffect(() => {
+  React.useEffect(() => {
+    if (!loaded || appState !== 'active') return;
     loadUser();
-    const interval = setInterval(loadUser, 3000);
+    const interval = setInterval(() => {
+      if (appState === 'active') {
+        loadUser();
+      }
+    }, 3000);
     return () => clearInterval(interval);
-  }, []);
+  }, [loaded, appState]);
 
   // Обновляем счетчик уведомлений при фокусе
-  useEffect(() => {
+  React.useEffect(() => {
     if (currentUser) {
       loadUser();
       
@@ -213,13 +246,13 @@ export default function RootLayout() {
   }, [currentUser?.id]);
 
   // Обновляем счетчики при фокусе на экране сообщений
-  useEffect(() => {
+  React.useEffect(() => {
     // Главный экран получил фокус
     refreshCounters();
   }, []);
 
   // Принудительно обновляем счетчик уведомлений при фокусе на главном экране
-  useEffect(() => {
+  React.useEffect(() => {
     // При фокусе на главном экране обновляем счетчик уведомлений
     if (currentUser) {
       loadUser();
@@ -234,7 +267,7 @@ export default function RootLayout() {
   }, [currentUser]);
 
   // Обработчик события для обновления счетчика уведомлений
-  useEffect(() => {
+  React.useEffect(() => {
     // Просто обновляем счетчики каждые 3 секунды
     // Это уже реализовано в основном useEffect выше
   }, []);

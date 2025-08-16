@@ -258,56 +258,56 @@ const PlayerMuseum: React.FC<PlayerMuseumProps> = ({
             </View>
       
       <ScrollView style={styles.scrollView} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
-        {museumItems.map((item) => (
-          <View key={item.id} style={styles.itemCard}>
-            {item.item.image_url ? (
-              <Image source={{ uri: item.item.image_url }} style={styles.itemImage} />
-            ) : (
-              <View style={styles.placeholderImage}>
-                <Text style={styles.placeholderText}>?</Text>
-              </View>
-            )}
-            
-            <Text style={styles.itemSource}>
-              {item.item.name} от {item.received_from.name}
-            </Text>
-            
-            {/* Индикация некорректного подарка */}
-            {!item.item.image_url && (
-              <Text style={styles.warningText}>
-                ⚠️ Некорректный подарок (без изображения)
+        <View style={styles.gridContainer}>
+          {museumItems.map((item) => (
+            <View key={item.id} style={styles.itemCard}>
+              {item.item.image_url ? (
+                <Image source={{ uri: item.item.image_url }} style={styles.itemImage} />
+              ) : (
+                <View style={styles.placeholderImage}>
+                  <Text style={styles.placeholderText}>?</Text>
+                </View>
+              )}
+              
+              <Text style={styles.itemSource} numberOfLines={2}>
+                {item.item.name} от {item.received_from.name}
               </Text>
-            )}
-            
-            {/* Кнопка удаления для владельца профиля или администратора (только в режиме редактирования) */}
-            {(isOwner || isAdmin) && isEditing && (
-              <TouchableOpacity 
-                style={styles.deleteButton}
-                onPress={() => {
-                  const itemName = item.item.image_url ? 'подарок' : 'некорректный подарок';
-                  Alert.alert(
-                    'Удалить подарок',
-                    `Вы уверены, что хотите удалить этот ${itemName} из музея?`,
-                    [
-                      { text: 'Отмена', style: 'cancel' },
-                      { 
-                        text: 'Удалить', 
-                        style: 'destructive',
-                        onPress: () => deleteMuseumItem(item.id, item.item.id)
-                      }
-                    ]
-                  );
-                }}
-              >
-                <Ionicons 
-                  name="trash-outline" 
-                  size={16} 
-                  color={item.item.image_url ? "#FF4444" : "#FF8800"} 
-                />
-              </TouchableOpacity>
-            )}
-          </View>
-        ))}
+              
+              {!item.item.image_url && (
+                <Text style={styles.warningText}>
+                  ⚠️ Некорректный подарок (без изображения)
+                </Text>
+              )}
+              
+              {(isOwner || isAdmin) && isEditing && (
+                <TouchableOpacity 
+                  style={styles.deleteButton}
+                  onPress={() => {
+                    const itemName = item.item.image_url ? 'подарок' : 'некорректный подарок';
+                    Alert.alert(
+                      'Удалить подарок',
+                      `Вы уверены, что хотите удалить этот ${itemName} из музея?`,
+                      [
+                        { text: 'Отмена', style: 'cancel' },
+                        { 
+                          text: 'Удалить', 
+                          style: 'destructive',
+                          onPress: () => deleteMuseumItem(item.id, item.item.id)
+                        }
+                      ]
+                    );
+                  }}
+                >
+                  <Ionicons 
+                    name="trash-outline" 
+                    size={16} 
+                    color={item.item.image_url ? "#FF4444" : "#FF8800"} 
+                  />
+                </TouchableOpacity>
+              )}
+            </View>
+          ))}
+        </View>
       </ScrollView>
     </View>
   );
@@ -353,20 +353,26 @@ const styles = StyleSheet.create({
   scrollView: { 
     flex: 1 
   },
+  gridContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
   itemCard: {
     alignItems: 'center',
     marginBottom: 20,
     position: 'relative', // Для позиционирования кнопки удаления
+    width: '48%',
   },
   itemImage: {
-    width: width * 0.3, // 30% от ширины экрана
-    height: width * 0.3,
+    width: '100%',
+    aspectRatio: 1,
     borderRadius: 12,
     marginBottom: 8,
   },
   placeholderImage: {
-    width: width * 0.3,
-    height: width * 0.3,
+    width: '100%',
+    aspectRatio: 1,
     backgroundColor: '#FF8800',
     justifyContent: 'center',
     alignItems: 'center',

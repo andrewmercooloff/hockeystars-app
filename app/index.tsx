@@ -1,8 +1,9 @@
 
 import { Ionicons } from '@expo/vector-icons';
+import '../utils/logSilencer';
 
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import {
     Dimensions,
     ImageBackground,
@@ -17,9 +18,11 @@ import Animated, {
     useAnimatedStyle
 } from 'react-native-reanimated';
 import CountryFilter from '../components/CountryFilter';
-import Puck from '../components/Puck';
 import { useCountryFilter } from '../utils/CountryFilterContext';
+import { countryCodeToCountryName, detectCountryFromIP } from '../utils/countryUtils';
 import { Player, checkDatabaseStatus, fixCorruptedData, initializeStorage, loadCurrentUser, loadPlayers } from '../utils/playerStorage';
+// Lazy load Puck component to improve initial render performance
+const Puck = React.lazy(() => import('../components/Puck'));
 
 const { width, height } = Dimensions.get('window');
 
@@ -218,7 +221,8 @@ const PuckAnimator = ({ player, position, onNav }: {
 
   return (
     <Animated.View style={[styles.puckContainer, animatedStyle]}>
-      <Puck
+      <Suspense fallback={null}>
+        <Puck
                         avatar={player.avatar}
         onPress={onNav}
         animatedStyle={animatedStyle}
@@ -236,7 +240,8 @@ const PuckAnimator = ({ player, position, onNav }: {
           })() : undefined}
         isStar={player.status === 'star'}
         status={player.status}
-      />
+        />
+      </Suspense>
     </Animated.View>
   );
 };
@@ -254,10 +259,35 @@ export default function HomeScreen() {
   const [refreshKey, setRefreshKey] = useState(0);
   const { selectedCountry, setSelectedCountry, showCountryFilter, setShowCountryFilter } = useCountryFilter();
 
+  // Auto-detect country on first load if not already selected
+  React.useEffect(() => {
+    let mounted = true;
+    const run = async () => {
+      try {
+        if (selectedCountry) return;
+        const code = await detectCountryFromIP();
+        if (code && mounted) {
+          const countryName = countryCodeToCountryName(code) ?? code;
+          if (countryName) {
+            setSelectedCountry(countryName);
+          }
+        }
+      } catch {
+        // ignore
+      }
+    };
+    run();
+    return () => {
+      mounted = false;
+    };
+  }, [selectedCountry, setSelectedCountry]);
+
   // Фильтруем игроков по выбранной стране
   const filteredPlayers = useMemo(() => {
     if (!selectedCountry) return players;
-    return players.filter(player => player.country === selectedCountry);
+    const byCountry = players.filter(player => player.country === selectedCountry);
+    // fallback: если для выбранной страны нет игроков, показываем всех
+    return byCountry.length > 0 ? byCountry : players;
   }, [players, selectedCountry]);
 
   const { puckPositions = [] } = usePuckCollisionSystem(filteredPlayers);
@@ -307,6 +337,10 @@ export default function HomeScreen() {
         
         setPlayers(loadedPlayers);
         setCurrentUser(user);
+        // Если пользователь авторизован и страна фильтра ещё не выбрана, устанавливаем страну пользователя как дефолтную
+        if (!selectedCountry && user?.country) {
+          setSelectedCountry(user.country);
+        }
       } catch (error) {
         console.error('❌ Ошибка инициализации:', error);
       } finally {
