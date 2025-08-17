@@ -244,7 +244,7 @@ export default function EditablePhotosSection({
 
   return (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>Фотографии</Text>
+      <Text style={styles.sectionTitle}>Хоккейные фото</Text>
       
              {isEditing && (
          <>

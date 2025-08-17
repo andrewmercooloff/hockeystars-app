@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
     Alert,
     Image,
@@ -1218,36 +1218,40 @@ export default function PlayerProfile() {
 
             {/* Секция команд */}
             {(playerTeams.length > 0 || pastTeams.length > 0 || (isEditing && (currentUser?.status === 'admin' || currentUser?.id === player.id))) && (
-              <View style={styles.section}>
+              <View style={styles.teamsSection}>
                 <Text style={styles.teamsSectionTitle}>Команды</Text>
                 
                 {isEditing && (currentUser?.status === 'admin' || currentUser?.id === player.id) ? (
                   <>
                     {/* Текущие команды */}
-                    <Text style={styles.subsectionTitle}>Текущие команды</Text>
-                    <CurrentTeamsSection
-                      currentTeams={playerTeams}
-                      onCurrentTeamsChange={setPlayerTeams}
-                      onMoveToPastTeams={(team) => {
-                
-                        setPastTeams(prev => [...prev, team]);
-                      }}
-                      readOnly={false}
-                      isEditing={true}
-                    />
+                    <View style={styles.teamsSubsection}>
+                      <Text style={styles.subsectionTitle}>Текущие команды</Text>
+                      <CurrentTeamsSection
+                        currentTeams={playerTeams}
+                        onCurrentTeamsChange={setPlayerTeams}
+                        onMoveToPastTeams={(team) => {
+                  
+                          setPastTeams(prev => [...prev, team]);
+                        }}
+                        readOnly={false}
+                        isEditing={true}
+                      />
+                    </View>
                     
                     {/* Прошлые команды */}
-                    <Text style={styles.subsectionTitle}>Прошлые команды</Text>
-                    <PastTeamsSection
-                      pastTeams={pastTeams}
-                      isEditing={isEditing}
-                      onPastTeamsChange={setPastTeams}
-                      onMoveToCurrentTeams={(team) => {
-                
-                        setPlayerTeams(prev => [...prev, team]);
-                      }}
-                      readOnly={false}
-                    />
+                    <View style={styles.teamsSubsection}>
+                      <Text style={styles.subsectionTitle}>Прошлые команды</Text>
+                      <PastTeamsSection
+                        pastTeams={pastTeams}
+                        isEditing={isEditing}
+                        onPastTeamsChange={setPastTeams}
+                        onMoveToCurrentTeams={(team) => {
+                  
+                          setPastTeams(prev => [...prev, team]);
+                        }}
+                        readOnly={false}
+                      />
+                    </View>
                   </>
                 ) : (
                   <>
@@ -1583,6 +1587,7 @@ export default function PlayerProfile() {
                 (player.plankTime && player.plankTime !== '0' && player.plankTime !== '' && player.plankTime !== 'null') ||
                 (player.sprint100m && player.sprint100m !== '0' && player.sprint100m !== '' && player.sprint100m !== 'null') ||
                 (player.longJump && player.longJump !== '0' && player.longJump !== '' && player.longJump !== 'null') ||
+                (player.jumpRope && player.jumpRope !== '0' && player.jumpRope !== '' && player.jumpRope !== 'null') ||
                 (isEditing && (currentUser?.status === 'admin' || currentUser?.id === player.id)) ? (
                   isEditing && (currentUser?.status === 'admin' || currentUser?.id === player.id) ? (
                     // Редактируемая версия нормативов
@@ -1639,6 +1644,16 @@ export default function PlayerProfile() {
                             keyboardType="numeric"
                           />
                         </View>
+                        <View style={styles.infoItem}>
+                          <Text style={styles.infoLabel}>Скакалка</Text>
+                          <TextInput
+                            style={styles.editInput}
+                            value={editData.jumpRope !== undefined ? editData.jumpRope : (player.jumpRope || '')}
+                            onChangeText={(text) => setEditData({...editData, jumpRope: text})}
+                            placeholder="Количество раз"
+                            keyboardType="numeric"
+                          />
+                        </View>
                       </View>
                     </View>
                   ) : (
@@ -1648,6 +1663,7 @@ export default function PlayerProfile() {
                       plankTime={player.plankTime}
                       sprint100m={player.sprint100m}
                       longJump={player.longJump}
+                      jumpRope={player.jumpRope}
                     />
                   )
                 ) : null // Не показываем секцию, если данных нет
@@ -1664,7 +1680,6 @@ export default function PlayerProfile() {
                 </View>
               )
             ) : null}
-
 
 
 
@@ -1790,8 +1805,8 @@ export default function PlayerProfile() {
             </View>
 
             {/* Музей игрока - полученные предметы */}
-            {/* Показываем музей только для обычных игроков, у звезд его быть не должно */}
-            {player && player.status !== 'star' && (
+            {/* Показываем музей только для обычных игроков, у звезд, тренеров, скаутов его быть не должно */}
+            {player && player.status === 'player' && (
               <PlayerMuseum 
                 playerId={player.id} 
                 currentUserId={currentUser?.id}
@@ -2269,6 +2284,7 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
     elevation: 5,
   },
+
   sectionTitle: {
     fontSize: 20,
     fontFamily: 'Gilroy-Bold',
@@ -2690,8 +2706,20 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   teamsSection: {
-    marginTop: 15,
-    paddingHorizontal: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    borderRadius: 15,
+    padding: 20,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   modalCancelButton: {
     marginTop: 20,
@@ -2711,6 +2739,10 @@ const styles = StyleSheet.create({
     color: '#fff',
     marginBottom: 8,
     marginTop: 8,
+  },
+  // Стили для контейнеров команд в режиме редактирования
+  teamsSubsection: {
+    marginBottom: 15,
   },
   teamsListContainer: {
     marginBottom: 10,
@@ -2793,5 +2825,6 @@ const styles = StyleSheet.create({
     fontFamily: 'Gilroy-Bold',
     color: '#fff',
   },
+
 
 }); 

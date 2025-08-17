@@ -30,6 +30,7 @@ export interface SupabasePlayer {
   plank_time?: number;
   sprint_100m?: number;
   long_jump?: number;
+  jump_rope?: number;
   favorite_goals?: string;
   photos?: string;
   number?: string;
@@ -109,6 +110,7 @@ export interface Player {
   plankTime?: string;
   sprint100m?: string;
   longJump?: string;
+  jumpRope?: string;
   favoriteGoals?: string;
   photos?: string[];
   number?: string;
@@ -205,6 +207,7 @@ const convertSupabaseToPlayer = (supabasePlayer: SupabasePlayer): Player => {
     plankTime: supabasePlayer.plank_time && String(supabasePlayer.plank_time) !== '0' && String(supabasePlayer.plank_time) !== 'null' ? supabasePlayer.plank_time.toString() : '',
     sprint100m: supabasePlayer.sprint_100m && String(supabasePlayer.sprint_100m) !== '0' && String(supabasePlayer.sprint_100m) !== 'null' ? supabasePlayer.sprint_100m.toString() : '',
     longJump: supabasePlayer.long_jump && String(supabasePlayer.long_jump) !== '0' && String(supabasePlayer.long_jump) !== 'null' ? supabasePlayer.long_jump.toString() : '',
+    jumpRope: supabasePlayer.jump_rope && String(supabasePlayer.jump_rope) !== '0' && String(supabasePlayer.jump_rope) !== 'null' ? supabasePlayer.jump_rope.toString() : '',
     favoriteGoals: supabasePlayer.favorite_goals && supabasePlayer.favorite_goals.trim() !== '' ? supabasePlayer.favorite_goals : '',
     photos: supabasePlayer.photos && supabasePlayer.photos !== '[]' && supabasePlayer.photos !== 'null' ? 
       (() => {
@@ -400,77 +403,63 @@ export const addPlayerTeam = async (playerId: string, teamId: string, isPrimary:
     
     
     
-    // Сначала проверяем, существует ли уже такая запись
-    const { data: existingTeam, error: checkError } = await supabase
+    // Проверяем, есть ли пересечение годов с существующими записями
+    const { data: existingTeams, error: checkError } = await supabase
       .from('player_teams')
       .select('*')
       .eq('player_id', playerId)
-      .eq('team_id', teamId)
-      .single();
+      .eq('team_id', teamId);
     
-    if (checkError && checkError.code !== 'PGRST116') { // PGRST116 = no rows returned
-      console.error('❌ Ошибка проверки существующей команды:', checkError);
+    if (checkError) {
+      console.error('❌ Ошибка проверки существующих команд:', checkError);
       return false;
     }
     
-    if (existingTeam) {
-      console.log('🔄 Команда уже существует, обновляем статус');
-      // Обновляем существующую запись
-      const updateData: any = {
-        is_primary: isPrimary,
-        joined_date: new Date().toISOString().split('T')[0]
-      };
+    // Проверяем пересечение годов
+    if (existingTeams && existingTeams.length > 0) {
+      const hasOverlap = existingTeams.some(existing => {
+        const existingStart = existing.start_year || 0;
+        const existingEnd = existing.end_year || 9999;
+        const newStart = startYear || 0;
+        const newEnd = endYear || 9999;
+        
+        // Проверяем, пересекаются ли периоды
+        return (newStart <= existingEnd && newEnd >= existingStart);
+      });
       
-      // Добавляем годы только если они переданы
-      if (startYear !== undefined) {
-        updateData.start_year = startYear;
-      }
-      if (endYear !== undefined) {
-        updateData.end_year = endYear;
-      }
-      
-      const { error: updateError } = await supabase
-        .from('player_teams')
-        .update(updateData)
-        .eq('player_id', playerId)
-        .eq('team_id', teamId);
-      
-      if (updateError) {
-        console.error('❌ Ошибка обновления команды игроку:', updateError);
+      if (hasOverlap) {
+        console.error('❌ Игрок уже состоит в этой команде в указанный период времени');
         return false;
       }
-      
-
-      return true;
-    } else {
-      // Создаем новую запись
-      const insertData: any = {
-        player_id: playerId,
-        team_id: teamId,
-        is_primary: isPrimary,
-        joined_date: new Date().toISOString().split('T')[0]
-      };
-      
-      // Добавляем годы только если они переданы
-      if (startYear !== undefined) {
-        insertData.start_year = startYear;
-      }
-      if (endYear !== undefined) {
-        insertData.end_year = endYear;
-      }
-      
-      const { error: insertError } = await supabase
-        .from('player_teams')
-        .insert(insertData);
-      
-      if (insertError) {
-        console.error('❌ Ошибка добавления команды игроку:', insertError);
-        return false;
-      }
-      
-
-      return true;
     }
+    
+    // Создаем новую запись (теперь можно добавлять одну команду несколько раз с разными годами)
+    const insertData: any = {
+      player_id: playerId,
+      team_id: teamId,
+      is_primary: isPrimary,
+      joined_date: new Date().toISOString().split('T')[0]
+    };
+    
+    // Добавляем годы только если они переданы
+    if (startYear !== undefined) {
+      insertData.start_year = startYear;
+    }
+    if (endYear !== undefined) {
+      insertData.end_year = endYear;
+    }
+    
+    const { error: insertError } = await supabase
+      .from('player_teams')
+      .insert(insertData);
+    
+    if (insertError) {
+      console.error('❌ Ошибка добавления команды игроку:', insertError);
+      return false;
+    }
+    
+    console.log('✅ Команда успешно добавлена игроку');
+    return true;
   } catch (error) {
     console.error('❌ Ошибка добавления команды игроку:', error);
     return false;
@@ -698,6 +687,7 @@ const convertPlayerToSupabase = (player: Omit<Player, 'id' | 'unreadNotification
     plank_time: player.plankTime ? parseInt(player.plankTime) : 0,
     sprint_100m: player.sprint100m ? parseFloat(player.sprint100m) : 0,
     long_jump: player.longJump ? parseInt(player.longJump) : 0,
+    jump_rope: player.jumpRope ? parseInt(player.jumpRope) : 0,
     favorite_goals: player.favoriteGoals || '',
     photos: player.photos && player.photos.length > 0 ? JSON.stringify(player.photos) : '[]',
     number: player.number || ''
@@ -876,6 +866,7 @@ export const updatePlayer = async (id: string, updates: Partial<Player>, current
     if (updates.plankTime !== undefined) supabaseUpdates.plank_time = parseInt(updates.plankTime) || 0;
     if (updates.sprint100m !== undefined) supabaseUpdates.sprint_100m = parseFloat(updates.sprint100m) || 0;
     if (updates.longJump !== undefined) supabaseUpdates.long_jump = parseInt(updates.longJump) || 0;
+    if (updates.jumpRope !== undefined) supabaseUpdates.jump_rope = parseInt(updates.jumpRope) || 0;
     if (updates.favoriteGoals !== undefined) supabaseUpdates.favorite_goals = updates.favoriteGoals;
     if (updates.photos !== undefined) supabaseUpdates.photos = updates.photos && updates.photos.length > 0 ? JSON.stringify(updates.photos) : '[]';
     if (updates.number !== undefined) supabaseUpdates.number = updates.number;
@@ -966,12 +957,7 @@ export const findPlayerByCredentials = async (email: string, password: string): 
     
     if (data) {
       console.log('✅ Пользователь найден в Supabase:', data.name);
-      console.log('📋 Данные пользователя:', {
-        id: data.id,
-        name: data.name,
-        email: data.email,
-        status: data.status
-      });
+      // Логируем детали только при успешном входе, не при каждой проверке
       return convertSupabaseToPlayer(data);
     }
     
@@ -1002,19 +988,31 @@ export const findPlayerByCredentials = async (email: string, password: string): 
 // Сохранение текущего пользователя (в локальном хранилище для сессии)
 export const saveCurrentUser = async (user: Player): Promise<void> => {
   try {
-    console.log('💾 Сохраняем текущего пользователя в AsyncStorage:', user.name);
-    console.log('📋 Данные для сохранения:', {
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      status: user.status
-    });
-    
-    // Используем AsyncStorage только для текущей сессии
+    // Проверяем, изменились ли данные пользователя
     const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+    const existingData = await AsyncStorage.getItem('hockeystars_current_user');
+    
+    if (existingData) {
+      const existingUser = JSON.parse(existingData);
+      // Логируем только если данные действительно изменились
+      if (existingUser.id !== user.id || existingUser.status !== user.status) {
+        console.log('💾 Обновляем данные пользователя в AsyncStorage:', user.name);
+        console.log('📋 Изменения:', {
+          id: user.id,
+          name: user.name,
+          status: user.status
+        });
+      }
+    } else {
+      console.log('💾 Сохраняем нового пользователя в AsyncStorage:', user.name);
+    }
+    
     await AsyncStorage.setItem('hockeystars_current_user', JSON.stringify(user));
     
-    console.log('✅ Текущий пользователь успешно сохранен в AsyncStorage');
+    // Очищаем кэш при изменении пользователя
+    await AsyncStorage.removeItem('hockeystars_user_cache');
+    
+    console.log('✅ Пользователь успешно сохранен в AsyncStorage');
   } catch (error) {
     console.error('❌ Ошибка сохранения текущего пользователя:', error);
   }
@@ -1023,10 +1021,26 @@ export const saveCurrentUser = async (user: Player): Promise<void> => {
 // Загрузка текущего пользователя
 export const loadCurrentUser = async (): Promise<Player | null> => {
   try {
+    // Кэшируем результат на короткое время, чтобы избежать повторных логов
+    const cacheKey = 'hockeystars_user_cache';
+    const cacheTime = 30000; // 30 секунд кэша
+    
+    // Проверяем кэш
+    const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+    const cachedData = await AsyncStorage.getItem(cacheKey);
+    
+    if (cachedData) {
+      const { user, timestamp } = JSON.parse(cachedData);
+      if (Date.now() - timestamp < cacheTime) {
+        // Возвращаем кэшированные данные без логирования
+        return user;
+      }
+    }
+    
+    // Логируем только при реальной загрузке
     console.log('👤 Загружаем текущего пользователя...');
     
     // Загрузка текущего пользователя
-    const AsyncStorage = require('@react-native-async-storage/async-storage').default;
     const userData = await AsyncStorage.getItem('hockeystars_current_user');
     
     if (!userData) {
@@ -1036,15 +1050,27 @@ export const loadCurrentUser = async (): Promise<Player | null> => {
     
     const user = JSON.parse(userData);
     console.log('✅ Текущий пользователь загружен из AsyncStorage:', user.name);
-    console.log('📋 Данные пользователя:', {
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      status: user.status
-    });
     
-    // Возвращаем данные из AsyncStorage без попытки обновления из Supabase
-    // Это предотвращает проблемы с авторизацией
+    // Логируем детали только при первом заходе или изменении пользователя
+    const lastUserKey = 'hockeystars_last_user_id';
+    const lastUserId = await AsyncStorage.getItem(lastUserKey);
+    
+    if (lastUserId !== user.id) {
+      console.log('📋 Данные пользователя:', {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        status: user.status
+      });
+      await AsyncStorage.setItem(lastUserKey, user.id);
+    }
+    
+    // Кэшируем результат
+    await AsyncStorage.setItem(cacheKey, JSON.stringify({
+      user,
+      timestamp: Date.now()
+    }));
+    
     return user;
   } catch (error) {
     console.error('❌ Ошибка загрузки текущего пользователя:', error);
@@ -1066,7 +1092,11 @@ export const logoutUser = async (): Promise<void> => {
       console.log('👤 Удаляем данные пользователя:', user.name);
     }
     
+    // Очищаем все связанные данные
     await AsyncStorage.removeItem('hockeystars_current_user');
+    await AsyncStorage.removeItem('hockeystars_user_cache');
+    await AsyncStorage.removeItem('hockeystars_last_user_id');
+    
     console.log('✅ Пользователь вышел из системы');
   } catch (error) {
     console.error('❌ Ошибка выхода:', error);

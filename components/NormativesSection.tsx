@@ -1,9 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import {
-    StyleSheet,
-    Text,
-    View,
+  StyleSheet,
+  Text,
+  View,
 } from 'react-native';
 
 interface NormativesSectionProps {
@@ -12,6 +12,7 @@ interface NormativesSectionProps {
   plankTime?: string;
   sprint100m?: string;
   longJump?: string;
+  jumpRope?: string;
 }
 
 export default function NormativesSection({
@@ -20,8 +21,9 @@ export default function NormativesSection({
   plankTime,
   sprint100m,
   longJump,
+  jumpRope,
 }: NormativesSectionProps) {
-  const hasAnyNormative = pullUps || pushUps || plankTime || sprint100m || longJump;
+  const hasAnyNormative = pullUps || pushUps || plankTime || sprint100m || longJump || jumpRope;
 
   if (!hasAnyNormative) {
     return null;
@@ -88,6 +90,18 @@ export default function NormativesSection({
             <View style={styles.normativeContent}>
               <Text style={styles.normativeLabel}>Прыжок в длину</Text>
               <Text style={styles.normativeValue}>{longJump} см</Text>
+            </View>
+          </View>
+        )}
+
+        {jumpRope && (
+          <View style={styles.normativeItem}>
+            <View style={styles.normativeIcon}>
+              <Ionicons name="infinite-outline" size={24} color="#FF4444" />
+            </View>
+            <View style={styles.normativeContent}>
+              <Text style={styles.normativeLabel}>Скакалка</Text>
+              <Text style={styles.normativeValue}>{jumpRope} раз</Text>
             </View>
           </View>
         )}

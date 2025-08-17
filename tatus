@@ -322,3 +322,28 @@
  TAB ...................................... Complete filename & cycle.
  SHIFT-TAB ...................... ESC-TAB   Complete filename & reverse cycle.
  ctrl-L ................................... Complete filename, list all.
+warning: in the working copy of 'components/PlayerMuseum.tsx', LF will be replaced by CRLF the next time Git touches it
+[1mdiff --git a/components/PlayerMuseum.tsx b/components/PlayerMuseum.tsx[m
+[1mindex e62aa41..d174411 100644[m
+[1m--- a/components/PlayerMuseum.tsx[m
+[1m+++ b/components/PlayerMuseum.tsx[m
+[36m@@ -64,8 +64,8 @@[m [mconst PlayerMuseum: React.FC<PlayerMuseumProps> = ({[m
+           .eq('id', playerId)[m
+           .single();[m
+         [m
+[31m-        if (!error && playerData && playerData.status === 'star') {[m
+[31m-          // Если это звезда, не загружаем музей[m
+[32m+[m[32m        if (!error && playerData && playerData.status !== 'player') {[m
+[32m+[m[32m          // Если это не обычный игрок (звезда, тренер, скаут), не загружаем музей[m
+           setIsStar(true);[m
+           setLoading(false);[m
+           return;[m
+[36m@@ -209,7 +209,7 @@[m [mconst PlayerMuseum: React.FC<PlayerMuseumProps> = ({[m
+     );[m
+   }[m
+ [m
+[31m-  // Не показываем музей для звезд[m
+[32m+[m[32m  // Не показываем музей для звезд, тренеров, скаутов[m
+   if (isStar) {[m
+     return null;[m
+   }[m

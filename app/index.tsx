@@ -375,16 +375,17 @@ export default function HomeScreen() {
   useEffect(() => {
     const interval = setInterval(() => {
       refreshPlayers();
-      checkForNewUser();
-    }, 5000); // Проверяем каждые 5 секунд
+      // Убираем частую проверку пользователя - только при необходимости
+      // checkForNewUser();
+    }, 10000); // Увеличиваем до 10 секунд
 
     return () => clearInterval(interval);
-  }, [refreshPlayers, checkForNewUser]);
+  }, [refreshPlayers]);
 
   useEffect(() => {
     const interval = setInterval(() => {
       checkForNewUser();
-    }, 60000); // Увеличиваем интервал до 1 минуты
+    }, 300000); // Увеличиваем до 5 минут (300 секунд)
 
     return () => clearInterval(interval);
   }, [checkForNewUser]);

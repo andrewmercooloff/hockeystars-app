@@ -40,11 +40,11 @@ async function checkDatabase() {
       console.log('   plank_time:', player.plank_time, '(тип:', typeof player.plank_time, ')');
       console.log('   sprint_100m:', player.sprint_100m, '(тип:', typeof player.sprint_100m, ')');
       console.log('   long_jump:', player.long_jump, '(тип:', typeof player.long_jump, ')');
+      console.log('   jump_rope:', player.jump_rope, '(тип:', typeof player.jump_rope, ')');
       
       // Проверяем видео
       console.log('\n🎥 Видео моментов (в БД):');
-      console.log('   favorite_goals:', player.favorite_goals);
-      console.log('   favorite_goals тип:', typeof player.favorite_goals);
+      console.log('   favorite_goals:', player.favorite_goals, '(тип:', typeof player.favorite_goals, ')');
       if (player.favorite_goals) {
         console.log('   favorite_goals.length:', player.favorite_goals.length);
         console.log('   favorite_goals.trim():', player.favorite_goals.trim());

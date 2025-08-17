@@ -64,8 +64,8 @@ const PlayerMuseum: React.FC<PlayerMuseumProps> = ({
           .eq('id', playerId)
           .single();
         
-        if (!error && playerData && playerData.status === 'star') {
-          // Если это звезда, не загружаем музей
+        if (!error && playerData && playerData.status !== 'player') {
+          // Если это не обычный игрок (звезда, тренер, скаут), не загружаем музей
           setIsStar(true);
           setLoading(false);
           return;
@@ -209,7 +209,7 @@ const PlayerMuseum: React.FC<PlayerMuseumProps> = ({
     );
   }
 
-  // Не показываем музей для звезд
+  // Не показываем музей для звезд, тренеров, скаутов
   if (isStar) {
     return null;
   }

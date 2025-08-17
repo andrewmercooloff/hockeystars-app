@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
     Alert,
     Modal,
@@ -498,7 +498,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   teamsList: {
-    maxHeight: 300,
+    flexGrow: 1,
   },
   teamItem: {
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
