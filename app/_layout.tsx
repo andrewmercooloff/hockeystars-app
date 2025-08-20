@@ -417,6 +417,16 @@ export default function RootLayout() {
         />
 
         <Tabs.Screen
+          name="search"
+          options={{
+            headerTitle: () => <LogoHeader />,
+            tabBarIcon: ({ size, focused }) => (
+              <Ionicons name="search-outline" size={size - 2} color={focused ? '#eee' : '#aaa'} />
+            ),
+          }}
+        />
+
+        <Tabs.Screen
           name="exercises"
           listeners={{
             tabPress: (e: any) => {

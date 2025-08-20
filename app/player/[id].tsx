@@ -1900,15 +1900,24 @@ export default function PlayerProfile() {
               </>
             )}
 
-            {/* Кнопка "написать сообщение" в самом конце */}
+            {/* Кнопка "написать сообщение" */}
             {currentUser && currentUser.id !== player.id && player.status !== 'star' && (
               <View style={{ marginTop: 10, marginBottom: 20 }}>
                 <TouchableOpacity 
                   style={styles.actionButton} 
-                  onPress={handleSendMessage}
+                  onPress={() => {
+                    router.push({ 
+                      pathname: '/chat/[id]', 
+                      params: { id: player.id } 
+                    });
+                  }}
                 >
                   <Ionicons name="chatbubble-outline" size={20} color="#fff" />
-                  <Text style={styles.actionButtonText}>Написать сообщение</Text>
+                  <Text style={styles.actionButtonText}>
+                    {player.status === 'admin' 
+                      ? 'Написать в техподдержку' 
+                      : 'Написать сообщение'}
+                  </Text>
                 </TouchableOpacity>
               </View>
             )}

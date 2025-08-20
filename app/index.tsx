@@ -5,20 +5,22 @@ import '../utils/logSilencer';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import {
-    Dimensions,
-    ImageBackground,
-    Modal,
-    Platform,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  Dimensions,
+  ImageBackground,
+  Modal,
+  Platform,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import Animated, {
-    useAnimatedStyle
+  useAnimatedStyle
 } from 'react-native-reanimated';
 import CountryFilter from '../components/CountryFilter';
+import YearFilter from '../components/YearFilter';
 import { useCountryFilter } from '../utils/CountryFilterContext';
+import { useYearFilter } from '../utils/YearFilterContext';
 import { countryCodeToCountryName, detectCountryFromIP } from '../utils/countryUtils';
 import { Player, checkDatabaseStatus, fixCorruptedData, initializeStorage, loadCurrentUser, loadPlayers } from '../utils/playerStorage';
 // Lazy load Puck component to improve initial render performance
@@ -258,6 +260,149 @@ export default function HomeScreen() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const { selectedCountry, setSelectedCountry, showCountryFilter, setShowCountryFilter } = useCountryFilter();
+  const { selectedYear, setSelectedYear, showYearFilter, setShowYearFilter } = useYearFilter();
+
+  // Состояние для управления годами рождения
+  const [currentYearIndex, setCurrentYearIndex] = useState(0);
+  const birthYears = useMemo(() => {
+    const years = [];
+    for (let year = 2019; year >= 2008; year--) {
+      years.push(year);
+    }
+    return years;
+  }, []);
+
+  // Группировка игроков по годам рождения
+  const playersByYear = useMemo(() => {
+    const grouped: Record<number, Player[]> = {};
+    
+    // Инициализируем все годы
+    birthYears.forEach((year: number) => {
+      grouped[year] = [];
+    });
+    
+    // Группируем игроков по годам рождения
+    players.forEach(player => {
+      if (player.birthDate) {
+        try {
+          // Парсим дату рождения (формат: YYYY-MM-DD из базы данных)
+          if (/^\d{4}-\d{2}-\d{2}$/.test(player.birthDate)) {
+            const birthYear = parseInt(player.birthDate.split('-')[0]);
+            if (birthYear >= 2008 && birthYear <= 2019) {
+              if (!grouped[birthYear]) {
+                grouped[birthYear] = [];
+              }
+              grouped[birthYear].push(player);
+              console.log(`📅 Игрок ${player.name} добавлен в группу ${birthYear} года (${player.birthDate})`);
+            }
+          }
+          // Также поддерживаем старый формат DD.MM.YYYY для обратной совместимости
+          else if (player.birthDate.includes('.')) {
+            const parts = player.birthDate.split('.');
+            if (parts.length === 3) {
+              const birthYear = parseInt(parts[2]);
+              if (birthYear >= 2008 && birthYear <= 2019) {
+                if (!grouped[birthYear]) {
+                  grouped[birthYear] = [];
+                }
+                grouped[birthYear].push(player);
+                console.log(`📅 Игрок ${player.name} добавлен в группу ${birthYear} года (${player.birthDate})`);
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Ошибка парсинга даты рождения:', error);
+        }
+      } else {
+        console.log(`⚠️ Игрок ${player.name} без даты рождения`);
+      }
+    });
+    
+    // Выводим статистику по группам
+    Object.keys(grouped).forEach(year => {
+      const yearNum = parseInt(year);
+      if (grouped[yearNum].length > 0) {
+        console.log(`📊 Группа ${year} года: ${grouped[yearNum].length} игроков`);
+      }
+    });
+    
+    return grouped;
+  }, [players, birthYears]);
+
+
+
+  // Фильтрация игроков
+  const filteredPlayers = useMemo(() => {
+    const filtered = players.filter(player => {
+      // Администратор всегда виден
+      if (player.status === 'admin') return true;
+
+      // Фильтр по стране
+      const matchesCountry = !selectedCountry || player.country === selectedCountry;
+      
+      // Фильтр по году
+      const matchesYear = !selectedYear || 
+        (player.birthDate && player.birthDate.startsWith(selectedYear));
+      
+      return matchesCountry && matchesYear;
+    });
+
+    return filtered;
+  }, [players, selectedCountry, selectedYear]);
+
+  // Объединяем отфильтрованных игроков с тренерами и звездами
+  const allVisiblePlayers = useMemo(() => {
+    const filtered = [...filteredPlayers];
+    
+    // Добавляем тренеров и звезд, если их нет в отфильтрованном списке
+    const coachesAndStarsList = players.filter(player => 
+      player.status === 'coach' || player.status === 'star'
+    );
+    
+    console.log(`👥 Объединяем игроков: отфильтровано ${filtered.length}, тренеров и звезд ${coachesAndStarsList.length}`);
+    
+    coachesAndStarsList.forEach(player => {
+      if (!filtered.find(p => p.id === player.id)) {
+        filtered.push(player);
+      }
+    });
+    
+    console.log(`🎯 Итого видимых игроков: ${filtered.length}`);
+    return filtered;
+  }, [filteredPlayers, players]); // Упрощаем зависимости
+
+  // Автоматически сбрасываем фильтр по годам, если в выбранной стране нет игроков указанного года
+  useEffect(() => {
+    if (selectedCountry && selectedYear && players.length > 0) {
+      const hasPlayersInYear = players.some(player => {
+        if (player.country === selectedCountry && player.birthDate) {
+          try {
+            // Парсим дату рождения (формат: YYYY-MM-DD из базы данных)
+            if (/^\d{4}-\d{2}-\d{2}$/.test(player.birthDate)) {
+              const birthYear = parseInt(player.birthDate.split('-')[0]);
+              return birthYear === selectedYear;
+            }
+            // Также поддерживаем старый формат DD.MM.YYYY для обратной совместимости
+            else if (player.birthDate.includes('.')) {
+              const parts = player.birthDate.split('.');
+              if (parts.length === 3) {
+                const birthYear = parseInt(parts[2]);
+                return birthYear === selectedYear;
+              }
+            }
+          } catch (error) {
+            console.error('Ошибка парсинга даты рождения:', error);
+          }
+        }
+        return false;
+      });
+      
+      if (!hasPlayersInYear) {
+        console.log(`⚠️ В стране ${selectedCountry} нет игроков ${selectedYear} года, сбрасываем фильтр по году`);
+        setSelectedYear(null);
+      }
+    }
+  }, [selectedCountry, selectedYear, players.length]); // Зависим только от длины массива игроков, а не от самого массива
 
   // Auto-detect country on first load if not already selected
   React.useEffect(() => {
@@ -282,15 +427,9 @@ export default function HomeScreen() {
     };
   }, [selectedCountry, setSelectedCountry]);
 
-  // Фильтруем игроков по выбранной стране
-  const filteredPlayers = useMemo(() => {
-    if (!selectedCountry) return players;
-    const byCountry = players.filter(player => player.country === selectedCountry);
-    // fallback: если для выбранной страны нет игроков, показываем всех
-    return byCountry.length > 0 ? byCountry : players;
-  }, [players, selectedCountry]);
 
-  const { puckPositions = [] } = usePuckCollisionSystem(filteredPlayers);
+
+  const { puckPositions = [] } = usePuckCollisionSystem(allVisiblePlayers);
 
 
 
@@ -301,9 +440,13 @@ export default function HomeScreen() {
       // console.log(`✅ Загружено игроков: ${loadedPlayers.length}`);
       
       // Добавляем отладочную информацию для каждого игрока
-      // loadedPlayers.forEach(player => {
-      //   console.log(`👤 Игрок: ${player.name}, Голы: ${player.goals}, Передачи: ${player.assists}, Команда: ${player.team}`);
-      // });
+      loadedPlayers.forEach(player => {
+        if (player.birthDate) {
+          console.log(`👤 Игрок: ${player.name}, Дата рождения: ${player.birthDate}, Страна: ${player.country}`);
+        } else {
+          console.log(`👤 Игрок: ${player.name}, Без даты рождения, Страна: ${player.country}`);
+        }
+      });
       
       setPlayers(loadedPlayers);
     } catch (error) {
@@ -337,10 +480,50 @@ export default function HomeScreen() {
         
         setPlayers(loadedPlayers);
         setCurrentUser(user);
-        // Если пользователь авторизован и страна фильтра ещё не выбрана, устанавливаем страну пользователя как дефолтную
-        if (!selectedCountry && user?.country) {
-          setSelectedCountry(user.country);
+        
+        console.log(`🚀 Инициализация завершена: ${loadedPlayers.length} игроков, пользователь: ${user?.name || 'не авторизован'}`);
+        
+        // Устанавливаем значения по умолчанию только если они не установлены
+        if (!selectedCountry) {
+          if (user?.country) {
+            setSelectedCountry(user.country);
+          } else {
+            setSelectedCountry('Беларусь');
+          }
         }
+        
+        if (!selectedYear) {
+          if (user?.birthDate) {
+            try {
+              if (/^\d{4}-\d{2}-\d{2}$/.test(user.birthDate)) {
+                const birthYear = parseInt(user.birthDate.split('-')[0]);
+                if (birthYear >= 2008 && birthYear <= 2019) {
+                  setSelectedYear(birthYear);
+                } else {
+                  setSelectedYear(2012);
+                }
+              } else if (user.birthDate.includes('.')) {
+                const parts = user.birthDate.split('.');
+                if (parts.length === 3) {
+                  const birthYear = parseInt(parts[2]);
+                  if (birthYear >= 2008 && birthYear <= 2019) {
+                    setSelectedYear(birthYear);
+                  } else {
+                    setSelectedYear(2012);
+                  }
+                }
+              }
+            } catch (error) {
+              console.error('Ошибка парсинга даты рождения пользователя:', error);
+              setSelectedYear(2012);
+            }
+          } else {
+            setSelectedYear(2012);
+          }
+        }
+        
+        // Убираем сложную логику проверки фильтров - она может вызывать бесконечные циклы
+        // Вместо этого просто устанавливаем значения по умолчанию
       } catch (error) {
         console.error('❌ Ошибка инициализации:', error);
       } finally {
@@ -348,11 +531,10 @@ export default function HomeScreen() {
       }
     };
     initializeApp();
-  }, []);
+  }, []); // Пустой массив зависимостей - выполняется только один раз при монтировании
 
   useFocusEffect(
     useCallback(() => {
-      // console.log('🔄 Обновление данных при фокусе на экране...');
       refreshPlayers();
       checkForNewUser();
     }, [refreshPlayers, checkForNewUser])
@@ -361,7 +543,6 @@ export default function HomeScreen() {
   // Обработка параметра refresh для принудительного обновления
   useEffect(() => {
     if (params.refresh) {
-      // console.log('🔄 Принудительное обновление данных после входа...');
       refreshPlayers();
       checkForNewUser();
       // Очищаем параметр refresh после использования
@@ -371,21 +552,19 @@ export default function HomeScreen() {
     }
   }, [params.refresh, refreshPlayers, checkForNewUser, router]);
 
-  // Добавляем более частую проверку обновлений данных
-  useEffect(() => {
-    const interval = setInterval(() => {
-      refreshPlayers();
-      // Убираем частую проверку пользователя - только при необходимости
-      // checkForNewUser();
-    }, 10000); // Увеличиваем до 10 секунд
+  // Убираем частую проверку обновлений данных - только при необходимости
+  // useEffect(() => {
+  //   const interval = setInterval(() => {
+  //     refreshPlayers();
+  //   }, 10000);
+  //   return () => clearInterval(interval);
+  // }, [refreshPlayers]);
 
-    return () => clearInterval(interval);
-  }, [refreshPlayers]);
-
+  // Проверяем пользователя реже
   useEffect(() => {
     const interval = setInterval(() => {
       checkForNewUser();
-    }, 300000); // Увеличиваем до 5 минут (300 секунд)
+    }, 300000); // 5 минут
 
     return () => clearInterval(interval);
   }, [checkForNewUser]);
@@ -416,31 +595,36 @@ export default function HomeScreen() {
         resizeMode="cover"
         onLoad={() => setImageLoaded(true)}
       >
-        {/* Иконка глобуса для фильтра стран в правом верхнем углу */}
-        <TouchableOpacity
-          style={styles.globeButton}
-          onPress={() => setShowCountryFilter(!showCountryFilter)}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="earth" size={28} color="#fff" />
-        </TouchableOpacity>
 
 
 
-        {/* Показываем сообщение, если нет игроков из выбранной страны */}
-        {selectedCountry && filteredPlayers.length === 0 && (
+        {/* Фильтры */}
+        <View style={styles.filtersWrapper}>
+          <View style={styles.filtersContainer}>
+            <CountryFilter players={players} />
+            <YearFilter players={players} />
+          </View>
+        </View>
+
+        {/* Показываем сообщение, если нет игроков по выбранным фильтрам */}
+        {filteredPlayers.length === 0 && (selectedCountry || selectedYear) && (
           <View style={styles.noPlayersContainer}>
             <Text style={styles.noPlayersText}>
-              Нет игроков из {selectedCountry}
+              {selectedCountry && selectedYear 
+                ? `Нет игроков из ${selectedCountry} в ${selectedYear} году`
+                : selectedCountry 
+                  ? `Нет игроков из ${selectedCountry}`
+                  : `Нет игроков ${selectedYear} года рождения`
+              }
             </Text>
             <Text style={styles.noPlayersSubtext}>
-              Лед пуст. Выберите другую страну или сбросьте фильтр.
+              Лед пуст. Выберите другую страну или год, или сбросьте фильтры.
             </Text>
           </View>
         )}
 
         {puckPositions.map((position) => {
-          const player = filteredPlayers.find(p => p.id === position.id);
+          const player = allVisiblePlayers.find(p => p.id === position.id);
           if (!player) return null;
           
           return (
@@ -458,9 +642,6 @@ export default function HomeScreen() {
             />
           );
         })}
-
-        {/* Компонент фильтра стран */}
-        <CountryFilter players={players} />
 
         <Modal
           visible={showAuthModal}
@@ -626,34 +807,89 @@ const styles = StyleSheet.create({
 
   noPlayersContainer: {
     position: 'absolute',
-    top: '50%',
-    left: 0,
-    right: 0,
+    top: '60%', // Позиционируем ниже фильтров
+    left: '50%',
+    transform: [{ translateX: -150 }, { translateY: -50 }],
+    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+    borderRadius: 20,
+    paddingHorizontal: 25,
+    paddingVertical: 20,
     alignItems: 'center',
-    zIndex: 5,
+    zIndex: 10,
+    maxWidth: 300,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 6,
   },
   noPlayersText: {
     color: '#fff',
-    fontSize: 20,
+    fontSize: 16,
     fontFamily: 'Gilroy-Bold',
-    marginBottom: 10,
+    textAlign: 'center',
+    marginBottom: 8,
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   noPlayersSubtext: {
     color: '#ccc',
-    fontSize: 16,
+    fontSize: 14,
     fontFamily: 'Gilroy-Regular',
     textAlign: 'center',
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 1,
   },
-  globeButton: {
+
+  innerBorder: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderWidth: 6,
+    borderColor: '#666',
+    borderRadius: 60,
+    pointerEvents: 'none',
+  },
+
+  filtersWrapper: {
     position: 'absolute',
     top: 20,
-    left: 40,
-    backgroundColor: '#FF4444',
-    borderRadius: 25,
-    width: 50,
-    height: 50,
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 15,
+    left: 20,
+    right: 20,
+    zIndex: 10,
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
   },
+  filtersContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8, // Уменьшаем отступ между фильтрами
+  },
+  filterButton: {
+    // Удалено
+  },
+  filterButtonText: {
+    // Удалено
+  },
+  filterButtonIcon: {
+    // Удалено
+  },
+  filtersHint: {
+    // Удалено
+  },
+  filtersHintText: {
+    // Удалено
+  },
+  filtersHintSubtext: {
+    // Удалено
+  },
+
+
+
 });
