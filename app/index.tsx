@@ -56,7 +56,7 @@ const usePuckCollisionSystem = (players: Player[]) => {
       return {
         leftOffset: 10,
         topOffset: 10,
-        rightOffset: 160,
+        rightOffset: 250, // Увеличиваем с 160 до 250
         bottomOffset: 425
       };
     }
@@ -160,14 +160,14 @@ const usePuckCollisionSystem = (players: Player[]) => {
               const overlap = collisionDistance - distance;
               
               // Отталкивание при столкновении
-              const pushForce = overlap * 0.2;
+              const pushForce = overlap * 0.1; // Уменьшаем с 0.2 до 0.1
               newVx += Math.cos(angle) * pushForce;
               newVy += Math.sin(angle) * pushForce;
               
               // Принудительное разделение только при сильном наложении
               const separationThreshold = Platform.OS === 'ios' ? puckSize * 0.6 : puckSize * 0.3;
               if (distance < separationThreshold) {
-                const separationForce = (puckSize - distance) * 0.1;
+                const separationForce = (puckSize - distance) * 0.05; // Уменьшаем с 0.1 до 0.05
                 newX += Math.cos(angle) * separationForce;
                 newY += Math.sin(angle) * separationForce;
               }
@@ -354,9 +354,10 @@ export default function HomeScreen() {
   const allVisiblePlayers = useMemo(() => {
     const filtered = [...filteredPlayers];
     
-    // Добавляем тренеров и звезд, если их нет в отфильтрованном списке
+    // Добавляем тренеров и звезд только если их страна совпадает с выбранной
     const coachesAndStarsList = players.filter(player => 
-      player.status === 'coach' || player.status === 'star'
+      (player.status === 'coach' || player.status === 'star') &&
+      (!selectedCountry || player.country === selectedCountry)
     );
     
     console.log(`👥 Объединяем игроков: отфильтровано ${filtered.length}, тренеров и звезд ${coachesAndStarsList.length}`);
@@ -369,7 +370,7 @@ export default function HomeScreen() {
     
     console.log(`🎯 Итого видимых игроков: ${filtered.length}`);
     return filtered;
-  }, [filteredPlayers, players]); // Упрощаем зависимости
+  }, [filteredPlayers, players, selectedCountry]);
 
   // Автоматически сбрасываем фильтр по годам, если в выбранной стране нет игроков указанного года
   useEffect(() => {
@@ -595,8 +596,8 @@ export default function HomeScreen() {
         resizeMode="cover"
         onLoad={() => setImageLoaded(true)}
       >
-
-
+        {/* Внутренняя граница */}
+        <View style={styles.innerBorder} />
 
         {/* Фильтры */}
         <View style={styles.filtersWrapper}>
@@ -685,19 +686,28 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#000',
+    overflow: 'hidden', // Добавляем overflow: hidden
   },
   hockeyRink: {
     flex: 1,
     width: '100%',
     height: '100%',
-    borderRadius: 60,
+    borderRadius: 50,
     overflow: 'hidden',
-    borderWidth: 6,
-    borderColor: '#666',
+    // Убираем border
+    // borderWidth: 6,
+    // borderColor: 'rgba(102, 102, 102, 0.5)',
   },
-
-  puckContainer: {
+  innerBorder: {
     position: 'absolute',
+    top: 8,
+    left: 8,
+    right: 8,
+    bottom: 8,
+    borderRadius: 42,
+    borderWidth: 1, // Толщина 1 пиксель
+    borderColor: 'rgba(255, 255, 255, 1)', // Полностью белый, без прозрачности
+    pointerEvents: 'none',
   },
   logoPuckContainer: {
     position: 'absolute',
@@ -845,16 +855,8 @@ const styles = StyleSheet.create({
     textShadowRadius: 1,
   },
 
-  innerBorder: {
+  puckContainer: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    borderWidth: 6,
-    borderColor: '#666',
-    borderRadius: 60,
-    pointerEvents: 'none',
   },
 
   filtersWrapper: {
