@@ -1,5 +1,4 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import {
     FlatList,
@@ -10,6 +9,7 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 import { loadPlayers, Player } from '../utils/playerStorage';
 
 // Компонент для фильтра
