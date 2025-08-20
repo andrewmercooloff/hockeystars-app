@@ -1,11 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
-import { SplashScreen, Tabs, useRouter } from 'expo-router';
+import { Tabs, useRouter } from 'expo-router';
 import * as React from 'react';
 import { AppState, LogBox, Text, TouchableOpacity, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import LogoHeader from '../components/LogoHeader';
 import { CountryFilterProvider, useCountryFilter } from '../utils/CountryFilterContext';
+import { YearFilterProvider } from '../utils/YearFilterContext';
 import { initializeStorage, loadCurrentUser, markNotificationAsRead, Player } from '../utils/playerStorage';
 import { supabase } from '../utils/supabase';
 // автоопределение включено: будет использоваться в главном экране
@@ -212,7 +213,6 @@ export default function RootLayout() {
 
   React.useEffect(() => {
     if (loaded) {
-      SplashScreen.hideAsync();
       // Инициализируем хранилище при загрузке приложения
       initializeStorage();
     }
@@ -277,233 +277,235 @@ export default function RootLayout() {
   }
 
   return (
-    <CountryFilterProvider>
-      <GestureHandlerRootView style={{ flex: 1 }}>
-        <Tabs
-        screenOptions={{
-          headerStyle: { backgroundColor: '#000', height: 128 },
-          headerTitleAlign: 'center',
-          tabBarStyle: { backgroundColor: '#000', borderTopWidth: 0 },
-          tabBarActiveTintColor: '#fff',
-          tabBarInactiveTintColor: '#888',
-          tabBarShowLabel: false, // Убираем подписи к иконкам
-        }}
-      >
-      <Tabs.Screen
-        name="index"
-        options={{
-          headerTitle: () => <LogoHeader />,
-          tabBarIcon: ({ size }) => (
-            <View style={{
-              backgroundColor: '#FF4444',
-              borderRadius: 20,
-              width: 40,
-              height: 40,
-              justifyContent: 'center',
-              alignItems: 'center',
-            }}>
-              <Ionicons name="home" size={size - 2} color="#fff" />
-            </View>
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="messages"
-        listeners={{
-          tabPress: (e: any) => {
-            if (!currentUser) {
-              e.preventDefault();
-              router.replace('/login');
-            }
-          },
-        }}
-        options={{
-          headerTitle: () => <LogoHeader />,
-          tabBarIcon: ({ size, focused }) => {
-            // Рендерим иконку сообщений
-            return (
+    <YearFilterProvider>
+      <CountryFilterProvider>
+        <GestureHandlerRootView style={{ flex: 1 }}>
+          <Tabs
+          screenOptions={{
+            headerStyle: { backgroundColor: '#000', height: 128 },
+            headerTitleAlign: 'center',
+            tabBarStyle: { backgroundColor: '#000', borderTopWidth: 0 },
+            tabBarActiveTintColor: '#fff',
+            tabBarInactiveTintColor: '#888',
+            tabBarShowLabel: false, // Убираем подписи к иконкам
+          }}
+        >
+        <Tabs.Screen
+          name="index"
+          options={{
+            headerTitle: () => <LogoHeader />,
+            tabBarIcon: ({ size }) => (
               <View style={{
-                position: 'relative',
+                backgroundColor: '#FF4444',
+                borderRadius: 20,
+                width: 40,
+                height: 40,
                 justifyContent: 'center',
                 alignItems: 'center',
-                width: size + 4,
-                height: size + 4,
               }}>
-                <Ionicons name="chatbubble-outline" size={size - 2} color={focused ? '#eee' : '#aaa'} />
-                {currentUser && currentUser.unreadMessagesCount && currentUser.unreadMessagesCount > 0 && (
-                  <View style={{
-                    position: 'absolute',
-                    top: -8,
-                    right: -8,
-                    backgroundColor: '#FF4444',
-                    borderRadius: 10,
-                    width: 20,
-                    height: 20,
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                  }}>
-                    <Text style={{
-                      color: '#fff',
-                      fontSize: 12,
-                      fontFamily: 'Gilroy-Bold',
-                    }}>
-                      {currentUser.unreadMessagesCount}
-                    </Text>
-                  </View>
-                )}
+                <Ionicons name="home" size={size - 2} color="#fff" />
               </View>
-            );
-          },
-        }}
-      />
-      <Tabs.Screen
-        name="notifications"
-        listeners={{
-          tabPress: (e: any) => {
-            if (!currentUser) {
-              e.preventDefault();
-              router.replace('/login');
-            }
-          },
-        }}
-        options={{
-          headerTitle: () => <LogoHeader />,
-          tabBarIcon: ({ size, focused }) => {
-            // Рендерим только иконку уведомлений
-            return (
-              <View style={{
-                position: 'relative',
-                justifyContent: 'center',
-                alignItems: 'center',
-                width: size + 4,
-                height: size + 4,
-              }}>
-                <Ionicons name="notifications-outline" size={size - 2} color={focused ? '#eee' : '#aaa'} />
-                {(() => {
-                  const total =
-                    (currentUser?.unreadNotificationsCount ?? 0) +
-                    (currentUser?.friendRequestsCount ?? 0) +
-                    (currentUser?.giftRequestsCount ?? 0);
-                  if (!currentUser || total <= 0) return null;
-                  const isDouble = total > 9;
-                  return (
-                  <View style={{
-                    position: 'absolute',
-                    top: -8,
-                    right: -8,
-                    backgroundColor: '#FF4444',
-                    borderRadius: 10,
-                    minWidth: isDouble ? 24 : 20,
-                    height: 20,
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    paddingHorizontal: 4,
-                  }}>
-                    <Text style={{
-                      color: '#fff',
-                      fontSize: isDouble ? 10 : 12,
-                      fontFamily: 'Gilroy-Bold',
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="messages"
+          listeners={{
+            tabPress: (e: any) => {
+              if (!currentUser) {
+                e.preventDefault();
+                router.replace('/login');
+              }
+            },
+          }}
+          options={{
+            headerTitle: () => <LogoHeader />,
+            tabBarIcon: ({ size, focused }) => {
+              // Рендерим иконку сообщений
+              return (
+                <View style={{
+                  position: 'relative',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  width: size + 4,
+                  height: size + 4,
+                }}>
+                  <Ionicons name="chatbubble-outline" size={size - 2} color={focused ? '#eee' : '#aaa'} />
+                  {currentUser && currentUser.unreadMessagesCount && currentUser.unreadMessagesCount > 0 && (
+                    <View style={{
+                      position: 'absolute',
+                      top: -8,
+                      right: -8,
+                      backgroundColor: '#FF4444',
+                      borderRadius: 10,
+                      width: 20,
+                      height: 20,
+                      justifyContent: 'center',
+                      alignItems: 'center',
                     }}>
-                      {total}
-                    </Text>
-                  </View>
-                  );
-                })()}
-              </View>
-            );
-          },
-        }}
-      />
+                      <Text style={{
+                        color: '#fff',
+                        fontSize: 12,
+                        fontFamily: 'Gilroy-Bold',
+                      }}>
+                        {currentUser.unreadMessagesCount}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              );
+            },
+          }}
+        />
+        <Tabs.Screen
+          name="notifications"
+          listeners={{
+            tabPress: (e: any) => {
+              if (!currentUser) {
+                e.preventDefault();
+                router.replace('/login');
+              }
+            },
+          }}
+          options={{
+            headerTitle: () => <LogoHeader />,
+            tabBarIcon: ({ size, focused }) => {
+              // Рендерим только иконку уведомлений
+              return (
+                <View style={{
+                  position: 'relative',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  width: size + 4,
+                  height: size + 4,
+                }}>
+                  <Ionicons name="notifications-outline" size={size - 2} color={focused ? '#eee' : '#aaa'} />
+                  {(() => {
+                    const total =
+                      (currentUser?.unreadNotificationsCount ?? 0) +
+                      (currentUser?.friendRequestsCount ?? 0) +
+                      (currentUser?.giftRequestsCount ?? 0);
+                    if (!currentUser || total <= 0) return null;
+                    const isDouble = total > 9;
+                    return (
+                    <View style={{
+                      position: 'absolute',
+                      top: -8,
+                      right: -8,
+                      backgroundColor: '#FF4444',
+                      borderRadius: 10,
+                      minWidth: isDouble ? 24 : 20,
+                      height: 20,
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      paddingHorizontal: 4,
+                    }}>
+                      <Text style={{
+                        color: '#fff',
+                        fontSize: isDouble ? 10 : 12,
+                        fontFamily: 'Gilroy-Bold',
+                      }}>
+                        {total}
+                      </Text>
+                    </View>
+                    );
+                  })()}
+                </View>
+              );
+            },
+          }}
+        />
 
-      <Tabs.Screen
-        name="exercises"
-        listeners={{
-          tabPress: (e: any) => {
-            if (!currentUser) {
-              e.preventDefault();
-              router.replace('/login');
-            }
-          },
-        }}
-        options={{
-          headerTitle: () => <LogoHeader />,
-          tabBarIcon: ({ size, focused }) => (
-            <Ionicons name="barbell-outline" size={size - 2} color={focused ? '#eee' : '#aaa'} />
-          ),
-        }}
-      />
+        <Tabs.Screen
+          name="exercises"
+          listeners={{
+            tabPress: (e: any) => {
+              if (!currentUser) {
+                e.preventDefault();
+                router.replace('/login');
+              }
+            },
+          }}
+          options={{
+            headerTitle: () => <LogoHeader />,
+            tabBarIcon: ({ size, focused }) => (
+              <Ionicons name="barbell-outline" size={size - 2} color={focused ? '#eee' : '#aaa'} />
+            ),
+          }}
+        />
 
-      <Tabs.Screen
-        name="exercise-details"
-        options={{
-          href: null,
-          headerTitle: () => <LogoHeader />,
-        }}
-      />
+        <Tabs.Screen
+          name="exercise-details"
+          options={{
+            href: null,
+            headerTitle: () => <LogoHeader />,
+          }}
+        />
 
-      <Tabs.Screen
-        name="login"
-        options={{
-          href: null,
-          headerTitle: () => <LogoHeader />,
-        }}
-      />
-      <Tabs.Screen
-        name="register"
-        options={{
-          href: null,
-          headerTitle: () => <LogoHeader />,
-        }}
+        <Tabs.Screen
+          name="login"
+          options={{
+            href: null,
+            headerTitle: () => <LogoHeader />,
+          }}
+        />
+        <Tabs.Screen
+          name="register"
+          options={{
+            href: null,
+            headerTitle: () => <LogoHeader />,
+          }}
               />
 
 
-      <Tabs.Screen
-        name="chat/[id]"
-        options={{
-          href: null,
-          headerTitle: () => <LogoHeader />,
-        }}
-      />
-      <Tabs.Screen
-        name="player/[id]"
-        options={{
-          href: null,
-          headerTitle: () => <LogoHeader />,
-        }}
-      />
-      <Tabs.Screen
-        name="admin"
-        options={{
-          href: null,
-          headerTitle: () => <LogoHeader />,
-        }}
-      />
+        <Tabs.Screen
+          name="chat/[id]"
+          options={{
+            href: null,
+            headerTitle: () => <LogoHeader />,
+          }}
+        />
+        <Tabs.Screen
+          name="player/[id]"
+          options={{
+            href: null,
+            headerTitle: () => <LogoHeader />,
+          }}
+        />
+        <Tabs.Screen
+          name="admin"
+          options={{
+            href: null,
+            headerTitle: () => <LogoHeader />,
+          }}
+        />
 
-      
-      {/* <Tabs.Screen
-        name="(tabs)"
-        options={{
-          href: null,
-          headerTitle: () => <LogoHeader />,
-        }}
-      /> */}
-      <Tabs.Screen
-        name="+not-found"
-        options={{
-          href: null,
-          headerTitle: () => <LogoHeader />,
-        }}
-      />
-      <Tabs.Screen
-        name="components/Puck"
-        options={{
-          href: null,
-          headerTitle: () => <LogoHeader />,
-        }}
-      />
+        
+        {/* <Tabs.Screen
+          name="(tabs)"
+          options={{
+            href: null,
+            headerTitle: () => <LogoHeader />,
+          }}
+        /> */}
+        <Tabs.Screen
+          name="+not-found"
+          options={{
+            href: null,
+            headerTitle: () => <LogoHeader />,
+          }}
+        />
+        <Tabs.Screen
+          name="components/Puck"
+          options={{
+            href: null,
+            headerTitle: () => <LogoHeader />,
+          }}
+        />
 
-        </Tabs>
-      </GestureHandlerRootView>
-    </CountryFilterProvider>
+          </Tabs>
+        </GestureHandlerRootView>
+      </CountryFilterProvider>
+    </YearFilterProvider>
   );
 }

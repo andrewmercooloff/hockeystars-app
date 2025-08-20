@@ -1,54 +1,13 @@
 {
   "expo": {
-    "name": "HockeyStars",
-    "slug": "hockeystars",
-    "version": "1.0.0",
-    "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
-    "scheme": "hockeystars",
-    "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
-    "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "com.mercooloff.hockeystars",
-      "buildNumber": "1"
-    },
-    "android": {
-      "package": "com.mercooloff.hockeystars",
-      "versionCode": 1,
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
-      },
-      "edgeToEdgeEnabled": true
-    },
-    "web": {
-      "bundler": "metro",
-      "output": "static",
-      "favicon": "./assets/images/favicon.png"
-    },
     "plugins": [
       "expo-router",
-      [
-        "expo-splash-screen",
-        {
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 200,
-          "resizeMode": "contain",
-          "backgroundColor": "#ffffff"
-        }
-      ],
       "expo-font"
     ],
-    "experiments": {
-      "typedRoutes": true
-    },
-    "extra": {
-      "disableWarnings": true,
-      "router": {},
-      "eas": {
-        "projectId": "b86a6296-6a05-4257-be78-c498a2fcb046"
-      }
+    "splash": {
+      "image": null,
+      "resizeMode": "contain",
+      "backgroundColor": "#000000"
     }
   }
 }

@@ -1,193 +1,133 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-    Animated,
-    Dimensions,
-    Image,
     StyleSheet,
+    Text,
     TouchableOpacity,
     View
 } from 'react-native';
 import { useCountryFilter } from '../utils/CountryFilterContext';
 import { Player } from '../utils/playerStorage';
 
-const { width, height } = Dimensions.get('window');
-
-interface CountryFilterProps {
-  players: Player[];
-}
-
-export default function CountryFilter({ players }: CountryFilterProps) {
-  const { selectedCountry, setSelectedCountry, showCountryFilter, setShowCountryFilter } = useCountryFilter();
+export default function CountryFilter({ players }: { players: Player[] }) {
+  const { 
+    selectedCountry, 
+    setSelectedCountry, 
+    showCountryFilter, 
+    setShowCountryFilter 
+  } = useCountryFilter();
   const [countries, setCountries] = useState<string[]>([]);
-  const dropdownRef = useRef<View>(null);
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const scaleAnim = useRef(new Animated.Value(0.8)).current;
 
   // Получаем уникальные страны из игроков
   useEffect(() => {
-    const uniqueCountries = Array.from(new Set(players.map(player => player.country).filter(Boolean)));
+    const uniqueCountries = Array.from(
+      new Set(players.map(player => player.country).filter(Boolean))
+    );
     setCountries(uniqueCountries.sort());
   }, [players]);
 
-  // Анимация появления/исчезновения фильтра
-  useEffect(() => {
-    if (showCountryFilter) {
-      // Анимация появления
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-        Animated.spring(scaleAnim, {
-          toValue: 1,
-          tension: 100,
-          friction: 8,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    } else {
-      // Анимация исчезновения
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 0,
-          duration: 150,
-          useNativeDriver: true,
-        }),
-        Animated.timing(scaleAnim, {
-          toValue: 0.8,
-          duration: 150,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    }
-  }, [showCountryFilter, fadeAnim, scaleAnim]);
-
-  const handleCountrySelect = (country: string | null) => {
+  const handleCountrySelect = (country: string) => {
     setSelectedCountry(country);
-    
-    // Сначала запускаем анимацию исчезновения
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 0,
-        duration: 150,
-        useNativeDriver: true,
-      }),
-      Animated.timing(scaleAnim, {
-        toValue: 0.8,
-        duration: 150,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      // После завершения анимации скрываем фильтр
-      setShowCountryFilter(false);
-    });
+    setShowCountryFilter(false);
   };
-
-  const getCountryFlag = (country: string) => {
-    // URL флагов стран с flagcdn.com
-    const flagMap: Record<string, { url: string, name: string }> = {
-      'Беларусь': { url: 'https://flagcdn.com/w40/by.png', name: 'BY' },
-      'Россия': { url: 'https://flagcdn.com/w40/ru.png', name: 'RU' },
-      'Канада': { url: 'https://flagcdn.com/w40/ca.png', name: 'CA' },
-      'США': { url: 'https://flagcdn.com/w40/us.png', name: 'US' },
-      'Финляндия': { url: 'https://flagcdn.com/w40/fi.png', name: 'FI' },
-      'Швеция': { url: 'https://flagcdn.com/w40/se.png', name: 'SE' },
-      'Словакия': { url: 'https://flagcdn.com/w40/sk.png', name: 'SK' },
-      'Чехия': { url: 'https://flagcdn.com/w40/cz.png', name: 'CZ' },
-      'Латвия': { url: 'https://flagcdn.com/w40/lv.png', name: 'LV' },
-      'Литва': { url: 'https://flagcdn.com/w40/lt.png', name: 'LT' },
-      'Польша': { url: 'https://flagcdn.com/w40/pl.png', name: 'PL' },
-      'Украина': { url: 'https://flagcdn.com/w40/ua.png', name: 'UA' },
-      'Казахстан': { url: 'https://flagcdn.com/w40/kz.png', name: 'KZ' },
-      'Кыргызстан': { url: 'https://flagcdn.com/w40/kg.png', name: 'KG' },
-      'Узбекистан': { url: 'https://flagcdn.com/w40/uz.png', name: 'UZ' },
-      'Таджикистан': { url: 'https://flagcdn.com/w40/tj.png', name: 'TJ' },
-      'Туркменистан': { url: 'https://flagcdn.com/w40/tm.png', name: 'TM' },
-      'Азербайджан': { url: 'https://flagcdn.com/w40/az.png', name: 'AZ' },
-      'Армения': { url: 'https://flagcdn.com/w40/am.png', name: 'AM' },
-      'Грузия': { url: 'https://flagcdn.com/w40/ge.png', name: 'GE' },
-      'Молдова': { url: 'https://flagcdn.com/w40/md.png', name: 'MD' },
-      'Эстония': { url: 'https://flagcdn.com/w40/ee.png', name: 'EE' },
-    };
-    
-    return flagMap[country] || { url: 'https://flagcdn.com/w40/xx.png', name: '??' };
-  };
-
-  if (!showCountryFilter) return null;
 
   return (
-    <Animated.View 
-      style={[
-        styles.container,
-        {
-          opacity: fadeAnim,
-          transform: [{ scale: scaleAnim }],
-        }
-      ]}
-    >
-      {/* Меню стран */}
-      <View style={styles.dropdownMenu} ref={dropdownRef}>
-        {/* Список стран только с флагами */}
-        {countries.map((country) => {
-          const flag = getCountryFlag(country);
-          return (
+    <View style={styles.container}>
+      <TouchableOpacity
+        style={styles.filterButton}
+        onPress={() => setShowCountryFilter(!showCountryFilter)}
+      >
+        <Text style={styles.filterButtonText}>
+          {selectedCountry || 'Беларусь'}
+        </Text>
+        <Text style={styles.filterButtonIcon}>
+          {showCountryFilter ? '▲' : '▼'}
+        </Text>
+      </TouchableOpacity>
+
+      {showCountryFilter && (
+        <View style={styles.countriesList}>
+          {countries.map((country) => (
             <TouchableOpacity
               key={country}
-              style={[styles.countryItem, selectedCountry === country && styles.countryItemSelected]}
+              style={[
+                styles.countryItem, 
+                selectedCountry === country && styles.selectedCountryItem
+              ]}
               onPress={() => handleCountrySelect(country)}
             >
-              <Image 
-                source={{ uri: flag.url }}
-                style={styles.flagImage}
-                resizeMode="contain"
-              />
+              <Text style={[
+                styles.countryText, 
+                selectedCountry === country && styles.selectedCountryText
+              ]}>
+                {country}
+              </Text>
             </TouchableOpacity>
-          );
-        })}
-      </View>
-    </Animated.View>
+          ))}
+        </View>
+      )}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    position: 'absolute',
-    top: 72,
-    left: 40,
-    zIndex: 15,
-    alignItems: 'flex-start',
+    position: 'relative',
+    zIndex: 10,
+    width: 100,
   },
-  dropdownMenu: {
-    backgroundColor: 'rgba(0, 0, 0, 0.9)',
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
-    padding: 8,
-    width: 50,
+  filterButton: {
+    flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.8)', // Черный полупрозрачный фон
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: 10,
+    width: 100,
+  },
+  filterButtonText: {
+    color: '#fff', // Белый текст
+    fontSize: 13,
+    fontFamily: 'Gilroy-Medium',
+    flex: 1,
+  },
+  filterButtonIcon: {
+    color: '#fff', // Белый цвет иконки
+    fontSize: 10,
+  },
+  countriesList: {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    width: 100,
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    borderRadius: 12,
+    marginTop: 4,
+    zIndex: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)', // Белая граница
+    shadowColor: '#000', // Черный цвет тени
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
   countryItem: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 4,
-    paddingHorizontal: 2,
-    borderRadius: 8,
-    marginBottom: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
-    width: '100%',
-    minHeight: 35,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.1)', // Белый цвет разделителя
   },
-  countryItemSelected: {
+  selectedCountryItem: {
     backgroundColor: 'rgba(255, 68, 68, 0.2)',
-    borderColor: '#FF4444',
   },
-  flagImage: {
-    width: 24,
-    height: 16,
-    borderRadius: 2,
+  countryText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontFamily: 'Gilroy-Medium',
+    textAlign: 'center',
   },
-
+  selectedCountryText: {
+    color: '#FF4444',
+    fontFamily: 'Gilroy-Bold',
+  },
 });
