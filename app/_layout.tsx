@@ -9,7 +9,18 @@ import { CountryFilterProvider, useCountryFilter } from '../utils/CountryFilterC
 import { YearFilterProvider } from '../utils/YearFilterContext';
 import { initializeStorage, loadCurrentUser, markNotificationAsRead, Player } from '../utils/playerStorage';
 import { supabase } from '../utils/supabase';
-// автоопределение включено: будет использоваться в главном экране
+import * as SplashScreen from 'expo-splash-screen';
+import { useEffect } from 'react';
+import Animated, { 
+  interpolate, 
+  useAnimatedStyle, 
+  useSharedValue, 
+  withTiming 
+} from 'react-native-reanimated';
+import { Dimensions, StyleSheet } from 'react-native';
+
+// Предотвращаем автоматическое скрытие заставки
+SplashScreen.preventAutoHideAsync();
 
 // Отключаем все предупреждения
 LogBox.ignoreAllLogs();
@@ -27,12 +38,41 @@ if (typeof __DEV__ !== 'undefined' && !__DEV__) {
   (console as any).error = () => {};
 }
 
+const { width } = Dimensions.get('window');
 
+// Кастомный компонент для анимированного перехода
+const AnimatedTabScreen = ({ children, index }) => {
+  const translateX = useSharedValue(width);
 
+  React.useEffect(() => {
+    translateX.value = withTiming(0, { duration: 300 });
+  }, []);
 
+  const animatedStyle = useAnimatedStyle(() => {
+    return {
+      transform: [
+        { 
+          translateX: interpolate(
+            translateX.value, 
+            [width, 0], 
+            [width, 0]
+          ) 
+        }
+      ],
+      opacity: interpolate(
+        translateX.value, 
+        [width, 0], 
+        [0.5, 1]
+      )
+    };
+  });
 
-
-
+  return (
+    <Animated.View style={[styles.tabContainer, animatedStyle]}>
+      {children}
+    </Animated.View>
+  );
+};
 
 
 export default function RootLayout() {
@@ -215,6 +255,9 @@ export default function RootLayout() {
     if (loaded) {
       // Инициализируем хранилище при загрузке приложения
       initializeStorage();
+      
+      // Скрываем заставку после инициализации
+      SplashScreen.hideAsync();
     }
   }, [loaded]);
 
@@ -519,3 +562,9 @@ export default function RootLayout() {
     </YearFilterProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  tabContainer: {
+    flex: 1,
+  },
+});
