@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useMemo, useState } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
     FlatList,
     Image,
@@ -8,12 +8,18 @@ import {
     TextInput,
     TouchableOpacity,
     View,
+    ImageBackground,
+    Dimensions
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { loadPlayers, Player } from '../utils/playerStorage';
+import * as SplashScreen from 'expo-splash-screen';
+import { loadPlayers, Player, loadCurrentUser } from '../utils/playerStorage';
+
+// Предотвращаем автоматическое скрытие заставки
+SplashScreen.preventAutoHideAsync();
 
 // Компонент для фильтра
-const FilterButton = ({ 
+const FilterButton = React.memo(({ 
   title, 
   options, 
   selectedValue, 
@@ -26,11 +32,20 @@ const FilterButton = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
 
+  const toggleDropdown = useCallback(() => {
+    setIsOpen(prev => !prev);
+  }, []);
+
+  const handleSelect = useCallback((value: string | null) => {
+    onSelect(value);
+    setIsOpen(false);
+  }, [onSelect]);
+
   return (
     <View style={styles.filterContainer}>
       <TouchableOpacity 
         style={styles.filterButton} 
-        onPress={() => setIsOpen(!isOpen)}
+        onPress={toggleDropdown}
       >
         <Text style={styles.filterButtonText}>
           {selectedValue || title}
@@ -44,10 +59,7 @@ const FilterButton = ({
         <View style={styles.filterDropdown}>
           <TouchableOpacity 
             style={styles.filterDropdownItem} 
-            onPress={() => {
-              onSelect(null);
-              setIsOpen(false);
-            }}
+            onPress={() => handleSelect(null)}
           >
             <Text style={styles.filterDropdownItemText}>Все</Text>
           </TouchableOpacity>
@@ -58,10 +70,7 @@ const FilterButton = ({
                 styles.filterDropdownItem,
                 selectedValue === option && styles.selectedFilterItem
               ]} 
-              onPress={() => {
-                onSelect(option);
-                setIsOpen(false);
-              }}
+              onPress={() => handleSelect(option)}
             >
               <Text style={styles.filterDropdownItemText}>{option}</Text>
             </TouchableOpacity>
@@ -70,11 +79,15 @@ const FilterButton = ({
       )}
     </View>
   );
-};
+});
 
 export default function SearchScreen() {
   const router = useRouter();
+  
+  // Состояния для фильтрации и поиска
   const [players, setPlayers] = useState<Player[]>([]);
+  const [currentUser, setCurrentUser] = useState<Player | null>(null);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
   const [selectedHand, setSelectedHand] = useState<string | null>(null);
@@ -83,36 +96,60 @@ export default function SearchScreen() {
   const [selectedMinHeight, setSelectedMinHeight] = useState<string | null>(null);
   const [selectedMinWeight, setSelectedMinWeight] = useState<string | null>(null);
 
-  // Загрузка игроков при монтировании
-  React.useEffect(() => {
-    const loadPlayersData = async () => {
-      const allPlayers = await loadPlayers();
-      // Фильтруем только игроков, тренеров и администраторов
-      const filteredPlayers = allPlayers.filter(
-        player => 
-          player.status === 'player' || 
-          player.status === 'coach' || 
-          player.status === 'admin'
-      );
-      
-      setPlayers(filteredPlayers);
-    };
-    loadPlayersData();
-  }, []);
+  // Загрузка пользователя и данных
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        // Загрузка пользователя с таймаутом
+        const userPromise = loadCurrentUser();
+        const userTimeout = new Promise<Player | null>((_, reject) => 
+          setTimeout(() => reject(new Error('Timeout')), 500)
+        );
 
-  // Получаем уникальные значения для фильтров
+        const user = await Promise.race([userPromise, userTimeout]);
+
+        if (!user) {
+          router.replace('/login');
+          return;
+        }
+
+        setCurrentUser(user);
+
+        // Загрузка игроков
+        const allPlayers = await loadPlayers();
+        const filteredPlayers = allPlayers.filter(
+          player => 
+            player.status === 'player' || 
+            player.status === 'coach' || 
+            player.status === 'admin'
+        );
+        
+        setPlayers(filteredPlayers);
+      } catch (error) {
+        console.error('Ошибка загрузки:', error);
+        router.replace('/login');
+      } finally {
+        await SplashScreen.hideAsync();
+        setLoading(false);
+      }
+    };
+
+    loadData();
+  }, [router]);
+
+  // Мемоизированные фильтры
   const countries = useMemo(() => 
     Array.from(new Set(players.map(p => p.country).filter(Boolean))).sort(), 
     [players]
   );
-  const hands = useMemo(() => 
-    ['Левый', 'Правый'], 
-    []
-  );
+
+  const hands = useMemo(() => ['Левый', 'Правый'], []);
+
   const positions = useMemo(() => 
     Array.from(new Set(players.map(p => p.position).filter(Boolean))).sort(), 
     [players]
   );
+
   const years = useMemo(() => 
     Array.from(new Set(
       players
@@ -121,6 +158,7 @@ export default function SearchScreen() {
     )).sort(), 
     [players]
   );
+
   const heights = useMemo(() => 
     Array.from(new Set(
       players
@@ -129,6 +167,7 @@ export default function SearchScreen() {
     )).sort((a, b) => a - b).map(h => `${h} см`), 
     [players]
   );
+
   const weights = useMemo(() => 
     Array.from(new Set(
       players
@@ -140,7 +179,7 @@ export default function SearchScreen() {
 
   // Фильтрация игроков
   const filteredPlayers = useMemo(() => {
-    const filtered = players.filter(player => {
+    return players.filter(player => {
       // Администратор всегда виден
       if (player.status === 'admin') return true;
 
@@ -179,12 +218,10 @@ export default function SearchScreen() {
              matchesHeight &&
              matchesWeight;
     });
-
-    return filtered;
   }, [players, searchQuery, selectedCountry, selectedHand, selectedPosition, selectedYear, selectedMinHeight, selectedMinWeight]);
 
   // Рендер элемента списка игроков
-  const renderPlayerItem = ({ item }: { item: Player }) => {
+  const renderPlayerItem = useCallback(({ item }: { item: Player }) => {
     // Приоритет: avatar, photos[0], default
     const playerPhoto = 
       item.avatar || 
@@ -206,6 +243,10 @@ export default function SearchScreen() {
           <Image 
             source={typeof playerPhoto === 'string' ? { uri: playerPhoto } : playerPhoto} 
             style={styles.playerPhoto} 
+            onError={(e) => {
+              console.warn(`Ошибка загрузки фото для игрока ${item.name}:`, e.nativeEvent.error);
+            }}
+            defaultSource={require('../assets/images/default-avatar.png')}
           />
         </View>
         <View style={styles.playerDetails}>
@@ -220,74 +261,99 @@ export default function SearchScreen() {
         </View>
       </TouchableOpacity>
     );
-  };
+  }, [router]);
+
+  // Показываем загрузку пока проверяем авторизацию
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <Text style={styles.loadingText}>Проверка авторизации...</Text>
+      </View>
+    );
+  }
+
+  // Если пользователь не авторизован, не показываем контент
+  if (!currentUser) {
+    return null;
+  }
 
   return (
     <View style={styles.container}>
-      {/* Поле поиска */}
-      <View style={styles.searchContainer}>
-        <Ionicons name="search" size={20} color="#888" style={styles.searchIcon} />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Поиск игроков..."
-          placeholderTextColor="#888"
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
-      </View>
-
-      {/* Контейнер фильтров */}
-      <View style={styles.filtersContainer}>
-        <FilterButton 
-          title="Страна" 
-          options={countries} 
-          selectedValue={selectedCountry}
-          onSelect={setSelectedCountry}
-        />
-        <FilterButton 
-          title="Хват" 
-          options={hands} 
-          selectedValue={selectedHand}
-          onSelect={setSelectedHand}
-        />
-        <FilterButton 
-          title="Позиция" 
-          options={positions} 
-          selectedValue={selectedPosition}
-          onSelect={setSelectedPosition}
-        />
-        <FilterButton 
-          title="Год" 
-          options={years} 
-          selectedValue={selectedYear}
-          onSelect={setSelectedYear}
-        />
-        <FilterButton 
-          title="Рост от" 
-          options={heights} 
-          selectedValue={selectedMinHeight}
-          onSelect={setSelectedMinHeight}
-        />
-        <FilterButton 
-          title="Вес от" 
-          options={weights} 
-          selectedValue={selectedMinWeight}
-          onSelect={setSelectedMinWeight}
-        />
-      </View>
-
-      {/* Список игроков */}
-      <FlatList
-        data={filteredPlayers}
-        renderItem={renderPlayerItem}
-        keyExtractor={(item) => item.id.toString()}
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>Игроки не найдены</Text>
+      {/* Полупрозрачный фон льда */}
+      <ImageBackground
+        source={require('../assets/images/led.jpg')}
+        style={styles.backgroundImage}
+        resizeMode="cover"
+      >
+        <View style={styles.overlay} />
+        
+        <View style={styles.contentContainer}>
+          {/* Поле поиска */}
+          <View style={styles.searchContainer}>
+            <Ionicons name="search" size={20} color="#888" style={styles.searchIcon} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Поиск игроков..."
+              placeholderTextColor="#888"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
           </View>
-        }
-        contentContainerStyle={styles.playersList}
-      />
+
+          {/* Контейнер фильтров */}
+          <View style={styles.filtersContainer}>
+            <FilterButton 
+              title="Страна" 
+              options={countries} 
+              selectedValue={selectedCountry}
+              onSelect={setSelectedCountry}
+            />
+            <FilterButton 
+              title="Хват" 
+              options={hands} 
+              selectedValue={selectedHand}
+              onSelect={setSelectedHand}
+            />
+            <FilterButton 
+              title="Позиция" 
+              options={positions} 
+              selectedValue={selectedPosition}
+              onSelect={setSelectedPosition}
+            />
+            <FilterButton 
+              title="Год" 
+              options={years} 
+              selectedValue={selectedYear}
+              onSelect={setSelectedYear}
+            />
+            <FilterButton 
+              title="Рост от" 
+              options={heights} 
+              selectedValue={selectedMinHeight}
+              onSelect={setSelectedMinHeight}
+            />
+            <FilterButton 
+              title="Вес от" 
+              options={weights} 
+              selectedValue={selectedMinWeight}
+              onSelect={setSelectedMinWeight}
+            />
+          </View>
+
+          {/* Список игроков */}
+          <FlatList
+            data={filteredPlayers}
+            renderItem={renderPlayerItem}
+            keyExtractor={(item) => item.id.toString()}
+            ListEmptyComponent={
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyText}>Игроки не найдены</Text>
+              </View>
+            }
+            contentContainerStyle={styles.playersList}
+          />
+        </View>
+      </ImageBackground>
     </View>
   );
 }
@@ -295,17 +361,29 @@ export default function SearchScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
-    paddingTop: 20,
+  },
+  backgroundImage: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+  },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.5)', // Легкое затемнение фона
+  },
+  contentContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.7)', // Полупрозрачный фон
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(255,255,255,0.1)',
     borderRadius: 10,
-    paddingHorizontal: 10,
     marginHorizontal: 20,
-    marginBottom: 10,
+    marginTop: 20,
+    paddingHorizontal: 15,
+    paddingVertical: 10,
   },
   searchIcon: {
     marginRight: 10,
@@ -313,36 +391,32 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     color: '#fff',
-    fontFamily: 'Gilroy-Medium',
     fontSize: 16,
-    height: 50,
   },
   filtersContainer: {
     flexDirection: 'row',
-    flexWrap: 'wrap', // Разрешаем перенос на новую строку
+    flexWrap: 'wrap',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
+    marginTop: 10,
     marginBottom: 10,
   },
   filterContainer: {
-    position: 'relative',
-    width: '30%', // Уменьшаем ширину для 3 столбцов
-    marginBottom: 10, // Отступ между строками
+    width: '30%',
+    marginBottom: 10,
   },
   filterButton: {
+    backgroundColor: 'rgba(0,0,0,0.8)',
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
     flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FF4444', // Красный фон
-    paddingHorizontal: 10, // Уменьшаем горизонтальные отступы
-    paddingVertical: 8, // Уменьшаем вертикальные отступы
-    borderRadius: 15,
     justifyContent: 'space-between',
+    alignItems: 'center',
   },
   filterButtonText: {
     color: '#fff',
-    fontSize: 12, // Уменьшаем размер шрифта
-    fontFamily: 'Gilroy-Medium',
-    flex: 1,
+    fontSize: 13,
   },
   filterButtonIcon: {
     color: '#fff',
@@ -353,26 +427,21 @@ const styles = StyleSheet.create({
     top: '100%',
     left: 0,
     right: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.9)',
-    borderRadius: 12,
-    marginTop: 5,
-    zIndex: 20,
-    maxHeight: 200,
+    backgroundColor: 'rgba(0,0,0,0.9)',
+    borderRadius: 10,
+    marginTop: 4,
+    zIndex: 10,
   },
   filterDropdownItem: {
-    paddingVertical: 10,
-    paddingHorizontal: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.1)',
-  },
-  selectedFilterItem: {
-    backgroundColor: 'rgba(255, 68, 68, 0.2)',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
   },
   filterDropdownItemText: {
     color: '#fff',
-    fontFamily: 'Gilroy-Medium',
-    fontSize: 14,
-    textAlign: 'center',
+    fontSize: 13,
+  },
+  selectedFilterItem: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
   },
   playersList: {
     paddingHorizontal: 20,
@@ -381,49 +450,49 @@ const styles = StyleSheet.create({
   playerItem: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginBottom: 10,
     backgroundColor: 'rgba(255,255,255,0.1)',
     borderRadius: 10,
-    padding: 8,
-    marginBottom: 8,
+    padding: 10,
   },
   playerPhotoContainer: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: 'white',
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    borderWidth: 2,
+    borderColor: 'white',
+    marginRight: 15,
+    overflow: 'hidden',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 10,
   },
   coachPhotoContainer: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: '#FF4444', // Красный цвет для тренеров
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    borderWidth: 2,
+    borderColor: 'red',
+    marginRight: 15,
+    overflow: 'hidden',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 10,
   },
   playerPhoto: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
+    width: '100%',
+    height: '100%',
   },
   playerDetails: {
     flex: 1,
-    justifyContent: 'center',
   },
   playerName: {
     color: '#fff',
-    fontFamily: 'Gilroy-Bold',
-    fontSize: 14, // Уменьшаем размер шрифта
-    marginBottom: 4, // Уменьшаем отступ
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 5,
   },
   playerInfo: {
     color: '#ccc',
-    fontFamily: 'Gilroy-Medium',
-    fontSize: 12, // Уменьшаем размер шрифта
-    flexWrap: 'wrap', // Разрешаем перенос текста
+    fontSize: 12,
   },
   emptyContainer: {
     flex: 1,
@@ -432,8 +501,16 @@ const styles = StyleSheet.create({
     marginTop: 50,
   },
   emptyText: {
-    color: '#888',
-    fontFamily: 'Gilroy-Medium',
-    fontSize: 16,
+    color: '#fff',
+    fontSize: 18,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    color: '#fff',
+    fontSize: 18,
   },
 });
